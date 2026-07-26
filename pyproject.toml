@@ -1,0 +1,14 @@
+[project]
+name = "intelligent-document-search"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "deepagents>=0.6.12",
+    "dotenv>=0.9.9",
+    "fastapi[standard]>=0.140.0",
+    "python-dotenv>=1.2.2",
+    "sqlalchemy>=2.0.51",
+    "tavily-python>=0.7.26",
+]
