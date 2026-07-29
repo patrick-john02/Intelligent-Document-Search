@@ -1,6 +1,24 @@
-def main():
-    print("Hello from intelligent-document-search!")
+from fastapi import FastAPI, Depends
+from fastapi_pagination import add_pagination
+from fastapi.middleware.cors import CORSMiddleware
+from core.configurations import app_settings
 
+from api.views import(
+    document_views
+)
 
-if __name__ == "__main__":
-    main()
+app = FastAPI()
+
+origins = [origins.strip() for origins in app_settings.CORS_ORIGINS.split(",") if origins.strip()]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins = origins,
+    allow_credentials = False,
+    allow_methods = ["*"],
+    allow_headers = ["*"]
+)
+
+app.include_router(document_views.app, prefix='/api')
+
+add_pagination(app)
