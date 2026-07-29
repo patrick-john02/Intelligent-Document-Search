@@ -15,9 +15,9 @@ import numpy as np
 import asyncio
 import io
 
-
-
-embeddings = OllamaEmbeddings(model="nomic-embed-text")
+from core.configurations import (
+    embedding_model
+)
 
 
 class FileChunk:
@@ -114,12 +114,33 @@ async def insert_file_chunk(
         chunk: FileChunk,
 )->None:
     async with sem:
-        unique_string = f"{chunk.file_name}_chunk_{chunk.chunk_id}"
+        unique_string =  f"{chunk.file_name}_chunk_{chunk.chunk_id}"
         point_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, unique_string))
-
+        
         try:
-            embedding_response = await Deps
-
-    
+            embedding_response = await deps.embedding_client.aembed_documents(
+                [chunk.embedding_content]
+            )
+            
+            vector = embedding_response[0]
+            
+            document = Document(
+                page_content=chunk.content,
+                metadata={
+                **chunk.metadata,
+                "file_name": chunk.file_name,
+                "chunk_id": chunk.chunk_id
+                },
+        )
+            
+            await deps.vector_store.aadd_documents(
+                documents=document,
+                ids=[point_id],
+            )
+        except Exception as e:
+            return f"Failed to upsert"
+        
+            
+            
 
 
