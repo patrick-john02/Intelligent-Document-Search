@@ -61,3 +61,12 @@ START
 → generate_answer
 → END
 
+
+Agents to create:
+Chat Supervisor Agent
+Document Analysis Agent
+Document Retrieval Agent
+Leave Credits Agent
+Attachment Intake Agent
+
+
