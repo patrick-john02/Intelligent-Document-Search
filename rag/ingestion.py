@@ -3,7 +3,8 @@ from pypdf import PdfReader
 from docx import Document
 from pptx import Presentation
 from fastapi import File, UploadFile
-from typing import Dict, Any
+from typing import Dict, Any, AsyncGenerator
+from langchain_ollama import OllamaLLM
 from dataclasses import dataclass, field
 from openpyxl import load_workbook
 from PIL import Image
@@ -14,10 +15,6 @@ import uuid
 import numpy as np
 import asyncio
 import io
-
-from core.configurations import (
-    embedding_model
-)
 
 
 class FileChunk:
@@ -137,10 +134,32 @@ async def insert_file_chunk(
                 documents=document,
                 ids=[point_id],
             )
-        except Exception as e:
-            return f"Failed to upsert"
-        
-            
-            
 
+
+        except Exception as e:
+            return f"Failed to upload the embeddings"
+
+async def process_uploaded_file(file_name: str, file_bytes: bytes):
+
+    print(f"Extracting Text from {file_name}")
+
+    try:
+        raw_text = extract_text(file_name, file_bytes)
+
+    except Exception as e:
+        print(f"Failed to Processs the uploaded File") 
+        return
+
+
+    text_chunk = chunk_text(raw_text)
+
+    file_chunks = [
+        FileChunk(file_name=file_name, chunk_id=str(i), content=chunk)
+
+        for i, chunk in enumerate(text_chunk)
+
+
+    ]
+
+    # async with get_services()->AsyncGenerator[]
 

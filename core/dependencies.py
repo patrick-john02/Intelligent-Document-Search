@@ -1,10 +1,15 @@
 from typing import AsyncGenerator
 from sqlalchemy.ext.asyncio import AsyncSession
-from core.database import SessionLocal 
 from dataclasses import dataclass
 from langchain_ollama import OllamaEmbeddings
 from langchain_postgres import PGVectorStore
 import httpx
+
+
+from core.database import SessionLocal 
+from core.configurations import(
+    ollama_url, chat_model,
+)
 
 
 
@@ -27,4 +32,15 @@ class Deps:
     vector_store: PGVectorStore
     
     
+# async def get_services()-> AsyncGenerator[Deps, None]:
+#     ollama_client = chat_model(
+#         base_url=f"{ollama_url}",
+#         api_key=f"{ollama_client}",
+
+#     )
+
+#     try:
+#         yield ollama_client 
+#     except Exception as e:
+#         ollama_client.close()
     

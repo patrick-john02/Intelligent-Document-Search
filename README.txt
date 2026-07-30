@@ -8,3 +8,56 @@
 7. Commit
 8. Trigger ingestion
 
+#Thinking in Langgraph
+LLM Steps: 
+-Classify intent-
+Static context (prompt): Classification categories, urgency definitions, response format
+Dynamic context (from state): Email content, sender information
+Desired outcome: Structured classification that determines routing
+
+-Draft reply
+Static context (prompt): Tone guidelines, company policies, response templates
+Dynamic context (from state): Classification results, search results, customer history
+Desired outcome: Professional email response ready for review
+
+Data steps:
+-Document search-
+
+Parameters: Query built from intent and topic
+Retry strategy: Yes, with exponential backoff for transient failures
+Caching: Could cache common queries to reduce API calls
+
+-Customer history lookup-
+Parameters: Customer email or ID from state
+Retry strategy: Yes, but with fallback to basic info if unavailable
+Caching: Yes, with time-to-live to balance freshness and performance
+
+
+Action steps:
+When a step needs to perform an external action:
+-Send reply-
+
+When to execute node: After approval (human or automated)
+Retry strategy: Yes, with exponential backoff for network issues
+Should not cache: Each send is a unique action
+
+-Bug track-
+When to execute node: Always when intent is “bug”
+Retry strategy: Yes, critical to not lose bug reports
+Returns: Ticket ID to include in response
+
+
+agent/
+├── state.py      # Defines shared workflow data
+├── context.py    # Defines services/dependencies
+├── nodes.py      # Contains node functions
+├── routing.py    # Contains conditional routing functions
+└── graph.py      # Connects nodes and compiles the graph
+
+
+START
+→ classify_question
+→ search_documents
+→ generate_answer
+→ END
+
