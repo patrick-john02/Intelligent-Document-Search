@@ -1,12 +1,12 @@
-from typing import TypedDict
-from langchain_core.documents import Document
+from typing import TypedDict, Optional, List
 
 
-class DocumentAgentState(TypedDict):
+class IntentAgentState(TypedDict):
     question: str
-    classification: str | None
-    classify_document_format: str | None
-    search_results: list[Document]
-    answer: str | None
-
-
+    intent: Optional[str]
+    attachment_ids: List[int]
+    mentioned_document_ids: List[int]
+    target_agent: Optional[str]
+    agent_result: Optional[str]
+    final_response: Optional[str]
+    

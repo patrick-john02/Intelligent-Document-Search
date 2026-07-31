@@ -1,37 +1,21 @@
 from typing import Literal
-from agents.state import DocumentAgentState
+from agents.state import IntentAgentState
 
-
-
-def route_after_classificiation(
-        state:DocumentAgentState
-)->Literal[
-    "search_documents",
-    "ask_for_clarification",
-    "reject_request"
+def intent_classifier_router(
+        state: IntentAgentState
+) -> Literal[
+    "target_agent_node", 
+    "ask_for_clarification_node", 
+    "reject_request_node"
 ]:
-    intent = state["classfication"]["intent"]
+    # Use .get() to prevent KeyError if intent is None
+    classify_intent = state.get("intent")
 
-    if intent in {"search", "summarize", "compare"}:
-        return "search_documents"
+    # The router dictates the NEXT step. If the intent is valid, route to the target agent node.
+    if classify_intent in {"search", "summarize", "compare"}:
+        return "target_agent_node"
 
-    if intent == "unclear":
-        return "ask_for_clarification"
+    if classify_intent == "unclear":
+        return "ask_for_clarification_node"
 
-    return "reject_request"
-
-
-def route_after_intent_classification(
-        state:DocumentAgentState,
-)->Literal[
-    "search_document",
-    "ask_for_format",
-    "reject_request"
-]:
-    intent = state["classification"]["intent"]
-
-    if intent in {"document_name", "search_document"}:
-        return "classify_document_format"
-
-    if intent == "unclear":
-        return "reject_request"
+    return "reject_request_node"

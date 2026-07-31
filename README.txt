@@ -70,3 +70,16 @@ Leave Credits Agent
 Attachment Intake Agent
 
 
+temperature controls how random or creative the LLM’s token selection is.
+0 - Predictable and focused
+0.2-0.4 - Slight flexibility, still controlled
+0.7 - More varied and conversational
+1.0+ - Highly varied and potentially unreliable
+
+
+
+User message
+→ Supervisor Agent
+→ choose the right specialist agent
+→ specialist agent does the work
+→ supervisor returns the final response

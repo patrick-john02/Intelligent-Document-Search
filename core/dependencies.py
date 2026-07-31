@@ -13,8 +13,6 @@ from core.configurations import(
 
 
 
-
-
 async def get_db()->AsyncGenerator[AsyncSession, None]:
     async with SessionLocal() as session:
         try:
@@ -30,6 +28,7 @@ class Deps:
     http_client: httpx.AsyncClient
     embedding_client: OllamaEmbeddings
     vector_store: PGVectorStore
+    # role: 
     
     
 # async def get_services()-> AsyncGenerator[Deps, None]:

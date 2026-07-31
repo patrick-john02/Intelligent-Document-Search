@@ -8,8 +8,8 @@ import os
 
 load_dotenv()
 
-ollama_url=os.getenv("OLLAMA_BASE_URL")
-chat_model = ChatOllama("qwen3:8b", base_url=ollama_url)
+# ollama_url=os.getenv("OLLAMA_BASE_URL")
+# chat_model = ChatOllama("qwen3:8b", base_url=ollama_url)
 embedding_model = OllamaEmbeddings(model="nomic-embed-text")
 
 
