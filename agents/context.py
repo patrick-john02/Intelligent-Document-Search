@@ -45,6 +45,5 @@ class IntentClassifierService:
             print(f"Classification error: {str(e)}")
             return "unclear"
 
-# Instantiate the service to be imported by nodes.py
 classifier_service = IntentClassifierService()
 

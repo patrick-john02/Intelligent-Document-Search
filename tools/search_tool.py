@@ -1,6 +1,7 @@
 import os
 from tavily import TavilyClient
 from dotenv import load_dotenv
+from deepagents import create_deep_agent
 
 from typing import Literal
 
@@ -21,3 +22,7 @@ def internet_search(
         topic=topic
     )
     
+agent = create_deep_agent(
+    model = "ollama:north-mini-core-1.0",
+    tools=[internet_search],
+)
