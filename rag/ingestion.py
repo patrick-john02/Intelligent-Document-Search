@@ -1,6 +1,7 @@
 from langchain_ollama import OllamaEmbeddings
 from pypdf import PdfReader
-from docx import Document
+from docx import Document as DocxDocument
+from langchain_core.documents import Document
 from pptx import Presentation
 from fastapi import File, UploadFile
 from typing import Dict, Any, AsyncGenerator
@@ -9,6 +10,7 @@ from dataclasses import dataclass, field
 from openpyxl import load_workbook
 from PIL import Image
 from core.dependencies import Deps
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 import pandas as pd
 import uuid
@@ -16,7 +18,7 @@ import numpy as np
 import asyncio
 import io
 
-
+@dataclass
 class FileChunk:
     file_name: str
     chunk_id: str
@@ -29,7 +31,7 @@ class FileChunk:
 
 #Extraction of text we need to identify the extension name
 #split the file name and .pdf for example
-async def extract_text(file_name: str, file_bytes=bytes)->str:
+async def extract_text(file_name: str, file_bytes:bytes)->tuple[str, Dict[str,Any]]:
 
     extension = file_name.lower().split('.')[-1]
     text = ""
@@ -43,8 +45,8 @@ async def extract_text(file_name: str, file_bytes=bytes)->str:
             metadata = {key.strip('/'): value for key, value in pdf_reader.metadata.items()}
 
 
-    if extension == "docx":
-        word_reader = Document(io.BytesIO(file_bytes))
+    elif extension == "docx":
+        word_reader = DocxDocument(io.BytesIO(file_bytes))
 
         text = "\n".join([paragraph.text for paragraph in word_reader.paragraphs])
 
@@ -60,7 +62,7 @@ async def extract_text(file_name: str, file_bytes=bytes)->str:
         metadata = {key: value for key, value in metadata.items() if value is not None}
 
 
-    if extension == "xlsx":
+    elif extension == "xlsx":
         excel_reader = io.BytesIO(file_bytes)
         dataframe = pd.read_excel(excel_reader)
 
@@ -88,7 +90,9 @@ async def extract_text(file_name: str, file_bytes=bytes)->str:
     #     }
 
     else:
-        raise ValueError(f"Unsupport file extension")
+        raise ValueError(f"Unsupport file extension {extension}")
+
+    return text, metadata
 
 
 def chunk_text(
@@ -96,14 +100,17 @@ def chunk_text(
         chunk_size: int = 1000,
         overlap: int = 200 
 )->list[str]:
+    
+    if not text:
+        return []
 
-    chunks = []
-    start = 0
-    while start < 0:
-        end = start + chunk_size
-        chunks.append(text[start:end])
-        start += chunk_size - overlap
-    return chunks 
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size = chunk_size, 
+        chunk_overlap = overlap,
+        separators=["\n\n", "\n", " ", ""]
+
+    )
+    return splitter.split_text(text)
 
 async def insert_file_chunk(
         sem: asyncio.Semaphore,
@@ -116,7 +123,7 @@ async def insert_file_chunk(
         
         try:
             embedding_response = await deps.embedding_client.aembed_documents(
-                [chunk.embedding_content]
+                [chunk.embedding_content()]
             )
             
             vector = embedding_response[0]
@@ -131,7 +138,7 @@ async def insert_file_chunk(
         )
             
             await deps.vector_store.aadd_documents(
-                documents=document,
+                documents=[document],
                 ids=[point_id],
             )
 
@@ -139,12 +146,12 @@ async def insert_file_chunk(
         except Exception as e:
             return f"Failed to upload the embeddings"
 
-async def process_uploaded_file(file_name: str, file_bytes: bytes):
+async def process_uploaded_file(file_name: str, file_bytes: bytes, deps=Deps):
 
     print(f"Extracting Text from {file_name}")
 
     try:
-        raw_text = extract_text(file_name, file_bytes)
+        raw_text, metadata = await extract_text(file_name, file_bytes)
 
     except Exception as e:
         print(f"Failed to Processs the uploaded File") 
@@ -154,12 +161,15 @@ async def process_uploaded_file(file_name: str, file_bytes: bytes):
     text_chunk = chunk_text(raw_text)
 
     file_chunks = [
-        FileChunk(file_name=file_name, chunk_id=str(i), content=chunk)
+        FileChunk(file_name=file_name, chunk_id=str(i), content=chunk, metadata=metadata)
 
         for i, chunk in enumerate(text_chunk)
 
 
     ]
 
-    # async with get_services()->AsyncGenerator[]
+    sem = asyncio.Semaphore(5)
+    task = [insert_file_chunk(sem, deps, chunk) for chunk in file_chunks]
+    await asyncio.gather(*task)
 
+    1

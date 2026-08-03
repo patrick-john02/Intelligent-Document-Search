@@ -83,3 +83,13 @@ User message
 → choose the right specialist agent
 → specialist agent does the work
 → supervisor returns the final response
+
+
+
+----RecursiveTextSplitter-------
+It breaks one large document into smaller pieces called chunks before embedding them.
+
+
+
+
+
