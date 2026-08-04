@@ -1,3 +1,74 @@
-README.txt
-*.txt
-*.txt
+# Python bytecode & cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Python environments
+.venv/
+venv/
+ENV/
+env/
+env.bak/
+venv.bak/
+
+# Package managers & tool caches
+.uv/
+.pdm-build/
+.pdm-python
+.pdm-plug/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Environment files & secrets
+.env
+.env.*
+!.env.example
+
+# Node / Next.js (Frontend)
+node_modules/
+frontend/node_modules/
+.next/
+frontend/.next/
+out/
+frontend/out/
+build/
+.pnp
+.pnp.*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+.vercel
+
+# Document uploads / runtime data storage
+documents/*
+!documents/.gitkeep
+
+# Database & logs
+*.log
+*.sqlite3
+*.db
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDEs and Editors
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+*~

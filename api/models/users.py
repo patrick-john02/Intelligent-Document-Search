@@ -1,9 +1,10 @@
 from sqlalchemy.orm import Mapped, mapped_column, DeclarativeBase, relationship
-from sqlalchemy import String, Integer, DateTime, ForeignKey, Date
+from sqlalchemy import String, Integer, DateTime, ForeignKey, Date, Boolean
 from typing import List
 from datetime import datetime, date
 
-from api.models.document import Base, DocumentModel
+from api.models.base import Base
+from api.models.document import DocumentModel, DocumentVersion
 
 class SystemRole(Base):
     __tablename__ = "system_role"
@@ -12,7 +13,7 @@ class SystemRole(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime)
     updated_at: Mapped[datetime] = mapped_column(DateTime)
 
-    role: Mapped[List["Users"]] = relationship(back_populates="system_role")
+    users: Mapped[List["Users"]] = relationship(back_populates="system_role")
 
 #Employee Details
 class Users(Base):
@@ -29,14 +30,17 @@ class Users(Base):
     employee_number: Mapped[str] = mapped_column(String(255))
     office: Mapped[str] = mapped_column(String(255))
     division: Mapped[str] = mapped_column(String(255))
+
     account_status: Mapped[str] = mapped_column(String(255))
-    
+    is_active: Mapped[bool] = mapped_column(Boolean)
+    is_superuse: Mapped[bool] = mapped_column(Boolean)
+
     documents: Mapped[list["DocumentModel"]] =relationship(back_populates="uploaded_by")
-    system_role_id: Mapped[int] = mapped_column(ForeignKey("documents.id"))
+    system_role_id: Mapped[int] = mapped_column(ForeignKey("system_role.id"))
     system_role: Mapped[List] = relationship(back_populates="role")
-    
-    
+    uploaded_versions: Mapped[list["DocumentVersion"]] = relationship(back_populates="uploaded_by")
+    created_documents : Mapped[list["DocumentModel"]] = relationship(back_populates="created_by")
+
+    last_login: Mapped[datetime] = mapped_column(DateTime)
     created_at: Mapped[datetime] = mapped_column(DateTime)
     updated_at: Mapped[datetime] = mapped_column(DateTime)
-    
-    

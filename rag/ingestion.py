@@ -172,4 +172,3 @@ async def process_uploaded_file(file_name: str, file_bytes: bytes, deps=Deps):
     task = [insert_file_chunk(sem, deps, chunk) for chunk in file_chunks]
     await asyncio.gather(*task)
 
-    1
