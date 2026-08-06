@@ -68,3 +68,5 @@ class ChatMessageSources(Base):
     document_version: Mapped["DocumentVersion"] = relationship(back_populates="cms_sources")
 
 
+#todo
+# class GeneratedReports(Base):

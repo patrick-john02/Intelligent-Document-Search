@@ -135,3 +135,13 @@ class DocumentChunks(Base):
 
 
 
+#todo new table
+# class DocumentProcessingJobs(Base):
+#     __tablename__ = "document_processing_jobs"
+
+
+#todo new table
+# class UserSearchHistory(Base):
+
+#todo new table
+# class DocumentAnnotations(Base):

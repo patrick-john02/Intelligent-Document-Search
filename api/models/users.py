@@ -24,6 +24,9 @@ class SystemRole(Base):
 
     users: Mapped[List["Users"]] = relationship(back_populates="system_role")
 
+# TODO: new table
+# class RolePermissions(Base):
+
 #Employee Details
 class Users(Base):
     __tablename__ = "users"
@@ -67,3 +70,6 @@ class Users(Base):
     last_login: Mapped[datetime | None] = mapped_column(DateTime, nullable=True )
     created_at: Mapped[datetime] = mapped_column(DateTime)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+
+
+
