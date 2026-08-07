@@ -1,8 +1,8 @@
 from sqlalchemy.orm import Mapped, mapped_column, DeclarativeBase, relationship
-from sqlalchemy import String, Integer, DateTime, Boolean, ForeignKey, BigInteger, Text, JSON
+from sqlalchemy import String, Integer, DateTime, Date, Boolean, ForeignKey, BigInteger, Text, JSON, Float
 from typing import List, TYPE_CHECKING
-from datetime import datetime
-from sqlalchemy import Enum as DocumentStatusEnum
+from datetime import datetime, date
+from sqlalchemy import Enum as DocumentsEnum
 from enum import Enum
 
 
@@ -11,7 +11,7 @@ if TYPE_CHECKING:
     from api.models.conversations import ChatMessageSources
 
 
-
+from api.models.enums.docs import JobStatus, ClearanceLevel
 from api.models.base import Base
 
 class DocumentStatus(Base):
@@ -26,6 +26,11 @@ class DocumentModel(Base):
     __tablename__= "documents"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     title: Mapped[str] = mapped_column(String(255))
+    control_number: Mapped[str] = mapped_column(String(255))
+    series_years: Mapped[date] = mapped_column(Date)
+    physical_shelf_location: Mapped[str] = mapped_column(String(255))
+    
+
     versions: Mapped[list["DocumentVersion"]] = relationship(back_populates="document")
 
     document_status_id: Mapped[int | None] = mapped_column(ForeignKey("document_status.id"))
@@ -41,6 +46,16 @@ class DocumentModel(Base):
 
     created_by_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     created_by: Mapped["Users"] = relationship(back_populates="created_documents")
+
+    clearance_level: Mapped[dict[str, object]] = mapped_column(
+        DocumentsEnum(
+            ClearanceLevel,
+            name="document_enum",
+            values_callable=lambda items: [item.value for item in items]
+        ),
+        default = ClearanceLevel.PUBLIC,
+        nullable=False
+    )
     
 
     created_at: Mapped[datetime] = mapped_column(DateTime)
@@ -58,7 +73,12 @@ class DocumentVersion(Base):
     version_number: Mapped[int] = mapped_column(Integer)
     status: Mapped[str] = mapped_column(String(255))
 
+
     is_current: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    ocr_accuracy_score: Mapped[float] = mapped_column(Float)
+    is_scanned_pdf: Mapped[bool] = mapped_column(Boolean)
+
 
     document_id: Mapped[int] = mapped_column(ForeignKey("documents.id"), index=True)
     document: Mapped["DocumentModel"] = relationship(back_populates="versions")
@@ -68,7 +88,7 @@ class DocumentVersion(Base):
 
     cms_sources: Mapped["ChatMessageSources"] = relationship(back_populates="document_version")
 
-    d_audit: Mapped["DocumentAuditLogs"] = relationship(back_populates="document")
+    d_audit: Mapped["DocumentAuditLogs"] = relationship(back_populates="d_audit_logs")
 
 class DocumentTag(Base):
     __tablename__ = "document_tag"
@@ -83,11 +103,11 @@ class DocumentTag(Base):
 class DocumentTagAssignments(Base):
     __tablename__ = "document_tag_assignments"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    confidence_score: Mapped[int] = mapped_column(Integer)
+    confidence_score: Mapped[float] = mapped_column(Float)
     created_at: Mapped[datetime] = mapped_column(DateTime)
 
     document_id: Mapped[int] = mapped_column(ForeignKey("documents.id"))
-    document: Mapped["DocumentModel"] = relationship(back_populates="document_tag_assignements")
+    document: Mapped["DocumentModel"] = relationship(back_populates="document_tag_assignments")
 
     document_tag_id: Mapped[int] = mapped_column(ForeignKey("document_tag.id"))
     document_tag: Mapped["DocumentTag"] = relationship(back_populates="d_tag")
@@ -110,6 +130,7 @@ class DocumentAuditLogs(Base):
     ip_address: Mapped[str] = mapped_column(String(255))
     user_agent: Mapped[str] = mapped_column(String(255))
     created_at: Mapped[datetime] = mapped_column(DateTime)
+    access_granted: Mapped[bool] = mapped_column(Boolean)
 
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     user: Mapped["Users"] = relationship(back_populates="d_audit_log.id")
@@ -123,6 +144,8 @@ class DocumentChunks(Base):
     __tablename__ = "document_chunks"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     document_version_id: Mapped[int] = mapped_column(ForeignKey("document_version.id"))
+    start_char_idx: Mapped[int] = mapped_column(Integer)
+
     chunk_index: Mapped[int] = mapped_column(Integer)
     content: Mapped[str] = mapped_column(Text)
     page_number: Mapped[int | None] = mapped_column(Integer)
@@ -136,8 +159,19 @@ class DocumentChunks(Base):
 
 
 #todo new table
-# class DocumentProcessingJobs(Base):
-#     __tablename__ = "document_processing_jobs"
+class DocumentProcessingJobs(Base):
+    __tablename__ = "document_processing_jobs"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    current_agent: Mapped[str] = mapped_column(String(100))
+    job_status: Mapped[JobStatus] = mapped_column(
+        DocumentsEnum(
+            JobStatus,
+            name = "docs_job_status_enum",
+            values_callable= lambda items: [item.value for item in items]
+        ),
+        default=JobStatus.PENDING,
+        nullable=False
+    )
 
 
 #todo new table

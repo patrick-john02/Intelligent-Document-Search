@@ -10,7 +10,7 @@ from api.models.base import Base
 
 if TYPE_CHECKING:
     from api.models.document import DocumentModel, DocumentVersion, DocumentAuditLogs
-    from api.models.conversations import Conversation
+    from api.models.conversations import Conversation, GeneratedReports
     
 
 
@@ -19,13 +19,16 @@ class SystemRole(Base):
     __tablename__ = "system_role"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(255))
-    created_at: Mapped[datetime] = mapped_column(DateTime)
-    updated_at: Mapped[datetime] = mapped_column(DateTime)
 
     users: Mapped[List["Users"]] = relationship(back_populates="system_role")
+    # role_permissions: Mapped[List["RolePermissions"]] = relationship(back_populates="role")
 
 # TODO: new table
-# class RolePermissions(Base):
+class RolePermissions(Base):
+    __tablename__ = "role_permissions"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    role_id: Mapped[int] = mapped_column(ForeignKey("system_role.id"))
+    role: Mapped["SystemRole"] = relationship(back_populates="role_permissions")
 
 #Employee Details
 class Users(Base):
@@ -66,6 +69,8 @@ class Users(Base):
     d_audit_logs: Mapped["DocumentAuditLogs"] = relationship("users")
 
     conversations: Mapped["Conversation"] = relationship(back_populates="user_conversations")
+
+    generated_reports: Mapped["GeneratedReports"] = relationship(back_populates="created_by")
 
     last_login: Mapped[datetime | None] = mapped_column(DateTime, nullable=True )
     created_at: Mapped[datetime] = mapped_column(DateTime)
