@@ -1,35 +1,41 @@
 from typing import Annotated
 from sqlalchemy.ext.asyncio import AsyncSession
-from fastapi import (
-    FastAPI, Depends, HTTPException, status
-)
+from sqlalchemy import select
 
 from core.dependencies import get_db
 import os
 from datetime import timedelta
-from jose import JWTError, jwt
 from pwdlib import PasswordHash
 from jose import JWTError, jwt
 from dotenv import load_dotenv
-
-from datetime import datetime, date, timezone
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from datetime import datetime, timezone
+from fastapi.security import OAuth2PasswordBearer
+from fastapi import (
+    Depends, HTTPException, status, APIRouter
+)
 
 
 #imports
 from api.models.users import Users
-from api.schema.authentication.auth import Login, Token
+from api.schema.authentication.auth import Login
 
 load_dotenv() 
 
 secret_key = os.getenv("SECRET_KEY")
 algo = os.getenv("ALGORITHM")
-access_token_expires_min = os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES")
+access_token_expires_min = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES","15"))
 
 
 password_hash = PasswordHash()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
-app = FastAPI()
+
+router = APIRouter(tags=["Authentication"])
+
+#so according to my research doing this will make every login attempts takes the exact same amount of time 
+#which is for example 50 ms (upon checking the existing password) then 50 ms again (upon checking a password that does not exist on database)
+#this method is usefull in terms of security since i used argon2 here which is design to be slow on hashing
+ 
+SECURITY_DUMMY_HASH = password_hash.hash("thisisadummypa$$wordfortimingprotection")
 
 
 
@@ -45,17 +51,17 @@ def get_password_hash(password):
     return password_hash.hash(password)
 
 
-def get_user(db, username: str):
-    if username in db:
-        user_dict = db[username]
-        return UserInDB(**user_dict)
+async def get_user(db: AsyncSession, username: str)->Users | None:
+    query = select(Users).where(Users.username == username)
+    result = await db.execute(query)
+    return result.scalars().first()
 
-def authenticate_user(db, username: str, password: str):
-    user = get_user(db, username)
+async def authenticate_user(db: AsyncSession, username: str, password: str):
+    user = await get_user(db, username)
     if not user:
-        verify_password(password, password.hash) #mark 1
+        verify_password(password, SECURITY_DUMMY_HASH)
         return False
-    if not verify_password(password, user.hashed_password):
+    if not verify_password(password, user.password):
         return False
     return user
 
@@ -77,7 +83,7 @@ async def get_current_user(
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail ="Unauthorize access!!!",
-        headers={"WWWW-Authenticate": "Bearer"}
+        headers={"WWW-Authenticate": "Bearer"}
 
     )
     try:
@@ -88,7 +94,7 @@ async def get_current_user(
         token_data = Login(username=username)
     except JWTError:
         raise credentials_exception
-    user = get_user(db, username=token_data.username)
+    user = await get_user(db, username=token_data.username)
     if user is None:
         raise credentials_exception
     return user
@@ -97,37 +103,10 @@ async def get_current_user(
 async def get_current_active_user(
     current_user: Annotated[Users, Depends(get_current_user)],
 ):
-    if current_user.disabled:
+    if not current_user.is_active:
         raise HTTPException(status_code=400, detail="Inactive User")
 
     return current_user
-
-@app.post("/token")
-async def login_for_access_token(
-    db: Annotated[AsyncSession, Depends(get_db)],
-    form_data: Annotated[OAuth2PasswordRequestForm, Depends],
-)->Token:
-    user = authenticate_user(db, form_data.username, form_data.password)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect Username or Password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    access_token_expires = timedelta(minutes=access_token_expires_min)
-    access_token = create_access_token(
-        data = {"sub": user.username}, expires_delta=access_token_expires
-
-    )
-    return Token(access_token=access_token, token_type="bearer")
-
-@app.get("/user/me")
-async def me(
-    current_user: Annotated[Users, Depends(get_current_user)],
-
-)->Users:
-    return current_user
-
 
     
     

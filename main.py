@@ -4,9 +4,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from core.configurations import app_settings
 
 from api.views import(
-    document_views
+    document_views, authentication
 )
-from core.security import Login
 
 app = FastAPI(title="Document Archiving system with Semantic Retrieval System")
 # auth_router = Login()
@@ -22,7 +21,7 @@ app.add_middleware(
 )
 
 app.include_router(document_views.app, prefix='/api')
-# app.include_router(auth_router.app, prefix="/api" )
+app.include_router(authentication.router, prefix="/api" )
 
 
 add_pagination(app)
