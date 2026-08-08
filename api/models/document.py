@@ -40,9 +40,11 @@ class DocumentModel(Base):
     is_deleted: Mapped[bool] = mapped_column(Boolean, default=False)
 
     document_category_id: Mapped[int] = mapped_column(ForeignKey("document_category.id"))
-    document_tag_assignments: Mapped["DocumentTagAssignments"] = relationship(back_populates="document")
-    category: Mapped["DocumentCategory"] = relationship()
+    category: Mapped["DocumentCategory"] = relationship(back_populates="document_category")
+    document_tag_assignments: Mapped[list["DocumentTagAssignments"]] = relationship(back_populates="document")
     
+    documents: Mapped[list["DocumentModel"]] = relationship(back_populates="category")
+
 
     created_by_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     created_by: Mapped["Users"] = relationship(back_populates="created_documents")
@@ -76,8 +78,8 @@ class DocumentVersion(Base):
 
     is_current: Mapped[bool] = mapped_column(Boolean, default=True)
 
-    ocr_accuracy_score: Mapped[float] = mapped_column(Float)
-    is_scanned_pdf: Mapped[bool] = mapped_column(Boolean)
+    ocr_accuracy_score: Mapped[float | None] = mapped_column(Float, nullable=True, default=None)
+    is_scanned_pdf: Mapped[bool | None] = mapped_column(Boolean, nullable=True, default=None)
 
 
     document_id: Mapped[int] = mapped_column(ForeignKey("documents.id"), index=True)
@@ -119,6 +121,9 @@ class DocumentCategory(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(255))
     created_at: Mapped[datetime] = mapped_column(DateTime)
+    
+    document_category_id: Mapped[int] = mapped_column(ForeignKey="documents.id")
+    document_category: Mapped["DocumentModel"] = relationship(back_populates="category")
 
 
 
@@ -133,7 +138,7 @@ class DocumentAuditLogs(Base):
     access_granted: Mapped[bool] = mapped_column(Boolean)
 
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
-    user: Mapped["Users"] = relationship(back_populates="d_audit_log.id")
+    user: Mapped["Users"] = relationship(back_populates="d_audit_log")
 
     document_id: Mapped[int | None] = mapped_column(ForeignKey("documents.id"))
     document: Mapped["DocumentModel" | None] = relationship(back_populates="d_audit")

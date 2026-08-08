@@ -1,10 +1,76 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, date
+
+#import 
+from api.models.enums.docs import ClearanceLevel
+
+
+class CreatedBySchema(BaseModel):
+    username: str
+    first_name: str
+    middle_name: str
+    last_name: str
+    position: str
+    office: str 
+    division: str
+
+class DocumentVersionSchema(BaseModel):
+    id: int
+    document_id: int
+    storage_path: str
+    file_name: str
+    file_extension: str
+    file_size: int
+    version_number: int
+    status: str 
+    is_current: bool
+    uploaded_by: Optional[CreatedBySchema] = None
+    
+    
+    
+    
+    model_config=ConfigDict(from_attributes=True)
+    
+    
+    
+
+class DocumentStatusSchema(BaseModel):
+    name: str
+    
+
+class DocumentCategorySchema(BaseModel):
+    name: str
+    
+    
+class DocumentTagSchema(BaseModel):
+    name: str
+    color_code: str
+
+class DocTagAssignmentSchema(BaseModel):
+    confidence_score: float
+    document_tag: DocumentTagSchema
+    
+
+    
+    
+    
 
 class DocumentSchema(BaseModel):
     id: int
-    file_extension: str
+    title: str
+    control_number: str
+    series_years: date
+    physical_shelf_location: str
+    versions: list[DocumentVersionSchema]
+    status: Optional[DocumentStatusSchema] = None
     is_deleted: bool
+    document_tag_assignments: list[DocTagAssignmentSchema]
+    category: Optional[DocumentCategorySchema] = None
+    created_by: Optional[CreatedBySchema] = None
+    clearance_level: ClearanceLevel
+
     created_at: datetime
-    update_at: Optional[datetime] = None    
+    updated_at: Optional[datetime] = None    
+    
+    model_config=ConfigDict(from_attributes=True)
