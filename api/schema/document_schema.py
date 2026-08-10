@@ -59,7 +59,7 @@ class DocTagAssignmentSchema(BaseModel):
 class DocumentSchema(BaseModel):
     id: int
     title: str
-    control_number: str
+    department_order: str
     series_years: date
     physical_shelf_location: str
     versions: list[DocumentVersionSchema]
@@ -74,3 +74,30 @@ class DocumentSchema(BaseModel):
     updated_at: Optional[datetime] = None    
     
     model_config=ConfigDict(from_attributes=True)
+
+
+
+#update
+class DocumentUpdateSchema(BaseModel):
+    title: str
+    department_order: int
+    physical_shelf_location: str
+    status: DocumentStatusSchema
+    category: DocumentCategorySchema
+    clearance_level: ClearanceLevel
+    update_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+#delete part as a soft delete
+class DocumentDeleteSchema(BaseModel):
+    is_delete: bool
+    title: str
+    updated_at: datetime
+
+
+#for retrieving the deleted document
+class DocumentRetrieveSchema(BaseModel):
+    is_deleted: bool
+    updated_at: datetime

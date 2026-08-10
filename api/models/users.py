@@ -21,12 +21,13 @@ class SystemRole(Base):
     name: Mapped[str] = mapped_column(String(255))
 
     users: Mapped[List["Users"]] = relationship(back_populates="system_role")
-    # role_permissions: Mapped[List["RolePermissions"]] = relationship(back_populates="role")
+    role_permissions: Mapped[List["RolePermissions"]] = relationship(back_populates="role")
 
 # TODO: new table
 class RolePermissions(Base):
     __tablename__ = "role_permissions"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    permission_name: Mapped[str] = mapped_column(String(255))
     role_id: Mapped[int] = mapped_column(ForeignKey("system_role.id"))
     role: Mapped["SystemRole"] = relationship(back_populates="role_permissions")
 

@@ -1,7 +1,7 @@
 from typing import Annotated
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-
+from sqlalchemy.orm import selectinload
 from core.dependencies import get_db
 import os
 from datetime import timedelta
@@ -50,9 +50,18 @@ def verify_password(plain_password, hashed_password):
 def get_password_hash(password):
     return password_hash.hash(password)
 
+def get_user_permissions(user:Users)->set[str]:
+    if user.is_superuser:
+        return {"*"}
+
+    if not user.system_role or not user.system_role.role_permissions:
+        return set()
+
+    return {perm.permission_code for perm in user.system_role.role_permissions}
+
 
 async def get_user(db: AsyncSession, username: str)->Users | None:
-    query = select(Users).where(Users.username == username)
+    query = select(Users).where(Users.username == username).options(selectinload(Users.system_role))
     result = await db.execute(query)
     return result.scalars().first()
 
@@ -107,6 +116,3 @@ async def get_current_active_user(
         raise HTTPException(status_code=400, detail="Inactive User")
 
     return current_user
-
-    
-    

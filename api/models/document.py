@@ -26,7 +26,7 @@ class DocumentModel(Base):
     __tablename__= "documents"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     title: Mapped[str] = mapped_column(String(255))
-    control_number: Mapped[str] = mapped_column(String(255))
+    department_order: Mapped[str] = mapped_column(String(255))
     series_years: Mapped[date] = mapped_column(Date)
     physical_shelf_location: Mapped[str] = mapped_column(String(255))
     
