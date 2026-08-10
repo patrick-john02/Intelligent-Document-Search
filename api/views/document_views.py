@@ -1,6 +1,5 @@
 from fastapi import (
-    UploadFile, FastAPI, File, Query, Depends, HTTPException, APIRouter, status,
-    Request, BackgroundTasks, Form
+    UploadFile, File, Depends, HTTPException, APIRouter, status, Form
 )
 
 from fastapi_pagination import Page, add_pagination, paginate
@@ -28,6 +27,7 @@ from api.models.users import Users
 from api.schema.document_schema import (
     DocumentSchema, DocumentUpdateSchema,
     DocumentDeleteSchema, DocumentRetrieveSchema,
+    DocumentVersionSchema
 )
 
 
@@ -58,7 +58,7 @@ ALLOWED_EXTENSIONS = {
 }
 
 #fetch all documents
-@app.get("/all",status_code=status.HTTP_200_OK, response_model=DocumentSchema)
+@app.get("/all",status_code=status.HTTP_200_OK, response_model=list[DocumentSchema])
 async def get_all_documents(
     db:AsyncSession=Depends(get_db),
     current_user: Users = Depends(get_current_active_user),
@@ -71,7 +71,7 @@ async def get_all_documents(
     )
 
     if "*" in permission or "document.read_all" in permission:
-        pass
+        qyery = document_query
 
     elif "documents:read_public" in permission:
         query=document_query.where(
@@ -115,15 +115,16 @@ async def get_document(
         )
     else:
 
-        query = -document_query.where(DocumentModel.created_by_id == current_user.id)
+        query = document_query.where(DocumentModel.created_by_id == current_user.id)
 
     result = await db.execute(query.options(selectinload(DocumentModel.versions)))
 
     doc = result.scalar_one_or_none()
 
     if not doc:
-        return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found or accces denied")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found or accces denied")
     
+    return doc
 
 @app.get("/version/{version_id}/download", status_code=status.HTTP_200_OK)
 async def download_document_version(
@@ -153,7 +154,7 @@ async def download_document_version(
 
     if not(is_admin or is_public or is_owner):
         raise HTTPException(
-            status=status.HTTP_401_UNAUTHORIZED, detail="You don't have permission to view or download this file"
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="You don't have permission to view or download this file"
         )
 
     file_path= Path(version.storage_path)
@@ -186,7 +187,7 @@ async def update_document(
     ).options(selectinload(DocumentModel.versions))
 
     result = await db.execute(query)
-    document = result.scalar_on_or_none()
+    document = result.scalar_one_or_none()
 
     if not document:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document Not Found!!")
@@ -221,7 +222,6 @@ async def update_document(
 @app.delete("/{document_id}/delete", status_code=status.HTTP_200_OK, response_model=DocumentDeleteSchema)
 async def delete_document(
     document_id: int,
-    title: str,
     db:AsyncSession=Depends(get_db),
     current_user: Users=Depends(get_current_active_user),
 ):
@@ -253,7 +253,7 @@ async def delete_document(
     await db.commit()
 
 
-    return {"message": f"Document {title} deleted successfully", "id": document_id}
+    return {"message": f"Document deleted successfully", "id": document_id}
 
 
 
@@ -271,7 +271,7 @@ async def delete_document(
 async def created_document_file(
     file: UploadFile = File(...),
     title: str = Form(...),
-    control_number: str = Form(...),
+    department_order: str = Form(...),
     series_years: date = Form(...),
     physical_shelf_locations: str = Form(...),
     document_category_id: int = Form(...),
@@ -309,19 +309,19 @@ async def created_document_file(
     #metadata of the document
     document = DocumentModel(
         title=title,
-        control_number=control_number,
+        department_order=department_order,
         series_years=series_years,
         physical_shelf_locations=physical_shelf_locations,
         document_category_id=document_category_id,
         clearance_level=clearance_level,
         created_by_id=current_user.id,
-        created_at=manila_tz,
+        created_at=datetime.now(manila_tz),
     )
     
     db.add(document)
     await db.flush()
     
-    document_version = DocumentModel(
+    document_version = DocumentVersion(
         document_id=document.id,
         storage_path=str(final_file_path),
         file_name=filename,
@@ -348,7 +348,7 @@ async def created_document_file(
     }
     
 #upload a document version
-@app.post("/{document_id}/new-version", status_code=status.HTTP_201_CREATED, response_model=DocumentVersion)
+@app.post("/{document_id}/new-version", status_code=status.HTTP_201_CREATED, response_model=DocumentVersionSchema)
 async def upload_new_version(
     document_id: int,
     file: UploadFile = File(...),
@@ -410,12 +410,12 @@ async def upload_new_version(
     if document:
         document.updated_at = now_utc
     else:
-        return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document Not Found!")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document Not Found!")
 
     await db.execute(
         update(DocumentVersion)
         .where(DocumentVersion.document_id == document_id)
-        .values(is_crrent=False)
+        .values(is_current=False)
     )
     
     await run_in_threadpool(write_file)
@@ -435,9 +435,8 @@ async def upload_new_version(
 
 
 #RETRIEVE
-@app.get("/deleted-records", status_code=status.HTTP_200_OK, response_model=DocumentRetrieveSchema)
+@app.get("/deleted-records", status_code=status.HTTP_200_OK, response_model=list[DocumentSchema])
 async def get_all_deleted_records(
-    document_id:int,
     db: AsyncSession = Depends(get_db),
     current_user: Users = Depends(get_current_active_user)
 ):
@@ -463,7 +462,7 @@ async def get_all_deleted_records(
 
 @app.post("/{document_id}/deleted-records", status_code=status.HTTP_200_OK, response_model=DocumentSchema)
 async def deleted_records_lists(
-    document_id,
+    document_id: int,
     title: str,
     db:AsyncSession=Depends(get_db),
     current_user: Users = Depends(get_current_active_user)

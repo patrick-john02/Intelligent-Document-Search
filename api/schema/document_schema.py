@@ -101,3 +101,19 @@ class DocumentDeleteSchema(BaseModel):
 class DocumentRetrieveSchema(BaseModel):
     is_deleted: bool
     updated_at: datetime
+    
+
+#for searching
+class DocumentSearchSchema(BaseModel):
+    title: Optional[str]=None
+    department_order: Optional[str]=None
+    series_years: Optional[date]=None
+    physical_shelf_location: Optional[str]=None
+    status: Optional[DocumentStatusSchema] = None
+    category: Optional[DocumentCategorySchema]=None
+    created_by: Optional[CreatedBySchema]=None
+    clearance_level: Optional[ClearanceLevel] = None
+    created_at: Optional[datetime]=None
+    
+    model_config=ConfigDict(from_attributes=True)
+    
