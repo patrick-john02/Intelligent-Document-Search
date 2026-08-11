@@ -58,10 +58,10 @@ class DocTagAssignmentSchema(BaseModel):
 
 class DocumentSchema(BaseModel):
     id: int
-    title: str
-    department_order: str
+    title: Optional[str]=None
+    department_order: Optional[str]=None
     series_years: date
-    physical_shelf_location: str
+    physical_shelf_location: Optional[str]=None
     versions: list[DocumentVersionSchema]
     status: Optional[DocumentStatusSchema] = None
     is_deleted: bool
@@ -103,17 +103,14 @@ class DocumentRetrieveSchema(BaseModel):
     updated_at: datetime
     
 
-#for searching
-class DocumentSearchSchema(BaseModel):
-    title: Optional[str]=None
-    department_order: Optional[str]=None
-    series_years: Optional[date]=None
-    physical_shelf_location: Optional[str]=None
-    status: Optional[DocumentStatusSchema] = None
-    category: Optional[DocumentCategorySchema]=None
-    created_by: Optional[CreatedBySchema]=None
-    clearance_level: Optional[ClearanceLevel] = None
-    created_at: Optional[datetime]=None
+#list of categories
+class CategorySchema(BaseModel):
+    id: int
+    name: str
+    created_at: datetime
     
-    model_config=ConfigDict(from_attributes=True)
+    category: Optional[DocumentSchema]
     
+    
+    
+

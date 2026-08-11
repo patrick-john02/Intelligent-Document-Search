@@ -3,6 +3,7 @@ from fastapi import(
 )
 from fastapi_pagination import Page, add_pagination, paginate
 from sqlalchemy import select, or_
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import date, datetime
 from zoneinfo import ZoneInfo
@@ -17,7 +18,7 @@ from api.models.enums.docs import ClearanceLevel
 from api.models.users import Users
 #schema 
 from api.schema.document_schema import (
-    DocumentSearchSchema, 
+    DocumentSchema, 
 )
 
 #dependency
@@ -38,7 +39,7 @@ app = APIRouter(prefix='/documents')
 add_pagination(app)
 
 
-@app.get("/document/search", status_code=status.HTTP_200_OK, response_model=DocumentSearchSchema)
+@app.get("/document/search", status_code=status.HTTP_200_OK, response_model=list[DocumentSchema])
 async def search_document(
     q: Annotated[
         str | None,
@@ -66,7 +67,33 @@ async def search_document(
                     DocumentModel.clearance_level == ClearanceLevel.PUBLIC
                 )
             )
+        else:
+            query=query.where(DocumentModel.created_by_id == current_user.id)
     
+    if q:
+        query=query.where(
+            or_(
+                DocumentModel.title.ilike(f"%{q}%"),
+                DocumentModel.department_order.ilike(f"%{q}%"),
+                DocumentModel.series_years.ilike(f"%{q}%"),
+                DocumentModel.versions.ilike(f"%{q}%"),
+                
+            )
+        )
+    
+    
+    doc_query = query.options(
+        selectinload(DocumentModel.versions),
+        selectinload(DocumentModel.created_by),
+        selectinload(DocumentModel.category),
+    ).order_by(DocumentModel.created_at.desc())
+    
+    
+    result = await db.execute(doc_query)
+    return result.scalars().all()
+
+
+
     
     
     
