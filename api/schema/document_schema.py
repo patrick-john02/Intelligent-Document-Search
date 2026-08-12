@@ -107,9 +107,8 @@ class DocumentRetrieveSchema(BaseModel):
 class CategorySchema(BaseModel):
     id: int
     name: str
+    is_deleted: bool
     created_at: datetime
-    
-    category: Optional[DocumentSchema]
     
     
     

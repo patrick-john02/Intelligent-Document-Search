@@ -199,7 +199,7 @@ async def update_document(
     if not (is_admin or is_owner):
         raise HTTPException( 
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="You do not have perission to update this document"
+            detail="You do not have permission to update this document"
         )
 
 

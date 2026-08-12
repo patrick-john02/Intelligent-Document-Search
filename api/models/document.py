@@ -42,8 +42,6 @@ class DocumentModel(Base):
     document_category_id: Mapped[int] = mapped_column(ForeignKey("document_category.id"))
     category: Mapped["DocumentCategory"] = relationship(back_populates="document_category")
     document_tag_assignments: Mapped[list["DocumentTagAssignments"]] = relationship(back_populates="document")
-    
-    documents: Mapped[list["DocumentModel"]] = relationship(back_populates="category")
 
 
     created_by_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
@@ -120,10 +118,11 @@ class DocumentCategory(Base):
     __tablename__ = "document_category"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(255))
+    
     created_at: Mapped[datetime] = mapped_column(DateTime)
     
-    document_category_id: Mapped[int] = mapped_column(ForeignKey("documents.id"))
-    document_category: Mapped["DocumentModel"] = relationship(back_populates="category")
+
+    documents: Mapped["DocumentModel"] = relationship(back_populates="category")
 
 
 

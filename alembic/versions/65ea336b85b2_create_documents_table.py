@@ -25,8 +25,6 @@ def upgrade() -> None:
     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
     sa.Column('name', sa.String(length=255), nullable=False),
     sa.Column('created_at', sa.DateTime(), nullable=False),
-    sa.Column('document_category_id', sa.Integer(), nullable=False),
-    sa.ForeignKeyConstraint(['document_category_id'], ['documents.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('document_processing_jobs',
@@ -47,37 +45,10 @@ def upgrade() -> None:
     sa.Column('created_at', sa.DateTime(), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
-    op.create_table('documents',
-    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-    sa.Column('title', sa.String(length=255), nullable=False),
-    sa.Column('department_order', sa.String(length=255), nullable=False),
-    sa.Column('series_years', sa.Date(), nullable=False),
-    sa.Column('physical_shelf_location', sa.String(length=255), nullable=False),
-    sa.Column('document_status_id', sa.Integer(), nullable=True),
-    sa.Column('is_deleted', sa.Boolean(), nullable=False),
-    sa.Column('document_category_id', sa.Integer(), nullable=False),
-    sa.Column('created_by_id', sa.Integer(), nullable=False),
-    sa.Column('clearance_level', sa.Enum('confidential', 'internal', name='document_enum'), nullable=False),
-    sa.Column('created_at', sa.DateTime(), nullable=False),
-    sa.Column('updated_at', sa.DateTime(), nullable=True),
-    sa.ForeignKeyConstraint(['created_by_id'], ['users.id'], ),
-    sa.ForeignKeyConstraint(['document_category_id'], ['document_category.id'], ),
-    sa.ForeignKeyConstraint(['document_status_id'], ['document_status.id'], ),
-    sa.PrimaryKeyConstraint('id')
-    )
+    
     op.create_table('system_role',
     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
     sa.Column('name', sa.String(length=255), nullable=False),
-    sa.PrimaryKeyConstraint('id')
-    )
-    op.create_table('document_tag_assignments',
-    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-    sa.Column('confidence_score', sa.Float(), nullable=False),
-    sa.Column('created_at', sa.DateTime(), nullable=False),
-    sa.Column('document_id', sa.Integer(), nullable=False),
-    sa.Column('document_tag_id', sa.Integer(), nullable=False),
-    sa.ForeignKeyConstraint(['document_id'], ['documents.id'], ),
-    sa.ForeignKeyConstraint(['document_tag_id'], ['document_tag.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('role_permissions',
@@ -112,6 +83,34 @@ def upgrade() -> None:
     sa.UniqueConstraint('email'),
     sa.UniqueConstraint('employee_number'),
     sa.UniqueConstraint('username')
+    )
+    op.create_table('documents',
+    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
+    sa.Column('title', sa.String(length=255), nullable=False),
+    sa.Column('department_order', sa.String(length=255), nullable=False),
+    sa.Column('series_years', sa.Date(), nullable=False),
+    sa.Column('physical_shelf_location', sa.String(length=255), nullable=False),
+    sa.Column('document_status_id', sa.Integer(), nullable=True),
+    sa.Column('is_deleted', sa.Boolean(), nullable=False),
+    sa.Column('document_category_id', sa.Integer(), nullable=False),
+    sa.Column('created_by_id', sa.Integer(), nullable=False),
+    sa.Column('clearance_level', sa.Enum('confidential', 'internal', name='document_enum'), nullable=False),
+    sa.Column('created_at', sa.DateTime(), nullable=False),
+    sa.Column('updated_at', sa.DateTime(), nullable=True),
+    sa.ForeignKeyConstraint(['created_by_id'], ['users.id'], ),
+    sa.ForeignKeyConstraint(['document_category_id'], ['document_category.id'], ),
+    sa.ForeignKeyConstraint(['document_status_id'], ['document_status.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_table('document_tag_assignments',
+    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
+    sa.Column('confidence_score', sa.Float(), nullable=False),
+    sa.Column('created_at', sa.DateTime(), nullable=False),
+    sa.Column('document_id', sa.Integer(), nullable=False),
+    sa.Column('document_tag_id', sa.Integer(), nullable=False),
+    sa.ForeignKeyConstraint(['document_id'], ['documents.id'], ),
+    sa.ForeignKeyConstraint(['document_tag_id'], ['document_tag.id'], ),
+    sa.PrimaryKeyConstraint('id')
     )
     op.create_table('document_audit_logs',
     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),

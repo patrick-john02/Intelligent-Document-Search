@@ -57,10 +57,10 @@ async def search_document(
     query = select(DocumentModel).where(DocumentModel.is_deleted.is_(False))
     
     is_admin = "*" in permission or "documents:read_all" in permission
-    can_read_public = "documents:read_public" in permission
+    is_owner = "documents:read_public" in permission
     
     if not is_admin:
-        if can_read_public:
+        if is_owner:
             query = query.where(
                 or_(
                     DocumentModel.created_by_id == current_user.id,
