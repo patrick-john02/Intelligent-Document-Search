@@ -122,7 +122,7 @@ class DocumentCategory(Base):
     name: Mapped[str] = mapped_column(String(255))
     created_at: Mapped[datetime] = mapped_column(DateTime)
     
-    document_category_id: Mapped[int] = mapped_column(ForeignKey="documents.id")
+    document_category_id: Mapped[int] = mapped_column(ForeignKey("documents.id"))
     document_category: Mapped["DocumentModel"] = relationship(back_populates="category")
 
 
@@ -138,10 +138,10 @@ class DocumentAuditLogs(Base):
     access_granted: Mapped[bool] = mapped_column(Boolean)
 
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
-    user: Mapped["Users"] = relationship(back_populates="d_audit_log")
+    users: Mapped["Users"] = relationship(back_populates="d_audit_logs")
 
     document_id: Mapped[int | None] = mapped_column(ForeignKey("documents.id"))
-    document: Mapped["DocumentModel" | None] = relationship(back_populates="d_audit")
+    document: Mapped["DocumentModel"] = relationship(back_populates="d_audit")
 
 
 
@@ -156,7 +156,7 @@ class DocumentChunks(Base):
     page_number: Mapped[int | None] = mapped_column(Integer)
     token_count: Mapped[int] = mapped_column(Integer)
     vector_id: Mapped[int] = mapped_column(Integer)
-    metadata: Mapped[dict[str, object]] = mapped_column("metadata", JSON, default=dict)
+    chunk_metadata: Mapped[dict[str, object]] = mapped_column("metadata", JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime)
 
     d_chunks: Mapped["ChatMessageSources"] = relationship(back_populates="chunk")

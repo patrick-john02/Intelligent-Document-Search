@@ -19,4 +19,3 @@ Password: admin
 alembic init -t async alembic
 uv run alembic revision --autogenerate -m "create documents table"
 uv run alembic upgrade head
-

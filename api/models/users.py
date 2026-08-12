@@ -67,7 +67,7 @@ class Users(Base):
     uploaded_versions: Mapped[list["DocumentVersion"]] = relationship(back_populates="uploaded_by")
     created_documents : Mapped[list["DocumentModel"]] = relationship(back_populates="created_by")
 
-    d_audit_logs: Mapped["DocumentAuditLogs"] = relationship("users")
+    d_audit_logs: Mapped[list["DocumentAuditLogs"]] = relationship(back_populates="users")
 
     conversations: Mapped["Conversation"] = relationship(back_populates="user_conversations")
 
