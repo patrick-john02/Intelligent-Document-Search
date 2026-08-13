@@ -17,6 +17,7 @@ import uuid
 import numpy as np
 import asyncio
 import io
+import anydoc
 
 @dataclass
 class FileChunk:
@@ -31,53 +32,54 @@ class FileChunk:
 
 #Extraction of text we need to identify the extension name
 #split the file name and .pdf for example
+#i will be using the anydoc library for text extraction, rather than doing if else
 async def extract_text(file_name: str, file_bytes:bytes)->tuple[str, Dict[str,Any]]:
+    
+    
+    markdown = anydoc.to_markdown_bytes(file_bytes)
+    return markdown
 
-    extension = file_name.lower().split('.')[-1]
-    text = ""
-    metadata = {}
+#     if extension == 'pdf':
+#         pdf_reader = PdfReader(io.BytesIO(file_bytes))
+#         text = "\n".join([page.extract_text() for page in pdf_reader.pages if page.extract_text()])
 
-    if extension == 'pdf':
-        pdf_reader = PdfReader(io.BytesIO(file_bytes))
-        text = "\n".join([page.extract_text() for page in pdf_reader.pages if page.extract_text()])
-
-        if pdf_reader.metadata:
-            metadata = {key.strip('/'): value for key, value in pdf_reader.metadata.items()}
-
-
-    elif extension == "docx":
-        word_reader = DocxDocument(io.BytesIO(file_bytes))
-
-        text = "\n".join([paragraph.text for paragraph in word_reader.paragraphs])
-
-        core_props = word_reader.core_properties
-        metadata = {
-            "author": core_props.author,
-            "title": core_props.title,
-            "subject": core_props.subject,
-            "created": core_props.created,
-            "modified": core_props.modified
-        }
-
-        metadata = {key: value for key, value in metadata.items() if value is not None}
+#         if pdf_reader.metadata:
+#             metadata = {key.strip('/'): value for key, value in pdf_reader.metadata.items()}
 
 
-    elif extension == "xlsx":
-        excel_reader = io.BytesIO(file_bytes)
-        dataframe = pd.read_excel(excel_reader)
+#     elif extension == "docx":
+#         word_reader = DocxDocument(io.BytesIO(file_bytes))
 
-        text = dataframe.to_string(index=False)
+#         text = "\n".join([paragraph.text for paragraph in word_reader.paragraphs])
 
-        excel_reader.seek(0)
-        workbook = load_workbook(excel_reader, read_only=True)
-        core_props = workbook.properties
+#         core_props = word_reader.core_properties
+#         metadata = {
+#             "author": core_props.author,
+#             "title": core_props.title,
+#             "subject": core_props.subject,
+#             "created": core_props.created,
+#             "modified": core_props.modified
+#         }
 
-        metadata = {
-            "creator": core_props.creator or "Unknown",
-            "title": core_props.title or "Unknown",
-            "created": core_props.created or "Unknown",
-            "modified": core_props.modified or "Unknown"
-        }
+#         metadata = {key: value for key, value in metadata.items() if value is not None}
+
+
+#     elif extension == "xlsx":
+#         excel_reader = io.BytesIO(file_bytes)
+#         dataframe = pd.read_excel(excel_reader)
+
+#         text = dataframe.to_string(index=False)
+
+#         excel_reader.seek(0)
+#         workbook = load_workbook(excel_reader, read_only=True)
+#         core_props = workbook.properties
+
+#         metadata = {
+#             "creator": core_props.creator or "Unknown",
+#             "title": core_props.title or "Unknown",
+#             "created": core_props.created or "Unknown",
+#             "modified": core_props.modified or "Unknown"
+#         }
 
     # if extension in ["jpg", "jpeg", "png"]:
     #     image_reader = Image.open(io.BytesIO(file_bytes))
@@ -89,10 +91,12 @@ async def extract_text(file_name: str, file_bytes:bytes)->tuple[str, Dict[str,An
     #         "mode": image_reader.mode,
     #     }
 
-    else:
-        raise ValueError(f"Unsupport file extension {extension}")
+    # else:
+    #     raise ValueError(f"Unsupport file extension {extension}")
 
-    return text, metadata
+    # return text, metadata
+    
+
 
 
 def chunk_text(
@@ -122,11 +126,11 @@ async def insert_file_chunk(
         point_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, unique_string))
         
         try:
-            embedding_response = await deps.embedding_client.aembed_documents(
-                [chunk.embedding_content()]
-            )
+            # embedding_response = await deps.embedding_client.aembed_documents(
+            #     [chunk.embedding_content()]
+            # )
             
-            vector = embedding_response[0]
+            # vector = embedding_response[0]
             
             document = Document(
                 page_content=chunk.content,

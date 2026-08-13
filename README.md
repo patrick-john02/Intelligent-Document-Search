@@ -19,3 +19,6 @@ Password: admin
 alembic init -t async alembic
 uv run alembic revision --autogenerate -m "create documents table"
 uv run alembic upgrade head
+
+
+new update: i used Anydoc on the part of ingestion.py for text extraction, rather than doing if else manully on python.

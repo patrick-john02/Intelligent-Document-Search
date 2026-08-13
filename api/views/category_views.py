@@ -82,4 +82,33 @@ async def update_category(
     if not update_category:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Category Not Found!")
     
+    update_category.name = name
+    
+    await db.commit()
+    await db.refresh(update_category)
+    return update_category
+    
+
+@app.patch("/{category_id}/delete",status_code=status.HTTP_204_NO_CONTENT)
+async def delete_category(
+    category_id: int,
+    db:AsyncSession=Depends(get_db),
+    current_user: Users = Depends(get_current_active_user)
+):
+    
+    query = select(DocumentCategory).where(
+        DocumentCategory.id == category_id
+    )
+    
+    result = await db.execute(query)
+    delete_category = result.scalar_one_or_none()
+    
+    if not delete_category:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Category doesn't exist")
+    
+    await db.delete(delete_category)
+    await db.commit()
+    
+    return delete_category
+    
     
