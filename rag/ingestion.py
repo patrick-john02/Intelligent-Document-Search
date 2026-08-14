@@ -3,7 +3,7 @@ from pypdf import PdfReader
 from docx import Document as DocxDocument
 from langchain_core.documents import Document
 from pptx import Presentation
-from fastapi import File, UploadFile
+from fastapi import File, UploadFile, HTTPException, status
 from typing import Dict, Any, AsyncGenerator
 from langchain_ollama import OllamaLLM
 from dataclasses import dataclass, field
@@ -21,6 +21,7 @@ import anydoc
 
 @dataclass
 class FileChunk:
+    document_version_id:int
     file_name: str
     chunk_id: str
     content: str
@@ -33,7 +34,10 @@ class FileChunk:
 #Extraction of text we need to identify the extension name
 #split the file name and .pdf for example
 #i will be using the anydoc library for text extraction, rather than doing if else
-async def extract_text(file_name: str, file_bytes:bytes)->tuple[str, Dict[str,Any]]:
+async def extract_text(
+        file_name: str, 
+        file_bytes:bytes,
+)->tuple[str, Dict[str,Any]]:
     
     
     markdown = anydoc.to_markdown_bytes(file_bytes)
@@ -122,7 +126,7 @@ async def insert_file_chunk(
         chunk: FileChunk,
 )->None:
     async with sem:
-        unique_string =  f"{chunk.file_name}_chunk_{chunk.chunk_id}"
+        unique_string =  f"{chunk.document_version_id}_chunk_{chunk.chunk_id}"
         point_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, unique_string))
         
         try:
@@ -148,14 +152,17 @@ async def insert_file_chunk(
 
 
         except Exception as e:
-            return f"Failed to upload the embeddings"
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Ingestion inccomplete {str(e)}")
 
-async def process_uploaded_file(file_name: str, file_bytes: bytes, deps=Deps):
+async def process_uploaded_file(document_version_id: int, file_name: str, file_bytes: bytes, deps=Deps):
 
-    print(f"Extracting Text from {file_name}")
+    print(f"Extracting Text from {document_version_id}")
 
     try:
-        raw_text, metadata = await extract_text(file_name, file_bytes)
+        # raw_text, metadata = await extract_text(file_name, file_bytes)
+
+        markdown = await extract_text(file_bytes)
+        text_chunk = chunk_text(markdown)
 
     except Exception as e:
         print(f"Failed to Processs the uploaded File") 
