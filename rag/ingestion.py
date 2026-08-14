@@ -27,18 +27,14 @@ class FileChunk:
     content: str
     metadata: Dict[str, Any] = field(default_factory=dict)
 
-    def embedding_content(self)->str:
-        return f"File: {self.file_name}\n\n{self.content}"
-
 
 #Extraction of text we need to identify the extension name
 #split the file name and .pdf for example
 #i will be using the anydoc library for text extraction, rather than doing if else
 async def extract_text(
-        file_name: str, 
         file_bytes:bytes,
-)->tuple[str, Dict[str,Any]]:
-    
+)->str:
+
     
     markdown = anydoc.to_markdown_bytes(file_bytes)
     return markdown
@@ -151,10 +147,10 @@ async def insert_file_chunk(
             )
 
 
-        except Exception as e:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Ingestion inccomplete {str(e)}")
+        except Exception:
+            raise
 
-async def process_uploaded_file(document_version_id: int, file_name: str, file_bytes: bytes, deps=Deps):
+async def process_uploaded_file(document_version_id, file_name, file_bytes, deps):
 
     print(f"Extracting Text from {document_version_id}")
 
@@ -165,14 +161,13 @@ async def process_uploaded_file(document_version_id: int, file_name: str, file_b
         text_chunk = chunk_text(markdown)
 
     except Exception as e:
-        print(f"Failed to Processs the uploaded File") 
-        return
+        raise
 
 
-    text_chunk = chunk_text(raw_text)
+    # text_chunk = chunk_text(markdown)
 
     file_chunks = [
-        FileChunk(file_name=file_name, chunk_id=str(i), content=chunk, metadata=metadata)
+        FileChunk(document_version_id=document_version_id,file_name=file_name, chunk_id=str(i), content=chunk)
 
         for i, chunk in enumerate(text_chunk)
 

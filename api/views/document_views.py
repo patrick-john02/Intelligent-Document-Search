@@ -1,5 +1,5 @@
 from fastapi import (
-    UploadFile, File, Depends, HTTPException, APIRouter, status, Form
+    UploadFile, File, Depends, HTTPException, APIRouter, status, Form, BackgroundTasks
 )
 
 from fastapi_pagination import Page, add_pagination, paginate
@@ -335,10 +335,22 @@ async def created_document_file(
         
     )
     
+    background_tasks: BackgroundTasks
+    
     await run_in_threadpool(write_file)
     db.add(document_version)
+    await db.flush()
+    version_id = document_version.id
     await db.commit()
     await db.refresh(document)
+    
+    # background_tasks.add_task(
+    #     process_upload_file,
+    #     document_version.id,
+    #     filename,
+    #     file_bytes,
+    #     deps,
+    # )
     
     
     return{
@@ -346,6 +358,10 @@ async def created_document_file(
         "filename": filename,
         "checksum": checksum
     }
+
+    
+    
+    
     
 #upload a document version
 @app.post("/{document_id}/new-version", status_code=status.HTTP_201_CREATED, response_model=DocumentVersionSchema)
