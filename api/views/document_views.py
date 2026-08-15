@@ -27,12 +27,14 @@ from api.models.users import Users
 from api.schema.document_schema import (
     DocumentSchema, DocumentUpdateSchema,
     DocumentDeleteSchema, DocumentRetrieveSchema,
-    DocumentVersionSchema
+    DocumentVersionSchema, DocumentUploadResponseSchema
 )
+from rag.ingestion import process_uploaded_file
+from core.dependencies import Deps
 
 
 #dependency
-from core.dependencies import get_db
+from core.dependencies import get_db, get_deps
 
 #security
 from core.security import(
@@ -267,8 +269,9 @@ async def delete_document(
 
 
 #upload a document
-@app.post("/upload", status_code=status.HTTP_201_CREATED, response_model=DocumentSchema)
+@app.post("/upload", status_code=status.HTTP_201_CREATED, response_model=DocumentUploadResponseSchema)
 async def created_document_file(
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     title: str = Form(...),
     department_order: str = Form(...),
@@ -311,7 +314,7 @@ async def created_document_file(
         title=title,
         department_order=department_order,
         series_years=series_years,
-        physical_shelf_locations=physical_shelf_locations,
+        physical_shelf_location=physical_shelf_locations,
         document_category_id=document_category_id,
         clearance_level=clearance_level,
         created_by_id=current_user.id,
@@ -335,7 +338,7 @@ async def created_document_file(
         
     )
     
-    background_tasks: BackgroundTasks
+    
     
     await run_in_threadpool(write_file)
     db.add(document_version)
@@ -344,19 +347,19 @@ async def created_document_file(
     await db.commit()
     await db.refresh(document)
     
-    # background_tasks.add_task(
-    #     process_upload_file,
-    #     document_version.id,
-    #     filename,
-    #     file_bytes,
-    #     deps,
-    # )
+    background_tasks.add_task(
+        process_uploaded_file,
+        document_version.id,
+        filename,
+        str(final_file_path),
+    )
     
     
     return{
         "id": document.id,
         "filename": filename,
-        "checksum": checksum
+        "checksum": checksum,
+        "status": "uploaded",
     }
 
     

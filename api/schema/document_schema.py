@@ -75,6 +75,12 @@ class DocumentSchema(BaseModel):
     
     model_config=ConfigDict(from_attributes=True)
 
+class DocumentUploadResponseSchema(BaseModel):
+    id: int
+    version_id: int
+    checksum:str
+    status: str = "uploaded"
+
 
 
 #update

@@ -9,8 +9,12 @@ from langchain_ollama import OllamaLLM
 from dataclasses import dataclass, field
 from openpyxl import load_workbook
 from PIL import Image
-from core.dependencies import Deps
+from core.dependencies import Deps, deps
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+from core.dependencies import SessionLocal
+from api.models.document import(
+    DocumentVersion, 
+)
 
 import pandas as pd
 import uuid
@@ -150,31 +154,41 @@ async def insert_file_chunk(
         except Exception:
             raise
 
-async def process_uploaded_file(document_version_id, file_name, file_bytes, deps):
+async def process_uploaded_file(document_version_id: int, file_name: str, file_path:str):
 
     print(f"Extracting Text from {document_version_id}")
 
-    try:
-        # raw_text, metadata = await extract_text(file_name, file_bytes)
-
-        markdown = await extract_text(file_bytes)
-        text_chunk = chunk_text(markdown)
-
-    except Exception as e:
-        raise
+    with open(file_path, "rb") as f:
+        file_bytes = f.read()
 
 
-    # text_chunk = chunk_text(markdown)
+    # raw_text, metadata = await extract_text(file_name, file_bytes)
+
+    markdown = await extract_text(file_bytes)
+    text_chunk = chunk_text(markdown)
+
 
     file_chunks = [
-        FileChunk(document_version_id=document_version_id,file_name=file_name, chunk_id=str(i), content=chunk)
+        FileChunk(
+            document_version_id=document_version_id,
+            file_name=file_name, 
+            chunk_id=str(i), 
+            content=chunk
+        )
 
         for i, chunk in enumerate(text_chunk)
-
 
     ]
 
     sem = asyncio.Semaphore(5)
     task = [insert_file_chunk(sem, deps, chunk) for chunk in file_chunks]
     await asyncio.gather(*task)
+
+
+    async with SessionLocal() as db_session:
+        version = await db_session.get(DocumentVersion, document_version_id)
+        if version:
+            version.status="indexed"
+            await db_session.commit()
+
 

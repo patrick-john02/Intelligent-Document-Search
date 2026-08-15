@@ -3,7 +3,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from dataclasses import dataclass
 from langchain_ollama import OllamaEmbeddings
 from langchain_postgres import PGVectorStore
+from core.configurations import app_settings
 import httpx
+
 
 
 from core.database import SessionLocal 
@@ -20,8 +22,15 @@ async def get_db()->AsyncGenerator[AsyncSession, None]:
         finally:
             await session.close()
             
-            
-
+http_client = httpx.AsyncClient()
+embedding_client = OllamaEmbeddings(
+    model = "nomic-embed-text",
+    base_url=ollama_url,
+)
+vector_store = PGVectorStore(
+    connection = app_settings.DATABASE_URL,
+    embeddings=embedding_client
+)
 
 @dataclass
 class Deps:
@@ -29,6 +38,16 @@ class Deps:
     embedding_client: OllamaEmbeddings
     vector_store: PGVectorStore
     # role: 
+
+
+deps = Deps(
+    http_client=http_client,
+    embedding_client=embedding_client,
+    vector_store=vector_store
+)
+
+async def get_deps()->Deps:
+    return deps
     
     
 # async def get_services()-> AsyncGenerator[Deps, None]:

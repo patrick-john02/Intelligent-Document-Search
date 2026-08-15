@@ -40,7 +40,7 @@ class DocumentModel(Base):
     is_deleted: Mapped[bool] = mapped_column(Boolean, default=False)
 
     document_category_id: Mapped[int] = mapped_column(ForeignKey("document_category.id"))
-    category: Mapped["DocumentCategory"] = relationship(back_populates="document_category")
+    category: Mapped["DocumentCategory"] = relationship(back_populates="documents")
     document_tag_assignments: Mapped[list["DocumentTagAssignments"]] = relationship(back_populates="document")
 
 
