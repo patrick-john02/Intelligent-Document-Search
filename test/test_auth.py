@@ -1,4 +1,5 @@
 import pytest
+import api.models
 from httpx import AsyncClient,ASGITransport
 from core.security import get_password_hash , create_access_token
 from api.models.users import Users
@@ -23,7 +24,7 @@ user_test = Users(
     employee_number="12345",
     office="IT Office",
     division="IT Division",
-    account_status=AccountStatus,
+    account_status=AccountStatus.ACTIVE,
     is_active=True,
     is_superuser=False,
     system_role_id=1,
@@ -39,7 +40,7 @@ class MockAsyncSession:
                         return user_test
                 
                 return MockScalars()
-        return MockResult
+        return MockResult()
     
 async def override_get_db():
     yield MockAsyncSession()
@@ -47,15 +48,15 @@ async def override_get_db():
 
 app.dependency_overrides[get_db] = override_get_db
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_login():
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        response =await client.get(
+        response =await client.post(
             "api/token",
             data={
                 "username":"juan",
-                "password":"meowmeow123"
+                "password":"meowmeowmeow"
             },
             headers={"Content-Type": "application/x-www-form-urlencoded"}
             
@@ -67,7 +68,7 @@ async def test_login():
         assert data["token_type"] == "bearer"
         
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_wrong_pass():
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
@@ -81,6 +82,23 @@ async def test_wrong_pass():
         )
             
         assert response.status_code ==401
-        assert response.json()["detail"] == "incorrect uname and pass"
+        assert response.json()["detail"] == "Incorrect Username or Password"
 
 
+@pytest.mark.anyio
+async def test_rout_with_token():
+    token = create_access_token(data={"sub": "juan"})
+    
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        
+        response = await client.get(
+            "api/user/me",
+            headers={"Authorization": f"Bearer {token}"}
+            
+        )
+        
+        assert response.status_code==200
+        data=response.json()
+        assert data["username"] == "juan"
+        assert data["email"] == "juan@gmail.com"

@@ -1,6 +1,5 @@
 from pydantic import BaseModel, ConfigDict
-from typing import Optional
-
+from datetime import date
 
 
 class Login(BaseModel):
@@ -20,7 +19,7 @@ class UserProfileResponses(BaseModel):
     middle_name: str
     last_name: str
     email:str
-    birth_date: str
+    birth_date: date
     employee_number: str
     office: str
     division: str

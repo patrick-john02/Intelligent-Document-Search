@@ -2,7 +2,7 @@ from typing import AsyncGenerator
 from sqlalchemy.ext.asyncio import AsyncSession
 from dataclasses import dataclass
 from langchain_ollama import OllamaEmbeddings
-from langchain_postgres import PGVectorStore
+from langchain_postgres import PGVector
 from core.configurations import app_settings
 import httpx
 
@@ -27,16 +27,18 @@ embedding_client = OllamaEmbeddings(
     model = "nomic-embed-text",
     base_url=ollama_url,
 )
-vector_store = PGVectorStore(
+vector_store = PGVector(
     connection = app_settings.DATABASE_URL,
-    embeddings=embedding_client
+    embeddings=embedding_client,
+    async_mode=True,
+    create_extension=False,
 )
 
 @dataclass
 class Deps:
     http_client: httpx.AsyncClient
     embedding_client: OllamaEmbeddings
-    vector_store: PGVectorStore
+    vector_store: PGVector
     # role: 
 
 

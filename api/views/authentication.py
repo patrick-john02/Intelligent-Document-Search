@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from core.dependencies import get_db
 
 #imports
-from api.schema.authentication.auth import Token
+from api.schema.authentication.auth import Token, UserProfileResponses
 from api.models.users import Users
 from core.security import(
     authenticate_user, create_access_token,
@@ -19,7 +19,7 @@ router = APIRouter(tags=["Authentication"])
 @router.post("/token")
 async def login_for_access_token(
     db: Annotated[AsyncSession, Depends(get_db)],
-    form_data: Annotated[OAuth2PasswordRequestForm, Depends],
+    form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
 )->Token:
     user = await authenticate_user(db, form_data.username, form_data.password)
     if not user:
@@ -35,10 +35,10 @@ async def login_for_access_token(
     )
     return Token(access_token=access_token, token_type="bearer")
 
-@router.get("/user/me")
+@router.get("/user/me", status_code=status.HTTP_200_OK, response_model=UserProfileResponses)
 async def me(
     current_user: Annotated[Users, Depends(get_current_active_user)],
 
-)->Users:
+):
     return current_user
 

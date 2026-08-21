@@ -46,6 +46,8 @@ class DocumentModel(Base):
 
     created_by_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     created_by: Mapped["Users"] = relationship(back_populates="created_documents")
+    
+    audit_logs: Mapped[list["DocumentAuditLogs"]] = relationship(back_populates="document")
 
     clearance_level: Mapped[ClearanceLevel] = mapped_column(
         DocumentsEnum(

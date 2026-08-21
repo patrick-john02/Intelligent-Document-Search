@@ -9,7 +9,7 @@ import os
 load_dotenv()
 
 ollama_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-chat_model = ChatOllama("qwen3:8b", base_url=ollama_url)
+chat_model = ChatOllama(model="qwen3:8b", base_url=ollama_url)
 embedding_model = OllamaEmbeddings(model="nomic-embed-text")
 
 

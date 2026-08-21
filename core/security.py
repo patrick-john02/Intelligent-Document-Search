@@ -17,7 +17,7 @@ from fastapi import (
 
 #imports
 from api.models.users import Users
-from api.schema.authentication.auth import Login
+from api.schema.authentication.auth import TokenData
 
 load_dotenv() 
 
@@ -26,7 +26,7 @@ algo = os.getenv("ALGORITHM")
 access_token_expires_min = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES","15"))
 
 
-password_hash = PasswordHash()
+password_hash = PasswordHash.recommended()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 router = APIRouter(tags=["Authentication"])
@@ -39,8 +39,8 @@ SECURITY_DUMMY_HASH = password_hash.hash("thisisadummypa$$wordfortimingprotectio
 
 
 
-class UserInDB(Users):
-    hashed_password:str
+# class UserInDB(Users):
+#     hashed_password:str
 
 
 def verify_password(plain_password, hashed_password):
@@ -100,7 +100,7 @@ async def get_current_user(
         username = payload.get("sub")
         if username is None:
             raise credentials_exception
-        token_data = Login(username=username)
+        token_data = TokenData(username=username)
     except JWTError:
         raise credentials_exception
     user = await get_user(db, username=token_data.username)
