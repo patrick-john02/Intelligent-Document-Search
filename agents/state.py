@@ -1,7 +1,7 @@
 from typing import TypedDict, Optional, List
 
 
-class IntentAgentState(TypedDict):
+class IntentAgentState(TypedDict, total=False):
     question: str
     intent: Optional[str]
     attachment_ids: List[int]

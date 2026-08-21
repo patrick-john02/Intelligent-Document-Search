@@ -9,7 +9,7 @@ from api.models.enums.agent import AgentTasks
 
 class AgentExecutions(Base):
     __tablename__ = "agent_executions"
-    id = Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     agent_name: Mapped[str] = mapped_column(String(255))
     task_type:Mapped[str] = mapped_column(String(255))
     status:Mapped[str] = mapped_column(String(255))
@@ -24,13 +24,13 @@ class AgentExecutions(Base):
 
 class MlAnalyticsInsights(Base):
     __tablename__ = "ml_analytics_insights"
-    id = Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id:Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     cluster_id: Mapped[int] = mapped_column(Integer)
     insight_type: Mapped[str] = mapped_column(String(255))
     title: Mapped[str] = mapped_column(String(255))
     description: Mapped[str] = mapped_column(Text)
     division: Mapped[str] = mapped_column(String(255))
-    document_category_id: Mapped[int] = mapped_column(ForeignKey) #reference to document category id
+    document_category_id: Mapped[int] = mapped_column(ForeignKey("document_category.id")) #reference to document category id
     metric_data: Mapped[dict[str, object]] = mapped_column("metric_data", JSON, default=dict)
 
     confidence_score: Mapped[float] = mapped_column(Float)
@@ -42,8 +42,8 @@ class MlAnalyticsInsights(Base):
 #todo new table
 class EvaluationBenchMarksRuns(Base):
     __tablename__ = "evaluation_bench_marks_runs"
-    id = Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    eval_type: Mapped[AgentTasks] = mapped_column(
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    eval_type: Mapped[AgentTasks | None] = mapped_column(
         AgentsEnum(
             AgentTasks,
             name = "agent_tasks_enum",

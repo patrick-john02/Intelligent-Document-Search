@@ -73,7 +73,7 @@ async def get_all_documents(
     )
 
     if "*" in permission or "document.read_all" in permission:
-        qyery = document_query
+        query = document_query
 
     elif "documents:read_public" in permission:
         query=document_query.where(
@@ -360,6 +360,7 @@ async def created_document_file(
         "filename": filename,
         "checksum": checksum,
         "status": "uploaded",
+        "version_id": version_id,
     }
 
     
@@ -479,7 +480,7 @@ async def get_all_deleted_records(
     
 
 
-@app.post("/{document_id}/deleted-records", status_code=status.HTTP_200_OK, response_model=DocumentSchema)
+@app.post("/{document_id}/deleted-records", status_code=status.HTTP_200_OK, response_model=DocumentDeleteSchema)
 async def deleted_records_lists(
     document_id: int,
     title: str,
@@ -490,16 +491,17 @@ async def deleted_records_lists(
 
     query = select(DocumentModel).where(
         DocumentModel.is_deleted.is_(True),
-        DocumentModel.created_by == current_user.id
+        DocumentModel.id == document_id,
     )
 
     result = await db.execute(query)
-    document = result.scalars().all()
+    document = result.scalar_one_or_none()
+
 
     if not document:
         raise HTTPException( status_code=status.HTTP_404_NOT_FOUND, detail="Document not Found")
 
-    is_admin = "*" or "document:write" in permission
+    is_admin = "*" in permission or "document:write" in permission
     is_owner = document.created_by_id == current_user.id
 
     if not (is_admin or is_owner):

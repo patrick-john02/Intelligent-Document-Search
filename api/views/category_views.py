@@ -72,7 +72,6 @@ async def update_category(
 ):
     query = select(DocumentCategory).where(
         DocumentCategory.id == category_id,
-        DocumentCategory.name == name,
     )
 
     
@@ -109,6 +108,6 @@ async def delete_category(
     await db.delete(delete_category)
     await db.commit()
     
-    return delete_category
+    return {"message": "Category deleted successfully" , "id": category_id}
     
     

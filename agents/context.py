@@ -18,7 +18,7 @@ class IntentClassification(BaseModel):
 
 class IntentClassifierService:
     def __init__(self):
-        self.llm = ChatOllama(temperature=0, model=chat_model)
+        self.llm = chat_model
         self.structured_llm = self.llm.with_structured_output(IntentClassification)
 
         self.prompt = ChatPromptTemplate.from_messages([

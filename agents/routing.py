@@ -1,6 +1,13 @@
 from typing import Literal
 from agents.state import IntentAgentState
 
+VALID_AGENT_INTENTS = {
+    "analyze_document",
+    "retrieve_document",
+    "check_leave_credits",
+    "process_attachments",
+}
+
 def intent_classifier_router(
         state: IntentAgentState
 ) -> Literal[

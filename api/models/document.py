@@ -47,7 +47,7 @@ class DocumentModel(Base):
     created_by_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     created_by: Mapped["Users"] = relationship(back_populates="created_documents")
 
-    clearance_level: Mapped[dict[str, object]] = mapped_column(
+    clearance_level: Mapped[ClearanceLevel] = mapped_column(
         DocumentsEnum(
             ClearanceLevel,
             name="document_enum",
@@ -86,9 +86,12 @@ class DocumentVersion(Base):
     uploaded_by_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     uploaded_by: Mapped["Users"] = relationship(back_populates="uploaded_versions")
 
-    cms_sources: Mapped["ChatMessageSources"] = relationship(back_populates="document_version")
+    # cms_sources: Mapped[list["DocumentChunks"]] = relationship(back_populates="document_version")
 
-    d_audit: Mapped["DocumentAuditLogs"] = relationship(back_populates="d_audit_logs")
+    # d_audit: Mapped["ChatMessageSources"] = relationship(back_populates="document_version")
+    
+    chunks:Mapped[list["DocumentChunks"]] = relationship(back_populates="document_version")
+    cms_sources: Mapped[list["ChatMessageSources"]] = relationship(back_populates="document_version")
 
 class DocumentTag(Base):
     __tablename__ = "document_tag"
@@ -97,7 +100,7 @@ class DocumentTag(Base):
     color_code: Mapped[str | None] = mapped_column(String(255))
     created_at: Mapped[datetime] = mapped_column(DateTime)
 
-    d_tag: Mapped[int] = relationship(back_populates="document_tag")
+    tag_assignments: Mapped[list["DocumentTagAssignments"]] = relationship(back_populates="document_tag")
 
 
 class DocumentTagAssignments(Base):
@@ -110,7 +113,7 @@ class DocumentTagAssignments(Base):
     document: Mapped["DocumentModel"] = relationship(back_populates="document_tag_assignments")
 
     document_tag_id: Mapped[int] = mapped_column(ForeignKey("document_tag.id"))
-    document_tag: Mapped["DocumentTag"] = relationship(back_populates="d_tag")
+    document_tag: Mapped["DocumentTag"] = relationship(back_populates="tag_assignments")
 
 
 
@@ -122,7 +125,7 @@ class DocumentCategory(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime)
     
 
-    documents: Mapped["DocumentModel"] = relationship(back_populates="category")
+    documents: Mapped[list["DocumentModel"]] = relationship(back_populates="category")
 
 
 
@@ -140,7 +143,7 @@ class DocumentAuditLogs(Base):
     users: Mapped["Users"] = relationship(back_populates="d_audit_logs")
 
     document_id: Mapped[int | None] = mapped_column(ForeignKey("documents.id"))
-    document: Mapped["DocumentModel"] = relationship(back_populates="d_audit")
+    document: Mapped["DocumentModel"] = relationship(back_populates="audit_logs")
 
 
 
@@ -157,8 +160,9 @@ class DocumentChunks(Base):
     vector_id: Mapped[int] = mapped_column(Integer)
     chunk_metadata: Mapped[dict[str, object]] = mapped_column("metadata", JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime)
-
-    d_chunks: Mapped["ChatMessageSources"] = relationship(back_populates="chunk")
+    
+    document_version:Mapped["DocumentVersion"] = relationship(back_populates="chunks")
+    cms_sources: Mapped[list["ChatMessageSources"]] = relationship(back_populates="chunk")
 
 
 
@@ -177,9 +181,3 @@ class DocumentProcessingJobs(Base):
         nullable=False
     )
 
-
-#todo new table
-# class UserSearchHistory(Base):
-
-#todo new table
-# class DocumentAnnotations(Base):

@@ -29,7 +29,12 @@ workflow.add_edge("get_attachment_ids_node", "classify_intent_node")
 
 workflow.add_conditional_edges(
     "classify_intent_node", 
-    intent_classifier_router
+    intent_classifier_router,
+    {
+        "target_agent_node":"target_agent_node",
+        "ask_for_clarification_node":"ask_for_clarification_node",
+        "reject_request_node":"reject_request_node",
+    }
 )
 
 

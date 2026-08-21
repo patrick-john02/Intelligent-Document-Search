@@ -77,30 +77,29 @@ class DocumentSchema(BaseModel):
 
 class DocumentUploadResponseSchema(BaseModel):
     id: int
-    version_id: int
+    filename:str
     checksum:str
     status: str = "uploaded"
+    version_id: Optional[int] = None
 
 
 
 #update
 class DocumentUpdateSchema(BaseModel):
-    title: str
-    department_order: int
-    physical_shelf_location: str
-    status: DocumentStatusSchema
-    category: DocumentCategorySchema
-    clearance_level: ClearanceLevel
-    update_at: datetime
+    title: Optional[str] = None
+    department_order: Optional[str] = None
+    physical_shelf_location: Optional[str] = None
+    document_status_id: Optional[int] = None
+    document_category_id: Optional[int]=None
+    clearance_level: Optional[ClearanceLevel] = None
 
     model_config = ConfigDict(from_attributes=True)
 
 
 #delete part as a soft delete
 class DocumentDeleteSchema(BaseModel):
-    is_delete: bool
-    title: str
-    updated_at: datetime
+    message:str
+    id:int
 
 
 #for retrieving the deleted document
@@ -115,6 +114,8 @@ class CategorySchema(BaseModel):
     name: str
     is_deleted: bool
     created_at: datetime
+    
+    model_config = ConfigDict(from_attributes=True)
     
     
     

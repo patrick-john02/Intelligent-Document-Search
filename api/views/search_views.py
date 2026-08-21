@@ -2,7 +2,7 @@ from fastapi import(
     status, Depends, HTTPException, APIRouter, Query
 )
 from fastapi_pagination import Page, add_pagination, paginate
-from sqlalchemy import select, or_
+from sqlalchemy import select, or_, cast, String
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import date, datetime
@@ -75,8 +75,9 @@ async def search_document(
             or_(
                 DocumentModel.title.ilike(f"%{q}%"),
                 DocumentModel.department_order.ilike(f"%{q}%"),
-                DocumentModel.series_years.ilike(f"%{q}%"),
-                DocumentModel.versions.ilike(f"%{q}%"),
+                DocumentModel.physical_shelf_location.ilike(f"%{q}%"),
+                DocumentModel.versions.any(DocumentVersion.file_name.ilike(f"%{q}%")),
+                cast(DocumentModel.series_years, String).ilike(f"%{q}%")
                 
             )
         )

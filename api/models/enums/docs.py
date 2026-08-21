@@ -8,5 +8,5 @@ class JobStatus(str, Enum):
 
 class ClearanceLevel(str, Enum):
     CONFIDENTIAL = "confidential"
-    PUBLIC = "internal"
+    PUBLIC = "public"
     INTERNAL = "internal"
