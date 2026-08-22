@@ -27,7 +27,7 @@ access_token_expires_min = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES","15"))
 
 
 password_hash = PasswordHash.recommended()
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/token")
 
 router = APIRouter(tags=["Authentication"])
 
@@ -61,7 +61,7 @@ def get_user_permissions(user:Users)->set[str]:
 
 
 async def get_user(db: AsyncSession, username: str)->Users | None:
-    query = select(Users).where(Users.username == username).options(selectinload(Users.system_role))
+    query = select(Users).where((Users.username == username) | (Users.email == username)).options(selectinload(Users.system_role))
     result = await db.execute(query)
     return result.scalars().first()
 

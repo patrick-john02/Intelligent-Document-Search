@@ -146,7 +146,7 @@ export default function LoginPage() {
 
       const data = await response.json();
       localStorage.setItem("access_token", data.access_token);
-      alert("Login successful! Welcome to BLGF Region II Portal.");
+      alert("Login successful! Welcome.");
     } catch (err: any) {
       setErrorMsg(err.message || "Unable to connect to authentication server.");
     } finally {
@@ -331,7 +331,7 @@ export default function LoginPage() {
                     }}
                     onClick={(e) => {
                       e.preventDefault();
-                      alert("Please contact the BLGF Regional Office II System Administrator.");
+                      alert("Please contact the System Administrator.");
                     }}
                   >
                     Forgot password?
