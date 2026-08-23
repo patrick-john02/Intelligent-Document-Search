@@ -11,10 +11,14 @@ from openpyxl import load_workbook
 from PIL import Image
 from core.dependencies import Deps, deps
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from core.dependencies import SessionLocal
 from api.models.document import(
     DocumentVersion, 
+    DocumentModel,
 )
+
 
 import pandas as pd
 import uuid
@@ -140,6 +144,7 @@ async def insert_file_chunk(
                 page_content=chunk.content,
                 metadata={
                 **chunk.metadata,
+                "document_version_id": chunk.document_version_id,
                 "file_name": chunk.file_name,
                 "chunk_id": chunk.chunk_id
                 },
@@ -155,40 +160,75 @@ async def insert_file_chunk(
             raise
 
 async def process_uploaded_file(document_version_id: int, file_name: str, file_path:str):
+    
+    try:
 
-    print(f"Extracting Text from {document_version_id}")
+        print(f"Extracting Text from {document_version_id}")
 
-    with open(file_path, "rb") as f:
-        file_bytes = f.read()
-
-
-    # raw_text, metadata = await extract_text(file_name, file_bytes)
-
-    markdown = await extract_text(file_bytes)
-    text_chunk = chunk_text(markdown)
-
-
-    file_chunks = [
-        FileChunk(
-            document_version_id=document_version_id,
-            file_name=file_name, 
-            chunk_id=str(i), 
-            content=chunk
+        # with open(file_path, "rb") as f:
+        #     file_bytes = f.read()
+        
+        async with SessionLocal() as db_session:
+            query = (
+                select(DocumentVersion)
+                .where(DocumentVersion.id == document_version_id)
+                .options(selectinload(DocumentVersion.document))
+            )
+            result = await db_session.execute(query)
+            version = result.scalar_one_or_none()
+        
+        if not version or not version.document:
+            raise ValueError(f"DocumentVersion {document_version_id} or parent Document not found")
+        
+        document_id = version.document_id
+        version_number = version.version_number
+        clearance_level = (
+            version.document.clearance_level.value
+            if hasattr(version.document.clearance_level, "value")
+            else str(version.document.clearance_level)
         )
+        
+        with open(file_path, "rb") as f:
+            file_bytes = f.read()
+        
+        
 
-        for i, chunk in enumerate(text_chunk)
-
-    ]
-
-    sem = asyncio.Semaphore(5)
-    task = [insert_file_chunk(sem, deps, chunk) for chunk in file_chunks]
-    await asyncio.gather(*task)
+        # raw_text, metadata = await extract_text(file_name, file_bytes)
+        markdown = await extract_text(file_bytes)
+        text_chunk = chunk_text(markdown)
 
 
-    async with SessionLocal() as db_session:
-        version = await db_session.get(DocumentVersion, document_version_id)
-        if version:
-            version.status="indexed"
-            await db_session.commit()
+        file_chunks = [
+            FileChunk(
+                document_version_id=document_version_id,
+                file_name=file_name, 
+                chunk_id=str(i), 
+                content=chunk
+            )
+
+            for i, chunk in enumerate(text_chunk)
+
+        ]
+
+        sem = asyncio.Semaphore(5)
+        task = [insert_file_chunk(sem, deps, chunk) for chunk in file_chunks]
+        await asyncio.gather(*task)
+
+
+        async with SessionLocal() as db_session:
+            version = await db_session.get(DocumentVersion, document_version_id)
+            if version:
+                version.status="indexed"
+                await db_session.commit()
+                
+    except Exception as e:
+        print(f"Ingestion Failed for version {document_version_id}:{e}")
+        async with SessionLocal() as db_session:
+            version = await db_session.get(DocumentVersion, document_version_id)
+            if version:
+                version.status = "failed"
+                await db_session.commit()
+                
+        
 
 

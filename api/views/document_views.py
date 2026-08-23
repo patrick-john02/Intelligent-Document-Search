@@ -211,7 +211,7 @@ async def update_document(
     for field, value in update_date.items():
         setattr(document, field, value)
 
-    document.updated_at = datetime.now(manila_tz)
+    document.updated_at = datetime.now(manila_tz).replace(tzinfo=None)
 
     await db.commit()
     await db.refresh(document)
@@ -318,7 +318,7 @@ async def created_document_file(
         document_category_id=document_category_id,
         clearance_level=clearance_level,
         created_by_id=current_user.id,
-        created_at=datetime.now(manila_tz),
+        created_at=datetime.now(manila_tz).replace(tzinfo=None)
     )
     
     db.add(document)
@@ -371,6 +371,7 @@ async def created_document_file(
 @app.post("/{document_id}/new-version", status_code=status.HTTP_201_CREATED, response_model=DocumentVersionSchema)
 async def upload_new_version(
     document_id: int,
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     db:AsyncSession=Depends(get_db),
     current_user: Users = Depends(get_current_active_user),
@@ -388,7 +389,7 @@ async def upload_new_version(
     file_bytes = await file.read()
     file_size = len(file_bytes)
     checksum = hashlib.sha256(file_bytes).hexdigest()
-    now_utc = datetime.now(manila_tz)
+    now_utc = datetime.now(manila_tz).replace(tzinfo=None)
 
 
     
@@ -442,6 +443,13 @@ async def upload_new_version(
     db.add(document_version)
     db.add(document)
     await db.commit()
+    
+    background_tasks.add_task(
+        process_uploaded_file,
+        document_version.id,
+        filename,
+        str(final_file_path),
+    )
     
     
     return{

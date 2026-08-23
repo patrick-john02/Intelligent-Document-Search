@@ -22,11 +22,11 @@ from core.security import(
 
 manila_tz = ZoneInfo("Asia/Manila")
 
-app = APIRouter(prefix='/categories')
+router = APIRouter(prefix='/categories', tags=["Category Management"])
 
 
 
-@app.get("/list", status_code=status.HTTP_200_OK, response_model=list[CategorySchema])
+@router.get("/list", status_code=status.HTTP_200_OK, response_model=list[CategorySchema])
 async def category_list(
     db:AsyncSession=Depends(get_db), 
     current_user: Users = Depends(get_current_active_user)
@@ -39,7 +39,7 @@ async def category_list(
     return results.scalars().all()
 
 
-@app.post("/create", status_code=status.HTTP_201_CREATED, response_model=CategorySchema)
+@router.post("/create", status_code=status.HTTP_201_CREATED, response_model=CategorySchema)
 async def create_category(
     name: str = Form(...),
     db: AsyncSession = Depends(get_db),
@@ -53,7 +53,7 @@ async def create_category(
     
     category = DocumentCategory(
         name=name,
-        created_at=datetime.now(manila_tz)
+        created_at=datetime.now(manila_tz).replace(tzinfo=None)
     )
     
     db.add(category)
@@ -63,7 +63,7 @@ async def create_category(
     return category
 
     
-@app.patch("/{category_id}/update", status_code=status.HTTP_200_OK, response_model=CategorySchema)
+@router.patch("/{category_id}/update", status_code=status.HTTP_200_OK, response_model=CategorySchema)
 async def update_category(
     category_id: int,
     name: str = Form(...),
@@ -88,7 +88,7 @@ async def update_category(
     return update_category
     
 
-@app.patch("/{category_id}/delete",status_code=status.HTTP_204_NO_CONTENT)
+@router.patch("/{category_id}/delete",status_code=status.HTTP_204_NO_CONTENT)
 async def delete_category(
     category_id: int,
     db:AsyncSession=Depends(get_db),
