@@ -9,6 +9,7 @@ from api.views import(
 from api.views.admin import(
     user_management, 
 )
+from api.views import chat_view
 
 
 app = FastAPI(title="Document Archiving system with Semantic Retrieval System")
@@ -28,6 +29,7 @@ app.include_router(document_views.app, prefix='/api')
 app.include_router(authentication.router, prefix="/api" )
 app.include_router(user_management.router, prefix="/api")
 app.include_router(category_views.router, prefix="/api")
+app.include_router(chat_view.router, prefix="/api")
 
 
 add_pagination(app)

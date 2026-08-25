@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from fastapi import(
     status, HTTPException, APIRouter, Depends
 )
@@ -17,28 +19,27 @@ from api.models.users import Users
 from core.dependencies import get_db
 from core.security import get_current_active_user
 
-app = APIRouter(prefix="/chat", tags=["Chat App"])
+#imports from agents
+from agents.graph import app as agent_app
 
-@app.get("/list", status_code=status.HTTP_200_OK, response_model=list[ConversationsResponse])
+router = APIRouter(prefix="/chat", tags=["Chat App"])
+
+@router.get("/list", status_code=status.HTTP_200_OK, response_model=list[ConversationsResponse])
 async def conversation_lists(
     db:AsyncSession=Depends(get_db),
     current_user: Users=Depends(get_current_active_user)
 ):
-    if not current_user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="you are unauthorized"
-        )
 
     query = select(Conversation).where(
         Conversation.user_id == current_user.id,
     ).order_by(Conversation.created_at.desc())
 
     result = await db.execute(query)
-    return result.scalars()
+    return result.scalars().all()
 
 
-@app.get("/{conversation_id}/chats-lists", status_code=status.HTTP_200_OK, response_model=list[ChatMessagesResponse])
+
+@router.get("/{conversation_id}/chats-lists", status_code=status.HTTP_200_OK, response_model=list[ChatMessagesResponse])
 async def view_chats(
     conversation_id: int, 
     db:AsyncSession=Depends(get_db),
@@ -46,81 +47,101 @@ async def view_chats(
 
 ):
 
-    if not current_user.is_superuser:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="you are unauthorized"
-        )
-
-    query = (
-        select(ChatMessages)
-        .join(Conversation)
-        .where(
-            ChatMessages.conversation_id == conversation_id,
-            Conversation.user_id == current_user.id
-        )
-        .order_by(ChatMessages.created_at.asc())
+    conv_query = select(Conversation).where(
+        Conversation.id==conversation_id,
+        Conversation.user_id == current_user.id,
     )
-
-
-    result = await db.execute(query)
-    conversation = result.scalars().all()
-
+    conv_result = await db.execute(conv_query)
+    conversation = conv_result.scalar_one_or_none()
+    
     if not conversation:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Chat's not found"
+            detail="Conversation not found",
         )
+    
+    query = (
+        select(ChatMessages)
+        .where(ChatMessages.conversation_id == conversation_id)
+        .order_by(ChatMessages.created_at.asc()) 
+    )
+    result =  await db.execute(query)
+    return result.scalars().all()
 
-    return conversation
 
-@app.post("/talk", status_code=status.HTTP_201_CREATED)
+@router.post("/talk", status_code=status.HTTP_201_CREATED)
 async def talk_to_ai(
     payload: ChatSchema,
-    conv_payload_title: ConvSchema,
     db:AsyncSession=Depends(get_db),
     current_user:Users=Depends(get_current_active_user)
 ):
-    if not current_user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="you are unauthorized"
+    if payload.conversation_id:
+        conv_query = select(Conversation).where(
+            Conversation.id == payload.conversation_id,
+            Conversation.user_id == current_user.id,
         )
-
-    create_chat = ChatMessages(
-        content = payload.content
-    )
-
-    db.add(create_chat)
-    await db.commit()
-    await db.refresh(create_chat)
-
-    count_query = select(func.count(ChatMessages.id))
-    result = await db.execute(count_query)
-    message_count = result.scalar()
-
-    if message_count > 2:
-        # NOTE: Fetching ChatMessages.id == 2 specifically
-        conv_title_query = select(ChatMessages).where(
-            ChatMessages.id == 2
+        conv_result = await db.execute(conv_query)
+        conversation = conv_result.scalar_one_or_none()
+        
+        if not conversation:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail = "Conversation not found"
+            )
+            
+    else:
+        conv_title = payload.title if payload.title else(payload.content[:30] + "...")
+        conversation = Conversation(
+            title=conv_title,
+            user_id=current_user.id,
+            created_at=datetime.now(timezone.utc)
         )
-
-        title_result = await db.execute(conv_title_query)
-        message_for_title = title_result.scalar_one_or_none()
-
-        created_conv = Conversation(
-            title=conv_payload_title.conv_title
-        )
-
-        db.add(created_conv)
+        db.add(conversation)
         await db.commit()
-        await db.refresh(created_conv)
+        await db.refresh(conversation)
+        
+    user_message = ChatMessages(
+        conversation_id = conversation.id,
+        sender_type="user",
+        content=payload.content,
+        tokens_used=0,
+        created_at=datetime.now(timezone.utc)
+        
+    )
+    
+    db.add(user_message)
+    await db.commit()
+    await db.refresh(user_message)
+    
+    initial_state = {
+        "question": payload.content,
+        "attachment_ids": [],
+    }
+    config = {"configurable": {"thread_id":str(conversation.id)}}
+    
+    agent_output = await agent_app.ainvoke(initial_state, config=config)
+    ai_content = agent_output.get("final_response") or "No response generated."
+    
+    assistant_message = ChatMessages(
+        conversation_id = conversation.id,
+        sender_type="assistant",
+        content=ai_content,
+        tokens_used=0,
+        created_at=datetime.now(timezone.utc),
+    )
+    db.add(assistant_message)
+    await db.commit()
+    await db.refresh(assistant_message)
+    
+    
+    
+    return{
+        "message": "Chat Created Successfully", 
+        "conversation_id": conversation.id,
+        "chat": user_message,
+        "assitant_message": assistant_message
+    }
 
-        return {"message": "Chat and conversation created", "chat": create_chat, "conversation": created_conv}
 
-    return {"message": "Chat created", "chat": create_chat}
-
-
-
-
-
+#TODO: Delete a conversation 
+#TODO: Rename a conversation title

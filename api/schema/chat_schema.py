@@ -7,8 +7,8 @@ from api.models.enums.conv import TaskType
 class ChatMessagesResponse(BaseModel):
     id: int
     content: str
-    tasks_type: Optional[TaskType] = None
-    created_at: datetime
+    task_type: Optional[TaskType] = None
+    created_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -23,6 +23,9 @@ class ConversationsResponse(BaseModel):
 
 class ChatSchema(BaseModel):
     content: str
+    conversation_id: Optional[int] = None
+    title: Optional[str] = None
+    attachment_ids: list[int] = []
 
 class ConvSchema(BaseModel):
     title:str

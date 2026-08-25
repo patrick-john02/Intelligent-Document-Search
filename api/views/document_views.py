@@ -49,8 +49,8 @@ document_path = Path(os.getenv("DOCUMENT_PATH", "./documents/"))
 manila_tz = ZoneInfo("Asia/Manila")
 
 # app = FastAPI()
-app = APIRouter(prefix='/documents')
-add_pagination(app)
+router = APIRouter(prefix='/documents')
+add_pagination(router)
 
 
 
@@ -61,7 +61,7 @@ ALLOWED_EXTENSIONS = {
 }
 
 #fetch all documents
-@app.get("/all",status_code=status.HTTP_200_OK, response_model=list[DocumentSchema])
+@router.get("/all",status_code=status.HTTP_200_OK, response_model=list[DocumentSchema])
 async def get_all_documents(
     db:AsyncSession=Depends(get_db),
     current_user: Users = Depends(get_current_active_user),
@@ -98,7 +98,7 @@ async def get_all_documents(
     return result.scalars().all()
 
 #fetch speficific owned documents
-@app.get("/{document_id}", status_code=status.HTTP_200_OK, response_model=DocumentSchema)
+@router.get("/{document_id}", status_code=status.HTTP_200_OK, response_model=DocumentSchema)
 async def get_document(
     document_id: int,
     db:AsyncSession=Depends(get_db),
@@ -141,7 +141,7 @@ async def get_document(
     
     return doc
 
-@app.get("/version/{version_id}/download", status_code=status.HTTP_200_OK)
+@router.get("/version/{version_id}/download", status_code=status.HTTP_200_OK)
 async def download_document_version(
     version_id: int,
     db:AsyncSession = Depends(get_db),
@@ -186,7 +186,7 @@ async def download_document_version(
 
 
 #Endpoint for patch
-@app.patch ("/{document_id}/update", status_code=status.HTTP_200_OK, response_model=DocumentUpdateSchema)
+@router.patch ("/{document_id}/update", status_code=status.HTTP_200_OK, response_model=DocumentUpdateSchema)
 async def update_document(
     document_id: int,
     payload: DocumentUpdateSchema,
@@ -234,7 +234,7 @@ async def update_document(
 
 
 #delete document
-@app.delete("/{document_id}/delete", status_code=status.HTTP_200_OK, response_model=DocumentDeleteSchema)
+@router.delete("/{document_id}/delete", status_code=status.HTTP_200_OK, response_model=DocumentDeleteSchema)
 async def delete_document(
     document_id: int,
     db:AsyncSession=Depends(get_db),
@@ -282,7 +282,7 @@ async def delete_document(
 
 
 #upload a document
-@app.post("/upload", status_code=status.HTTP_201_CREATED, response_model=DocumentUploadResponseSchema)
+@router.post("/upload", status_code=status.HTTP_201_CREATED, response_model=DocumentUploadResponseSchema)
 async def created_document_file(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
@@ -381,7 +381,7 @@ async def created_document_file(
     
     
 #upload a document version
-@app.post("/{document_id}/new-version", status_code=status.HTTP_201_CREATED, response_model=DocumentVersionSchema)
+@router.post("/{document_id}/new-version", status_code=status.HTTP_201_CREATED, response_model=DocumentVersionSchema)
 async def upload_new_version(
     document_id: int,
     background_tasks: BackgroundTasks,
@@ -476,7 +476,7 @@ async def upload_new_version(
 
 
 #RETRIEVE
-@app.get("/deleted-records", status_code=status.HTTP_200_OK, response_model=list[DocumentSchema])
+@router.get("/deleted-records", status_code=status.HTTP_200_OK, response_model=list[DocumentSchema])
 async def get_all_deleted_records(
     db: AsyncSession = Depends(get_db),
     current_user: Users = Depends(get_current_active_user)
@@ -495,7 +495,7 @@ async def get_all_deleted_records(
     
 
 
-@app.post("/{document_id}/deleted-records", status_code=status.HTTP_200_OK, response_model=DocumentDeleteSchema)
+@router.post("/{document_id}/deleted-records", status_code=status.HTTP_200_OK, response_model=DocumentDeleteSchema)
 async def deleted_records_lists(
     document_id: int,
     title: str,
