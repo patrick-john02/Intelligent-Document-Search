@@ -1,14 +1,6 @@
-from langchain_ollama import OllamaEmbeddings
-from pypdf import PdfReader
-from docx import Document as DocxDocument
 from langchain_core.documents import Document
-from pptx import Presentation
-from fastapi import File, UploadFile, HTTPException, status
-from typing import Dict, Any, AsyncGenerator
-from langchain_ollama import OllamaLLM
+from typing import Dict, Any
 from dataclasses import dataclass, field
-from openpyxl import load_workbook
-from PIL import Image
 from core.dependencies import Deps, deps
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from sqlalchemy import select
@@ -16,7 +8,6 @@ from sqlalchemy.orm import selectinload
 from core.dependencies import SessionLocal
 from api.models.document import(
     DocumentVersion, 
-    DocumentModel,
 )
 
 

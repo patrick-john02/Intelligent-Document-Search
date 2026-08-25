@@ -1,7 +1,7 @@
 from langchain.agents import create_agent
 from langchain.agents.middleware import PIIMiddleware
 
-agnet = create_agent(
+agent = create_agent(
     model = "qwen3:7b",
     tools = ['personal_information', 'credentials', 'legal_document'],
     middleware=(

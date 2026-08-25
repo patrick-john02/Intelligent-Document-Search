@@ -1,3 +1,7 @@
+#document analysis agent
+from agents.doc_analysis_agent.graph import doc_analysis_app
+
+
 from agents.state import IntentAgentState
 from agents.context import classifier_service
 
@@ -34,3 +38,21 @@ async def generated_answer_node(state: IntentAgentState):
     result = state.get("agent_result")
     final = f"Here is your answer: {result}"
     return {"final_response": final}
+
+
+async def call_doc_analysis_node(state:IntentAgentState):
+    sub_state = {"question": state.get("question","")}
+
+    sub_result = await doc_analysis_app.ainvoke(sub_state)
+
+    analysis = sub_result("analysis_result", {})
+    summary = analysis.get("summary", "No summary could be generated.")
+    doc_type = analysis.get("document_type", "Unkown")
+
+    final_message = f"I analyzed the {doc_type} document. here is the summary: {summary}"
+
+    return {
+        "target_aget": "doc_analysis_agent",
+        "agent_result":final_message
+        
+    }

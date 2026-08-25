@@ -22,7 +22,7 @@ class IntentClassifierService:
         self.structured_llm = self.llm.with_structured_output(IntentClassification)
 
         self.prompt = ChatPromptTemplate.from_messages([
-            ("system", """Your are the Chat Supervisor coordinating a multi-agent system.
+            ("system", """You are the Chat Supervisor coordinating a multi-agent system.
             Route the user's question to the correct agent based on these rules:
             - analyze_document: For questions asking to summarize, explain, or extract data from a document.
             - retrieve_document: For finding, searching, or fetching files/documents from a database.

@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy import String, Integer, Boolean, DateTime, Text, ForeignKey, Float, JSON
+from sqlalchemy import String, Integer, Boolean, DateTime, Text, ForeignKey, Float, JSON, func
 from sqlalchemy import Enum as ConvEnum
 from datetime import datetime
 from enum import Enum
@@ -20,8 +20,8 @@ from api.models.enums.conv import TaskType, ReportType
 class Conversation(Base):
     __tablename__ = "conversation"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    title: Mapped[str] = mapped_column(String(255))
-    created_at: Mapped[datetime] = mapped_column(DateTime)
+    title: Mapped[str] = mapped_column(String(255), default="New Chat...")
+    created_at: Mapped[datetime] = mapped_column(DateTime, onupdate=func.now())
 
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     user_conversations: Mapped["Users"] = relationship(back_populates="conversations")
@@ -48,7 +48,7 @@ class ChatMessages(Base):
             values_callable=lambda items: [item.value for item in items]
         ),
         default=None,
-        nullable=False
+        nullable=True
     )
     agent_reasoning_chain: Mapped[dict[str, object]] = mapped_column("agent_reasoning_chain", JSON, default=dict)
     is_helpful: Mapped[bool | None] = mapped_column(Boolean, nullable=True, default=None)
@@ -84,9 +84,6 @@ class ChatMessageSources(Base):
     
 
 
-    
-
-
 #todo
 class GeneratedReports(Base):
     __tablename__ = "generated_reports"
@@ -109,5 +106,3 @@ class GeneratedReports(Base):
 
     conversation_id: Mapped[int] = mapped_column(ForeignKey("conversation.id"))
     conversation: Mapped["Conversation"] = relationship(back_populates="generated_reports")
-
-    
