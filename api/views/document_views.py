@@ -19,7 +19,7 @@ import os
 
 #models
 from api.models.document import (
-    DocumentModel, DocumentVersion,
+    DocumentModel, DocumentVersion, DocumentTagAssignments
 )
 from api.models.enums.docs import ClearanceLevel
 from api.models.users import Users
@@ -27,7 +27,8 @@ from api.models.users import Users
 from api.schema.document_schema import (
     DocumentSchema, DocumentUpdateSchema,
     DocumentDeleteSchema, DocumentRetrieveSchema,
-    DocumentVersionSchema, DocumentUploadResponseSchema
+    DocumentVersionSchema, DocumentUploadResponseSchema,
+    
 )
 from rag.ingestion import process_uploaded_file
 from core.dependencies import Deps
@@ -86,7 +87,13 @@ async def get_all_documents(
     else:
         query = document_query.where(DocumentModel.created_by_id == current_user.id)
 
-    result = await db.execute(query.options(selectinload(DocumentModel.versions)))
+    result = await db.execute(query.options(
+        selectinload(DocumentModel.versions),
+        selectinload(DocumentModel.category),
+        selectinload(DocumentModel.status),
+        selectinload(DocumentModel.created_by),
+        selectinload(DocumentModel.document_tag_assignments).selectinload(DocumentTagAssignments.document_tag),
+    ))
 
     return result.scalars().all()
 
@@ -119,7 +126,13 @@ async def get_document(
 
         query = document_query.where(DocumentModel.created_by_id == current_user.id)
 
-    result = await db.execute(query.options(selectinload(DocumentModel.versions)))
+    result = await db.execute(query.options(
+        selectinload(DocumentModel.versions),
+        selectinload(DocumentModel.category),
+        selectinload(DocumentModel.status),
+        selectinload(DocumentModel.created_by),
+        selectinload(DocumentModel.document_tag_assignments).selectinload(DocumentTagAssignments.document_tag),
+    ))
 
     doc = result.scalar_one_or_none()
 
@@ -474,17 +487,11 @@ async def get_all_deleted_records(
         DocumentModel.is_deleted.is_(True),
     )
 
+    if not ("*" in permission or "document:write" in permission):
+        query = query.where(DocumentModel.created_by_id == current_user.id)
+
     results = await db.execute(query)
-    document=  results.scalars().all()
-    
-
-    is_admin = "*" in permission or "document:write" in permission
-    is_owner = document.created_by_id == current_user.id
-
-    if not(is_admin or is_owner):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You do not have permission to delete this document only owner")
-
-    return document
+    return results.scalars().all()
     
 
 

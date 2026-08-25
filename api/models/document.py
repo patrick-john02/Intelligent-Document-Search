@@ -31,21 +31,21 @@ class DocumentModel(Base):
     physical_shelf_location: Mapped[str] = mapped_column(String(255))
     
 
-    versions: Mapped[list["DocumentVersion"]] = relationship(back_populates="document")
+    versions: Mapped[list["DocumentVersion"]] = relationship(back_populates="document", lazy="selectin")
 
     document_status_id: Mapped[int | None] = mapped_column(ForeignKey("document_status.id"))
-    status: Mapped["DocumentStatus"] = relationship(back_populates="documents")
+    status: Mapped["DocumentStatus"] = relationship(back_populates="documents", lazy="selectin")
 
     
     is_deleted: Mapped[bool] = mapped_column(Boolean, default=False)
 
     document_category_id: Mapped[int] = mapped_column(ForeignKey("document_category.id"))
-    category: Mapped["DocumentCategory"] = relationship(back_populates="documents")
-    document_tag_assignments: Mapped[list["DocumentTagAssignments"]] = relationship(back_populates="document")
+    category: Mapped["DocumentCategory"] = relationship(back_populates="documents", lazy="selectin")
+    document_tag_assignments: Mapped[list["DocumentTagAssignments"]] = relationship(back_populates="document", lazy="selectin")
 
 
     created_by_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
-    created_by: Mapped["Users"] = relationship(back_populates="created_documents")
+    created_by: Mapped["Users"] = relationship(back_populates="created_documents", lazy="selectin")
     
     audit_logs: Mapped[list["DocumentAuditLogs"]] = relationship(back_populates="document")
 
@@ -86,13 +86,9 @@ class DocumentVersion(Base):
     document: Mapped["DocumentModel"] = relationship(back_populates="versions")
 
     uploaded_by_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
-    uploaded_by: Mapped["Users"] = relationship(back_populates="uploaded_versions")
+    uploaded_by: Mapped["Users"] = relationship(back_populates="uploaded_versions", lazy="selectin")
 
-    # cms_sources: Mapped[list["DocumentChunks"]] = relationship(back_populates="document_version")
-
-    # d_audit: Mapped["ChatMessageSources"] = relationship(back_populates="document_version")
-    
-    chunks:Mapped[list["DocumentChunks"]] = relationship(back_populates="document_version")
+    chunks: Mapped[list["DocumentChunks"]] = relationship(back_populates="document_version")
     cms_sources: Mapped[list["ChatMessageSources"]] = relationship(back_populates="document_version")
 
 class DocumentTag(Base):
@@ -115,7 +111,7 @@ class DocumentTagAssignments(Base):
     document: Mapped["DocumentModel"] = relationship(back_populates="document_tag_assignments")
 
     document_tag_id: Mapped[int] = mapped_column(ForeignKey("document_tag.id"))
-    document_tag: Mapped["DocumentTag"] = relationship(back_populates="tag_assignments")
+    document_tag: Mapped["DocumentTag"] = relationship(back_populates="tag_assignments", lazy="selectin")
 
 
 
@@ -162,8 +158,8 @@ class DocumentChunks(Base):
     vector_id: Mapped[int] = mapped_column(Integer)
     chunk_metadata: Mapped[dict[str, object]] = mapped_column("metadata", JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime)
-    
-    document_version:Mapped["DocumentVersion"] = relationship(back_populates="chunks")
+
+    document_version: Mapped["DocumentVersion"] = relationship(back_populates="chunks")
     cms_sources: Mapped[list["ChatMessageSources"]] = relationship(back_populates="chunk")
 
 
@@ -183,3 +179,9 @@ class DocumentProcessingJobs(Base):
         nullable=False
     )
 
+
+#todo new table
+# class UserSearchHistory(Base):
+
+#todo new table
+# class DocumentAnnotations(Base):
