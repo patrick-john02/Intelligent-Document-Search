@@ -143,5 +143,61 @@ async def talk_to_ai(
     }
 
 
-#TODO: Delete a conversation 
+    
 #TODO: Rename a conversation title
+@router.patch("/{id}", status_code=status.HTTP_200_OK, response_model=ConvSchema)
+async def update_conversation(
+    id:int,
+    payload: ConvSchema,
+    db:AsyncSession=Depends(get_db),
+    current_user:Users=Depends(get_current_active_user)
+):
+    query = select(Conversation).where(
+        Conversation.id == id,
+        Conversation.user_id == current_user
+    )
+    
+    result = await db.execute(query)
+    update_conv = result.scalar_one_or_none()
+    
+    if not update_conv:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Conversation not Found"
+        )
+        
+    update_conv.title = payload.title
+
+    await db.commit()
+    await db.refresh
+    
+    return update_conv
+    
+
+
+#TODO: Delete a conversation
+@router.delete("/delete/{id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_conversation(
+    id: int,
+    db:AsyncSession=Depends(get_db),
+    current_user:Users=Depends(get_current_active_user)
+):
+    query = select(Conversation).where(
+        Conversation.id == id,
+        Conversation.user_id == current_user
+        
+    )
+    
+    result = await db.execute(query)
+    delete_conv = result.scalar_one_or_none()
+    
+    if not delete_conv:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Conversation Not Found"
+        )
+        
+    db.delete(delete_conv)
+    await db.commit()
+    
+    return None

@@ -26,10 +26,10 @@ class Conversation(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     user_conversations: Mapped["Users"] = relationship(back_populates="conversations")
 
-    messages: Mapped[list["ChatMessages"]] = relationship(back_populates="conversation")
+    messages: Mapped[list["ChatMessages"]] = relationship(back_populates="conversation", cascade="all, delete-orphan")
     # message_sources: Mapped["ChatMessages"] = relationship(back_populates="messsage")
 
-    generated_reports: Mapped[list["GeneratedReports"]] = relationship(back_populates="conversation")
+    generated_reports: Mapped[list["GeneratedReports"]] = relationship(back_populates="conversation", cascade="all, delete-orphan")
 
 
 
