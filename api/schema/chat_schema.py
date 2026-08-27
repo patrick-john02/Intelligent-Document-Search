@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Optional
 
 from api.models.enums.conv import TaskType
+from api.models.enums.conv import ReportType
 
 class ChatMessagesResponse(BaseModel):
     id: int
@@ -29,6 +30,28 @@ class ChatSchema(BaseModel):
 
 class ConvSchema(BaseModel):
     title:str
+    
+class ChatRating(BaseModel):
+    user_rating: Optional[int]=None
+    
+    
+    
 
 
+#generated reports
+class ReportCreateSchema(BaseModel):
+    title:str
+    report_type:Optional[ReportType]=None
+    report_content:str
+    
+class ReportResponseSchema(BaseModel):
+    id:int
+    title:str
+    report_type: Optional[ReportType]=None
+    report_content:str
+    conversation_id: int
+    created_by_id:int
+    
+    
+    model_config=ConfigDict(from_attributes=True)
 

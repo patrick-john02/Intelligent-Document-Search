@@ -8,11 +8,13 @@ from sqlalchemy import select, func
 
 
 from api.models.conversations import(
-    Conversation, ChatMessages, ChatMessageSources
+    Conversation, ChatMessages, ChatMessageSources,
+    GeneratedReports,
 )
 from api.schema.chat_schema import (
     ConversationsResponse, ChatMessagesResponse,
-    ChatSchema, ConvSchema, 
+    ChatSchema, ConvSchema, ChatRating,
+    ReportResponseSchema, ReportCreateSchema,
 )
 
 from api.models.users import Users
@@ -145,7 +147,7 @@ async def talk_to_ai(
 
     
 #TODO: Rename a conversation title
-@router.patch("/{id}", status_code=status.HTTP_200_OK, response_model=ConvSchema)
+@router.patch("/{id}", status_code=status.HTTP_200_OK, response_model=ConversationsResponse)
 async def update_conversation(
     id:int,
     payload: ConvSchema,
@@ -154,7 +156,7 @@ async def update_conversation(
 ):
     query = select(Conversation).where(
         Conversation.id == id,
-        Conversation.user_id == current_user
+        Conversation.user_id == current_user.id
     )
     
     result = await db.execute(query)
@@ -169,7 +171,7 @@ async def update_conversation(
     update_conv.title = payload.title
 
     await db.commit()
-    await db.refresh
+    await db.refresh(update_conv)
     
     return update_conv
     
@@ -184,7 +186,7 @@ async def delete_conversation(
 ):
     query = select(Conversation).where(
         Conversation.id == id,
-        Conversation.user_id == current_user
+        Conversation.user_id == current_user.id
         
     )
     
@@ -197,7 +199,104 @@ async def delete_conversation(
             detail="Conversation Not Found"
         )
         
-    db.delete(delete_conv)
+    await db.delete(delete_conv)
     await db.commit()
     
     return None
+
+
+#TODO: message feedback endpoint
+@router.patch("/chat/messages/{id}/feedback", status_code=status.HTTP_200_OK)
+async def users_feedback(
+    id:int,
+    payload: ChatRating,
+    db:AsyncSession=Depends(get_db),
+    current_user:Users=Depends(get_current_active_user)
+):
+    
+    query = select(ChatMessages).where(
+        ChatMessages.id == id,
+    )
+    
+    result = await db.execute(query)
+    feedback = result.scalar_one_or_none()
+    
+    if not feedback:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail ="Message not found"
+        )
+        
+    return feedback
+
+#TODO: gerated reports endpoints
+@router.post("/{conversation_id}/reports", status_code=status.HTTP_201_CREATED, response_model=ReportResponseSchema)
+async def create_generated_report(
+    conversation_id: int,
+    payload: ReportCreateSchema,
+    db:AsyncSession=Depends(get_db),
+    current_user:Users=Depends(get_current_active_user)
+):
+    conv_query = select(Conversation).where(
+        Conversation.id == conversation_id,
+        Conversation.user_id == current_user.id,
+    )
+    
+    conv_result = await db.execute(conv_query)
+    conversation = conv_result.scalar_one_or_none()
+    
+    
+    if not conversation:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Conversation not found"
+        )
+    new_report = GeneratedReports(
+        title=payload.title,
+        report_type=payload.report_type,
+        report_content=payload.report_content,
+        conversation_id=conversation.id,
+        created_by_id=current_user.id
+    )
+    
+    db.add(new_report)
+    await db.commit()
+    await db.refresh(new_report)
+    
+    return new_report
+
+
+@router.get("/chat/{conversation_id/reports}", status_code=status.HTTP_200_OK, response_model=list[ReportResponseSchema])
+async def generated_reports(
+    conversation_id: int,
+    db:AsyncSession=Depends(get_db),
+    current_user:Users=Depends(get_current_active_user)
+):
+    
+    conv_query = select(Conversation).where(
+        Conversation.id == conversation_id,
+        Conversation.user_id == current_user.id,
+        
+    )
+    
+    conv_result = await db.execute(conv_query)
+    if not conv_result.scalar_one_or_none():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Conversation not found"
+        )
+        
+    query = select(GeneratedReports).where(
+        GeneratedReports.conversation_id==conversation_id,
+        GeneratedReports.created_by_id==current_user.id,
+    ).order_by(GeneratedReports.id.desc())
+    
+    result = await db.execute(query)
+    return result.scalars().all()
+
+    
+    
+    
+    
+
+    

@@ -61,7 +61,7 @@ class ChatMessages(Base):
     conversation_id: Mapped[int] = mapped_column(ForeignKey("conversation.id"))
     conversation: Mapped["Conversation"] = relationship(back_populates="messages")
     
-    sources: Mapped[list["ChatMessageSources"]] = relationship(back_populates="message")
+    sources: Mapped[list["ChatMessageSources"]] = relationship(back_populates="message", cascade="all, delete-orphan")
 
 class ChatMessageSources(Base):
     __tablename__ = "chat_messages_sources"
