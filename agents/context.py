@@ -4,6 +4,8 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_ollama import ChatOllama
 from core.configurations import chat_model
 
+from api.models.users import Users
+
 class IntentClassification(BaseModel):
     intent: Literal[
         "analyze_document",
@@ -29,7 +31,8 @@ class IntentClassifierService:
             - check_leave_credits: For questions about vacation days, sick leave, or PTO balances.
             - process_attachments: For handling newly uploaded files or attachments.
             - unclear: If the request doesn't match any of the above or is ambiguous.
-            Note: Users may have typos or poor grammar. Focus on the core intent of their request.
+            
+                
             """),
             ("human", "{question}")
         ])

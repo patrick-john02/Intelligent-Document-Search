@@ -18,8 +18,8 @@ async def classify_intent_node(state: IntentAgentState):
     return {"intent": detected_intent}
 
 async def get_attachment_ids_node(state: IntentAgentState):
-    new_ids = [1, 2, 3] 
-    return {"attachment_ids": new_ids}
+    existing_id = state.get("attachment_ids", [])
+    return {"attachment_ids": existing_id}
 
 async def target_agent_node(state: IntentAgentState):
     # This acts as the supervisor delegating to a sub-agent
@@ -45,14 +45,13 @@ async def call_doc_analysis_node(state:IntentAgentState):
 
     sub_result = await doc_analysis_app.ainvoke(sub_state)
 
-    analysis = sub_result("analysis_result", {})
+    analysis = sub_result.get("analysis_result", {})
     summary = analysis.get("summary", "No summary could be generated.")
     doc_type = analysis.get("document_type", "Unkown")
 
     final_message = f"I analyzed the {doc_type} document. here is the summary: {summary}"
 
     return {
-        "target_aget": "doc_analysis_agent",
+        "target_agent": "doc_analysis_agent",
         "agent_result":final_message
-        
     }

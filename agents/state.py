@@ -3,6 +3,7 @@ from typing import TypedDict, Optional, List
 
 class IntentAgentState(TypedDict, total=False):
     question: str
+    user_id: Optional[int]
     intent: Optional[str]
     attachment_ids: List[int]
     mentioned_document_ids: List[int]

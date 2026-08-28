@@ -33,6 +33,8 @@ class ConvSchema(BaseModel):
     
 class ChatRating(BaseModel):
     user_rating: Optional[int]=None
+    is_helpful: Optional[bool] = None
+
     
     
     

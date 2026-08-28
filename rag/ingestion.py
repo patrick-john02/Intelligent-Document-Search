@@ -194,7 +194,12 @@ async def process_uploaded_file(document_version_id: int, file_name: str, file_p
                 document_version_id=document_version_id,
                 file_name=file_name, 
                 chunk_id=str(i), 
-                content=chunk
+                content=chunk,
+                metadata={
+                    "document_id":document_id,
+                    "version_number": version_number,
+                    "clearance_level":clearance_level,
+                }
             )
 
             for i, chunk in enumerate(text_chunk)

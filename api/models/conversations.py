@@ -32,7 +32,6 @@ class Conversation(Base):
     generated_reports: Mapped[list["GeneratedReports"]] = relationship(back_populates="conversation", cascade="all, delete-orphan")
 
 
-
     
 
 class ChatMessages(Base):

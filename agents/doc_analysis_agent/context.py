@@ -3,6 +3,7 @@ from typing import Literal, List
 from langchain_core.prompts import ChatPromptTemplate
 
 from core.configurations import chat_model
+from api.models.users import Users
 
 
 

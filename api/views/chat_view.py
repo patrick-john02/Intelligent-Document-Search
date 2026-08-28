@@ -117,7 +117,8 @@ async def talk_to_ai(
     
     initial_state = {
         "question": payload.content,
-        "attachment_ids": [],
+        "attachment_ids": payload.attachment_ids or [],
+        "user_id" : current_user.id
     }
     config = {"configurable": {"thread_id":str(conversation.id)}}
     
@@ -141,7 +142,7 @@ async def talk_to_ai(
         "message": "Chat Created Successfully", 
         "conversation_id": conversation.id,
         "chat": user_message,
-        "assitant_message": assistant_message
+        "assistant_message": assistant_message
     }
 
 
@@ -206,7 +207,7 @@ async def delete_conversation(
 
 
 #TODO: message feedback endpoint
-@router.patch("/chat/messages/{id}/feedback", status_code=status.HTTP_200_OK)
+@router.patch("/messages/{id}/feedback", status_code=status.HTTP_200_OK)
 async def users_feedback(
     id:int,
     payload: ChatRating,
@@ -214,18 +215,32 @@ async def users_feedback(
     current_user:Users=Depends(get_current_active_user)
 ):
     
-    query = select(ChatMessages).where(
-        ChatMessages.id == id,
+    query = (
+        select(ChatMessages)
+        .join(Conversation, ChatMessages.conversation_id == Conversation.id)
+        .where(
+            ChatMessages.id == id,
+            Conversation.user_id == current_user.id,
+        )
+
     )
-    
+
     result = await db.execute(query)
     feedback = result.scalar_one_or_none()
     
     if not feedback:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail ="Message not found"
+            detail ="Message not found bor access denied"
         )
+
+    if payload.user_rating is not None:
+        feedback.user_rating = payload.user_rating
+    if payload.is_helpful is not None:
+        feedback.is_helpful = payload.is_helpful
+
+    await db.commit()
+    await db.refresh(feedback)
         
     return feedback
 
@@ -266,7 +281,7 @@ async def create_generated_report(
     return new_report
 
 
-@router.get("/chat/{conversation_id/reports}", status_code=status.HTTP_200_OK, response_model=list[ReportResponseSchema])
+@router.get("/chat/reports}", status_code=status.HTTP_200_OK, response_model=list[ReportResponseSchema])
 async def generated_reports(
     conversation_id: int,
     db:AsyncSession=Depends(get_db),
@@ -293,10 +308,5 @@ async def generated_reports(
     
     result = await db.execute(query)
     return result.scalars().all()
-
-    
-    
-    
-    
 
     
