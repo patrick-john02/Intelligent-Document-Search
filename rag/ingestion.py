@@ -1,22 +1,20 @@
+import uuid
+import asyncio
+import anydoc
+
 from langchain_core.documents import Document
 from typing import Dict, Any
 from dataclasses import dataclass, field
-from core.dependencies import Deps, deps
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
+
 from core.dependencies import SessionLocal
+from core.dependencies import Deps, deps
 from api.models.document import(
     DocumentVersion, 
 )
 
-
-import pandas as pd
-import uuid
-import numpy as np
-import asyncio
-import io
-import anydoc
 
 @dataclass
 class FileChunk:
