@@ -42,7 +42,7 @@ workflow.add_conditional_edges(
 )
 
 
-workflow.add_edge("call_doc_analysis_node", "generate_answer_node")
+workflow.add_edge("call_doc_analysis_node", "generated_answer_node")
 workflow.add_edge("generated_answer_node", END)
 workflow.add_edge("ask_for_clarification_node", END)
 workflow.add_edge("reject_request_node", END)
