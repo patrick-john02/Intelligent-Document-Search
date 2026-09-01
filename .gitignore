@@ -82,7 +82,6 @@ faiss_index/
 # Operating System Files
 # ==========================================
 .DS_Store
-.DS_Store?
 ._*
 .Spotlight-V100
 .Trashes
@@ -101,3 +100,4 @@ Thumbs.db
 *.swp
 *.swo
 *~
+
