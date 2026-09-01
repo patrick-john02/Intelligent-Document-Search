@@ -50,7 +50,7 @@ async def generate_image_caption(image_bytes: bytes)->str:
     message = HumanMessage(
         content=[
             {"type": "text", "text": prompt},
-            {"type": "image_url", "image_url": {"url": f"date:image/jpeg;base64,{b64_image}"}}
+            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64_image}"}}
         ]
     )
     

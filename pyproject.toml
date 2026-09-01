@@ -41,4 +41,4 @@ dev = [
 ]
 
 [tool.uv.sources]
-depicdocs = { path = "../DepicDocs", editable = true }
+depicdocs = { git = "https://github.com/patrick-john02/DepicDocs.git" }

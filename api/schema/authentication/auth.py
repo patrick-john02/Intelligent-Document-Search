@@ -13,6 +13,7 @@ class Token(BaseModel):
 class TokenData(BaseModel):
     username: str | None = None
 
+
 class UserProfileResponses(BaseModel):
     username: str
     first_name: str
@@ -25,6 +26,9 @@ class UserProfileResponses(BaseModel):
     division: str
     is_active: bool
     is_superuser: bool
+    system_role_id: int
+    
+
 
     model_config = ConfigDict(from_attributes=True)
     

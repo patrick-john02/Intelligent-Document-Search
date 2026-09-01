@@ -281,7 +281,7 @@ async def create_generated_report(
     return new_report
 
 
-@router.get("/chat/reports}", status_code=status.HTTP_200_OK, response_model=list[ReportResponseSchema])
+@router.get("/{conversation_id}/reports", status_code=status.HTTP_200_OK, response_model=list[ReportResponseSchema])
 async def generated_reports(
     conversation_id: int,
     db:AsyncSession=Depends(get_db),

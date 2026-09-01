@@ -16,7 +16,7 @@ from fastapi import (
 
 
 #imports
-from api.models.users import Users
+from api.models.users import Users, SystemRole
 from api.schema.authentication.auth import TokenData
 
 load_dotenv() 
@@ -50,18 +50,24 @@ def verify_password(plain_password, hashed_password):
 def get_password_hash(password):
     return password_hash.hash(password)
 
-def get_user_permissions(user:Users)->set[str]:
+def get_user_permissions(user: Users) -> set[str]:
     if user.is_superuser:
         return {"*"}
 
     if not user.system_role or not user.system_role.role_permissions:
         return set()
 
-    return {perm.permission_code for perm in user.system_role.role_permissions}
+    return {perm.permission_name for perm in user.system_role.role_permissions}
 
 
-async def get_user(db: AsyncSession, username: str)->Users | None:
-    query = select(Users).where((Users.username == username) | (Users.email == username)).options(selectinload(Users.system_role))
+async def get_user(db: AsyncSession, username: str) -> Users | None:
+    query = (
+        select(Users)
+        .where((Users.username == username) | (Users.email == username))
+        .options(
+            selectinload(Users.system_role).selectinload(SystemRole.role_permissions)
+        )
+    )
     result = await db.execute(query)
     return result.scalars().first()
 

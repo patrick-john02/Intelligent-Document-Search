@@ -12,6 +12,8 @@ from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
+from datetime import datetime
+from api.models.document import DocumentVersion, DocumentChunks
 
 from depicdoc import linearize_document
 
@@ -79,7 +81,7 @@ async def process_uploaded_file(
     document_version_id: int, file_name: str, file_path: str
 ) -> None:
     try:
-        print(f"Extracting Text from {document_version_id}")
+        # print(f"Extracting Text from {document_version_id}")
 
         async with SessionLocal() as db_session:
             query = (
@@ -111,10 +113,14 @@ async def process_uploaded_file(
         text_chunk = chunk_text(linearized_markdown)
 
         table_chunks = [c for c in text_chunk if "[Columns:" in c or " | " in c]
-        print(
-            f"[DepicDocs] Version {document_version_id}: Generated {len(text_chunk)} chunks "
-            f"({len(table_chunks)} table chunks detected)"
-        )
+
+
+        # print(
+        #     f"[DepicDocs] Version {document_version_id}: Generated {len(text_chunk)} chunks "
+        #     f"({len(table_chunks)} table chunks detected)"
+        # )
+
+
         for idx, t_chunk in enumerate(table_chunks[:2]):
             print(f"[DepicDocs] Table Sample #{idx+1}:\n{t_chunk[:200]}...")
 
@@ -148,7 +154,31 @@ async def process_uploaded_file(
     except Exception as e:
         print(f"Ingestion Failed for version {document_version_id}: {e}")
         async with SessionLocal() as db_session:
+            for i, chunk_content in enumerate(text_chunk):
+                db_chunk = DocumentChunks(
+                    start_char_idx=0,
+                    chunk_index=1,
+                    content=chunk_content,
+                    page_number=None,
+                    token_count=len(chunk_content.split()),
+                    vector_id=i,
+                    chunk_metadata={
+                        "document_id": document_id,
+                        "version_number": version_number,
+                        "clearance_level": clearance_level,
+                    },
+                    created_at=datetime.now(),
+                )
+                db_session.add(db_chunk)
+
             version = await db_session.get(DocumentVersion, document_version_id)
             if version:
-                version.status = "failed"
-                await db_session.commit()
+                version.status = "indexed"
+            await db_session.commit()
+
+
+
+            # version = await db_session.get(DocumentVersion, document_version_id)
+            # if version:
+            #     version.status = "failed"
+            #     await db_session.commit()

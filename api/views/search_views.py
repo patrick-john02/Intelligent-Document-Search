@@ -1,6 +1,4 @@
-from fastapi import(
-    status, Depends, HTTPException, APIRouter, Query
-)
+from fastapi import status, Depends, HTTPException, APIRouter, Query
 from fastapi_pagination import Page, add_pagination, paginate
 from sqlalchemy import select, or_, cast, String
 from sqlalchemy.orm import selectinload
@@ -9,48 +7,32 @@ from datetime import date, datetime
 from zoneinfo import ZoneInfo
 from typing import Annotated
 
-
-#models
-from api.models.document import (
-    DocumentModel, DocumentVersion,
-)
+from api.models.document import DocumentModel, DocumentVersion
 from api.models.enums.docs import ClearanceLevel
 from api.models.users import Users
-#schema 
-from api.schema.document_schema import (
-    DocumentSchema, 
-)
-
-#dependency
+from api.schema.document_schema import DocumentSchema
 from core.dependencies import get_db
-
-#security
-from core.security import(
-    get_current_active_user, get_user_permissions
-)
-
-
+from core.security import get_current_active_user, get_user_permissions
 
 manila_tz = ZoneInfo("Asia/Manila")
 
-# app = FastAPI()
-app = APIRouter(prefix='/documents')
+router = APIRouter(prefix="/documents", tags=["Document Search"])
+app = router
+add_pagination(router)
 
-add_pagination(app)
 
-
-@app.get("/document/search", status_code=status.HTTP_200_OK, response_model=list[DocumentSchema])
+@router.get("/search", status_code=status.HTTP_200_OK, response_model=list[DocumentSchema])
 async def search_document(
     q: Annotated[
         str | None,
         Query(
-            title = "Query String",
+            title="Query String",
             description="Query String for the items to search in the database",
             min_length=3,
         ),
     ] = None,
-    db:AsyncSession = Depends(get_db),
-    current_user: Users=Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+    current_user: Users = Depends(get_current_active_user),
 ):
     permission = get_user_permissions(current_user)
     
@@ -68,20 +50,18 @@ async def search_document(
                 )
             )
         else:
-            query=query.where(DocumentModel.created_by_id == current_user.id)
+            query = query.where(DocumentModel.created_by_id == current_user.id)
     
     if q:
-        query=query.where(
+        query = query.where(
             or_(
                 DocumentModel.title.ilike(f"%{q}%"),
                 DocumentModel.department_order.ilike(f"%{q}%"),
                 DocumentModel.physical_shelf_location.ilike(f"%{q}%"),
                 DocumentModel.versions.any(DocumentVersion.file_name.ilike(f"%{q}%")),
                 cast(DocumentModel.series_years, String).ilike(f"%{q}%")
-                
             )
         )
-    
     
     doc_query = query.options(
         selectinload(DocumentModel.versions),
@@ -89,16 +69,5 @@ async def search_document(
         selectinload(DocumentModel.category),
     ).order_by(DocumentModel.created_at.desc())
     
-    
     result = await db.execute(doc_query)
     return result.scalars().all()
-
-
-
-    
-    
-    
-    
-    
-    
-    

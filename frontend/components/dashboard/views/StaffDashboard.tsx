@@ -98,88 +98,6 @@
 
       return (
         <Box sx={{ width: "100%", display: "flex", flexDirection: "column", gap: 3 }}>
-          {/* 1. Hero Search & AI Query Bar */}
-          <Paper
-            elevation={0}
-            sx={{
-              p: { xs: 2.5, md: 4 },
-              borderRadius: 3,
-              border: "1px solid",
-              borderColor: "divider",
-              bgcolor: "background.paper",
-              backgroundImage:
-                "radial-gradient(ellipse at 100% 0%, rgba(15, 23, 42, 0.04) 0%, transparent 70%)",
-            }}
-          >
-            <Stack spacing={2} sx={{ maxWidth: 800, mx: "auto", textAlign: "center" }}>
-              <Box sx={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 1 }}>
-                <AutoAwesomeOutlinedIcon color="primary" fontSize="small" />
-                <Typography variant="overline" sx={{ fontWeight: 800, color: "text.secondary", letterSpacing: 1.2 }}>
-                  BLGF Semantic Search & Retrieval
-                </Typography>
-              </Box>
-
-              <Typography variant="h5" sx={{ fontWeight: 800, color: "text.primary" }}>
-                Find Official Documents & Ask AI in Plain English
-              </Typography>
-
-              <Typography variant="body2" sx={{ color: "text.secondary", mb: 1 }}>
-                Search across archived circulars, department orders, and legal rulings with verifiable page citations.
-              </Typography>
-
-              {/* Search Form */}
-              <Box component="form" onSubmit={handleSearchSubmit} sx={{ display: "flex", gap: 1.5 }}>
-                <TextField
-                  fullWidth
-                  size="medium"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="e.g. What is the latest assessment regulation for commercial land in Isabela?"
-                  slotProps={{
-                    input: {
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <SearchRoundedIcon sx={{ color: "text.secondary" }} />
-                        </InputAdornment>
-                      ),
-                      endAdornment: (
-                        <InputAdornment position="end">
-                          <Typography
-                            variant="caption"
-                            sx={{
-                              bgcolor: "action.hover",
-                              px: 1,
-                              py: 0.3,
-                              borderRadius: 1,
-                              fontSize: "0.7rem",
-                              fontWeight: 700,
-                              color: "text.secondary",
-                              display: { xs: "none", sm: "block" },
-                            }}
-                          >
-                            ⌘K
-                          </Typography>
-                        </InputAdornment>
-                      ),
-                      sx: {
-                        borderRadius: 2.5,
-                        bgcolor: "background.default",
-                      },
-                    },
-                  }}
-                />
-                <Button
-                  type="submit"
-                  variant="contained"
-                  color="primary"
-                  sx={{ px: 3, borderRadius: 2.5, whiteSpace: "nowrap" }}
-                  startIcon={<AutoAwesomeOutlinedIcon />}
-                >
-                  Ask AI
-                </Button>
-              </Box>
-            </Stack>
-          </Paper>
 
           {/* 2. Staff KPI Metric Cards (3 Cards) */}
           <Grid container spacing={2}>
@@ -188,7 +106,7 @@
                 <CardContent>
                   <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
                     <Typography variant="caption" sx={{ fontWeight: 700, color: "text.secondary" }}>
-                      TOTAL ARCHIVED
+                      ARCHIVED DOCUMENTS
                     </Typography>
                     <FolderOutlinedIcon fontSize="small" sx={{ color: "primary.main" }} />
                   </Box>

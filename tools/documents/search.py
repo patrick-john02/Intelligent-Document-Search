@@ -70,6 +70,23 @@ async def search_document_tool(query:str, top_k: int = 3)->str:
     return "\n---\n".join(output)
 
 
+
+#for database searching
+@tool("search_database")
+async def search_database_tool(query:str, limit: int=10)->str:
+    return (f"found {limit} results for {query}")
+
+
+
+#for web searching
+@tool("search_web")
+async def search_on_web(query: str, results: int = 10)->str:
+    return f"Results for: {query}"
+
+print(search_on_web.name)
+
+
+
 async def vector_search_users(query:str, user:Users, top_k:int=5):
     allowed_clearances = get_user_clearance_levels(user) 
 

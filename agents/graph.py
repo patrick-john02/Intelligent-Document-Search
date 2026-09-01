@@ -20,21 +20,21 @@ workflow.add_node("get_attachment_ids_node", get_attachment_ids_node)
 
 #searching agent on the actions here. TODO: ongoing development for this
 
-#document analysis
+#intent classification phase for this. 
 workflow.add_node("call_doc_analysis_node", call_doc_analysis_node)
 workflow.add_node("ask_for_clarification_node", ask_for_clarification_node)
 workflow.add_node("reject_request_node", reject_request_node)
 workflow.add_node("generated_answer_node", generated_answer_node)
 
-
+#transitions of context per agents
 workflow.add_edge(START, "get_attachment_ids_node")
-
 workflow.add_edge("get_attachment_ids_node", "classify_intent_node")
 
 workflow.add_conditional_edges(
     "classify_intent_node", 
     intent_classifier_router,
     {
+        # "call_research_node": "call_researcher_node",
         "call_doc_analysis_node":"call_doc_analysis_node",
         "ask_for_clarification_node":"ask_for_clarification_node",
         "reject_request_node":"reject_request_node",
@@ -42,7 +42,9 @@ workflow.add_conditional_edges(
 )
 
 
+# workflow.add_edge("call_researcher_node", "generated_answer_node")
 workflow.add_edge("call_doc_analysis_node", "generated_answer_node")
+
 workflow.add_edge("generated_answer_node", END)
 workflow.add_edge("ask_for_clarification_node", END)
 workflow.add_edge("reject_request_node", END)
