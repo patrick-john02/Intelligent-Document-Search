@@ -225,15 +225,19 @@ export default function LoginPage() {
                 </Link>
               </Stack>
 
-              {/* Submit Button */}
               <Button
                 type="submit"
                 variant="contained"
                 fullWidth
                 disabled={isLoading}
+                sx={{
+                  py:1.2,
+                  fontWeight: 600,
+                  borderRadius: 2,
+                }}
               >
                 {isLoading ? (
-                  <CircularProgress size={20} sx={{ color: "#FFFFFF" }} />
+                  <CircularProgress size={22} sx={{ color: "#FFFFFF" }} />
                 ) : (
                   "Sign In"
                 )}

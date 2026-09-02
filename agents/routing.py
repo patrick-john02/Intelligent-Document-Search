@@ -28,10 +28,10 @@ def intent_classifier_router(
     if classify_intent == "analyze_document":
         return "call_doc_analysis_node"
 
-    if classify_intent == "research_documents":
+    if classify_intent == "retrieve_documents":
         return "call_researcher_node"
 
-    if classify_intent == "proccess_attachments":
+    if classify_intent == "process_attachments":
         return "call_reporting_node"
 
     if classify_intent == "unclear":

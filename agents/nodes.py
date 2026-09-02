@@ -41,8 +41,13 @@ async def generated_answer_node(state: IntentAgentState):
 
 
 async def call_doc_analysis_node(state:IntentAgentState):
-    sub_state = {"question": state.get("question","")}
+    doc_ids = state.get("mentioned_document_ids", [])
 
+    sub_state = {
+        "question": state.get("question", ""),
+        "document_id": doc_ids[0] if doc_ids else None,
+    }
+    
     sub_result = await doc_analysis_app.ainvoke(sub_state)
 
     analysis = sub_result.get("analysis_result", {})

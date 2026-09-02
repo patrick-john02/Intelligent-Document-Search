@@ -12,6 +12,7 @@ class IntentClassification(BaseModel):
         "retrieve_document",
         "check_leave_credits",
         "process_attachments",
+        "general_conversation",
         "unclear"
     ] = Field(
         description="Classify the user's question into one of the exact intents."

@@ -3,7 +3,7 @@ from typing import Literal, List
 from langchain_core.prompts import ChatPromptTemplate
 
 from core.configurations import chat_model
-from api.models.users import Users
+# from api.models.users import Users
 
 
 
@@ -40,7 +40,7 @@ class DocAnalysisService:
             Do not invent missing information.
 
             """),
-            ("human", "{question}")
+            ("human", "User Prompts: {user_prompt}\n\nDocument Content:\n{document_text}")
         ])
 
         self.chain = self.prompt | self.structured_llm
