@@ -11,4 +11,3 @@ async def search_document_node(state: DocumentResearcherAgent):
     return{"search_result":result.model_dump()}
 
 
-

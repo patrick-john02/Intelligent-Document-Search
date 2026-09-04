@@ -1,23 +1,13 @@
-# from typing import Literal
-# from agents.state import IntentAgentState
+from typing import Literal
+from agents.doc_analysis_agent.state import DocAnalysisAgent
 
-# def intent_classifier_router(
-#         state: IntentAgentState
-# )->Literal[
-#     "call_doc_analysis_node",
-#     "ask_for_clarification_node",
-#     "reject_request_node"
-# ]:
-#     classify_intent = state.get("intent")
+def doc_analysis_router(state:DocAnalysisAgent)->Literal["compare_documents_node", "analyze_docuement_node"]:
+    has_second_doc = bool(state.get("compare_document_id") or state.get("compare_document_text"))
+    is_compare_flag = state.get("is_comparison", False)
 
-#     if classify_intent == "analyze_document":
-#         return "call_doc_analysis_node"
+    if has_second_doc or is_compare_flag:
+        return "compare_documents_node"
 
-#     # TODO: Add routing for 'retrieve_document', 'check_leave_credits', etc... later
-
-#     if classify_intent == "unclear":
-#         return "ask_for_clarification_node"
-
-#     return "reject_request_node"
+    return "analyze_document_node"
 
 

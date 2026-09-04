@@ -42,11 +42,18 @@ async def generated_answer_node(state: IntentAgentState):
 
 async def call_doc_analysis_node(state:IntentAgentState):
     doc_ids = state.get("mentioned_document_ids", [])
+    question = state.get("question", "")
+
+    is_comparison = len(doc_ids) >= 2 or "compare" in question.lower()
 
     sub_state = {
         "question": state.get("question", ""),
         "document_id": doc_ids[0] if doc_ids else None,
+
+        "compare_document_id" : doc_ids[1] if len(doc_ids) > 1 else None,
+        "is_comparison": is_comparison,
     }
+    
     
     sub_result = await doc_analysis_app.ainvoke(sub_state)
 
