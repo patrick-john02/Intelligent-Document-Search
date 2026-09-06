@@ -28,7 +28,7 @@ def intent_classifier_router(
     if classify_intent == "analyze_document":
         return "call_doc_analysis_node"
 
-    if classify_intent == "retrieve_documents":
+    if classify_intent in ("retrieve_document", "retrieve_documents"):
         return "call_researcher_node"
 
     if classify_intent == "process_attachments":

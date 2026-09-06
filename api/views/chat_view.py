@@ -16,10 +16,12 @@ from api.schema.chat_schema import (
     ChatSchema, ConvSchema, ChatRating,
     ReportResponseSchema, ReportCreateSchema,
 )
+from api.models.enums.conv import TaskType
 
 from api.models.users import Users
 from core.dependencies import get_db
 from core.security import get_current_active_user
+
 
 #imports from agents
 from agents.graph import app as agent_app
@@ -96,7 +98,7 @@ async def talk_to_ai(
         conversation = Conversation(
             title=conv_title,
             user_id=current_user.id,
-            created_at=datetime.now(timezone.utc)
+            created_at=datetime.now(timezone.utc).replace(tzinfo=None)
         )
         db.add(conversation)
         await db.commit()
@@ -107,7 +109,8 @@ async def talk_to_ai(
         sender_type="user",
         content=payload.content,
         tokens_used=0,
-        created_at=datetime.now(timezone.utc)
+        task_type = TaskType.EXTRACTION,
+        created_at=datetime.now(timezone.utc).replace(tzinfo=None)
         
     )
     
@@ -130,7 +133,8 @@ async def talk_to_ai(
         sender_type="assistant",
         content=ai_content,
         tokens_used=0,
-        created_at=datetime.now(timezone.utc),
+        task_type = TaskType.SUMMARIZATION,
+        created_at=datetime.now(timezone.utc).replace(tzinfo=None),
     )
     db.add(assistant_message)
     await db.commit()

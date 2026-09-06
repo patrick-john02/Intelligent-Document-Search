@@ -36,6 +36,18 @@ class DuplicateDetectionResult(BaseModel):
     matches: List[DuplicateMatch] = Field(default_factory=list, description="List of matched documents.")
     
     
+class DetectDuplicatesInput(BaseModel):
+    document_ref: str = Field(
+        description="The Document ID (e.g. '5') or title to check against all existing documents for duplicates"
+    )
+    threshold: float = Field(
+        default=0.92,
+        description="Similarity threshold between 0.0 and 1.0 (default:0.92)."
+    )
+
+    
+    
+    
 #hash unitilities: exact match
 
 def calculate_content_hash(text:str)->str:
@@ -177,7 +189,7 @@ async def check_semantic_duplicates(
 
 #detector
 async def detect_duplicates(
-    doducment_ref: str,
+    document_ref: str,
     threshold: float = 0.92,
 )->DuplicateDetectionResult:
     #orchestrate duplicate detection:
@@ -185,12 +197,12 @@ async def detect_duplicates(
     # runs tier 1 (hash check)
     #runs tier 2 vector similarity search
     
-    title, text = await resolve_document_content(doducment_ref)
+    title, text = await resolve_document_content(document_ref)
     
     if not text.strip():
         return DuplicateDetectionResult(
             is_duplicate=False,
-            checked_document=doducment_ref,
+            checked_document=document_ref,
             total_matches=0,
             matches=[],
         )
@@ -200,8 +212,8 @@ async def detect_duplicates(
     existing_checksum= None
     
     
-    if str(doducment_ref).strip().isdigit():
-        exclude_doc_id = int(str(doducment_ref).strip())
+    if str(document_ref).strip().isdigit():
+        exclude_doc_id = int(str(document_ref).strip())
         
         try:
             async with SessionLocal() as session:
@@ -247,7 +259,7 @@ async def detect_duplicates(
     )
     
 #agent tool
-@tool("detect_duplicates")
+@tool("detect_duplicates", description="Check if a given document is an exact binary hash duplicate or semantic duplicate of existing files.", args_schema=DetectDuplicatesInput)
 async def detect_duplicates_tool(document_ref: str, threshold:float = 0.92)->str:
     result = await detect_duplicates(document_ref=document_ref, threshold=threshold)
     
@@ -266,7 +278,7 @@ async def detect_duplicates_tool(document_ref: str, threshold:float = 0.92)->str
             f"- ** Document #{match.document_id}: {match.document_title}** ({match.file_name})\n"
             f"- **Type** {match.match_type}\n"
             f"- **Similarity Score: ** {match.similarity_score:.2%}\n"
-            f"-**Details:** {match.reason}\n"
+            f"-**Reason:** {match.reason}\n"
         )
         
     return "\n".join(output)

@@ -1,5 +1,6 @@
 #document analysis agent
 from agents.doc_analysis_agent.graph import doc_analysis_app
+from agents.researcher_agent.graph import doc_searching_app
 
 
 from agents.state import IntentAgentState
@@ -41,29 +42,39 @@ async def generated_answer_node(state: IntentAgentState):
 
 
 async def call_doc_analysis_node(state:IntentAgentState):
-    doc_ids = state.get("mentioned_document_ids", [])
     question = state.get("question", "")
-
-    is_comparison = len(doc_ids) >= 2 or "compare" in question.lower()
-
-    sub_state = {
-        "question": state.get("question", ""),
-        "document_id": doc_ids[0] if doc_ids else None,
-
-        "compare_document_id" : doc_ids[1] if len(doc_ids) > 1 else None,
-        "is_comparison": is_comparison,
-    }
+    doc_ids = state.get("mentioned_document_ids", [])
+    
+    prompt = question
+    if doc_ids:
+        prompt += f" (Referenced Document IDs: {', '.join(map(str, doc_ids))})"
+        
+    sub_result = await doc_analysis_app.ainvoke({
+        "messages":[{"role": "user", "content":prompt}]
+    })
+    
+    messages = sub_result.get("messages", [])
+    final_text = messages[-1].content if messages else "Analysis could not be completed."
     
     
-    sub_result = await doc_analysis_app.ainvoke(sub_state)
-
-    analysis = sub_result.get("analysis_result", {})
-    summary = analysis.get("summary", "No summary could be generated.")
-    doc_type = analysis.get("document_type", "Unkown")
-
-    final_message = f"I analyzed the {doc_type} document. here is the summary: {summary}"
-
     return {
-        "target_agent": "doc_analysis_agent",
-        "agent_result":final_message
+        "target_agent":"doc_analysis_agent",
+        "agent_result":final_text
     }
+    
+async def call_researcher_node(state:IntentAgentState):
+    question = state.get("question", "")
+    sub_result = await doc_searching_app.ainvoke({
+        "messages":[{"role":"user","content":question}]
+    })
+    
+    messages = sub_result.get("messages", [])
+    final_text=messages[-1].content if messages else "No relevant information found."
+    
+    return {
+        "target_agent": " resaercher_agent",
+        "agent_result": final_text
+    }
+    
+    
+    

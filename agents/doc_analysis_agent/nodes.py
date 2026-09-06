@@ -3,7 +3,7 @@ from agents.doc_analysis_agent.state import DocAnalysisAgent
 from agents.doc_analysis_agent.context import DocAnalysisService
 #supervisor
 from agents.state import IntentAgentState
-
+from agents.doc_analysis_agent.graph import doc_analysis_app
 #tools
 from tools.analysis.compare import compare_documents
 from tools.analysis.fetch import resolve_document_content
@@ -78,3 +78,26 @@ async def analyze_document_node(state: DocAnalysisAgent):
     #convert pydantic model to dictionary so it will be in stored state
     return {"analysis_result":result.model_dump()}
 
+
+
+async def call_doc_analysis_node(state:IntentAgentState):
+    question = state.get("question", "")
+    doc_ids = state.get("mentioned_document_ids", [])
+    
+    prompt = question
+    if doc_ids:
+        prompt += f" (Referenced Document IDs: {', '.join(map(str, doc_ids))})"
+        
+    sub_result = await doc_analysis_app.ainvoke({
+        "messages": [{"role": "user", "content":prompt}]
+    })
+        
+    messages = sub_result.get("messages", [])
+    final_text = messages[-1].content if messages else "Analysis could not be completed"
+        
+    return{
+        "target_agent": "doc_analysis_agent",
+        "agent_result": final_text
+    }
+    
+    

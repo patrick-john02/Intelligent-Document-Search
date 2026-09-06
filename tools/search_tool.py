@@ -21,8 +21,3 @@ def internet_search(
         include_raw_content=include_raw_content,
         topic=topic
     )
-    
-agent = create_deep_agent(
-    model = "ollama:north-mini-core-1.0",
-    tools=[internet_search],
-)

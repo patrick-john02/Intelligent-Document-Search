@@ -1,6 +1,8 @@
 from typing import Optional, List, Dict, Any
 from core.dependencies import deps
 from langchain.tools import tool
+from pydantic import BaseModel, Field
+from tools.analysis.fetch import resolve_document_content
 
 from api.models.users import Users
 from tools.access.permissions import get_user_clearance_levels
@@ -51,39 +53,67 @@ async def search_documents(
 
     return formatted_results
 
+class SearchDocumentsInput(BaseModel):
+    query:str=Field(
+        description="Natural language search query or keywords describing the information, concept, or policy to find in internal documents"
+    )
+    top_k: int = Field(
+        default=3,
+        description="The maximum number of relevant documnet excepts to retrieve. Default is 3 (range: 1-10)."
+    )
 
-#description: searches for company knowledge base for relevant docs.
-#this will be used when the user asks for internal company information.
+class FetchDocumentInput(BaseModel):
+    document_ref: str = Field(
+        description="The document ID (e.g '5') or title/file name to fetch full readable text for."
+    )
+    
 
-@tool("search_documents")
-async def search_document_tool(query:str, top_k: int = 3)->str:
+@tool("search_documents", description="Search internal documents and vector store for relevant excerpts, policies, and circulars.", args_schema=SearchDocumentsInput)
+async def search_document_tool(query:str,top_k:int=3)->str:
+    
     results = await search_documents(query=query, top_k=top_k)
     if not results:
-        return "No Relevant Documents Found"
-
+        return f"No relevant documents found matching query: '{query}'."
+    
     output = []
+    
     for idx, item in enumerate(results, 1):
         output.append(
-            f"[{idx}] File: {item['file_name']} (Score: {item['relevance_score']:.2f})\n"
-            f"Content: {item['content']}\n"
+            f"[{idx}] File: {item.get('file_name', 'Unknown')} (Score: {item.get('relevance_score', 0.0):.2f})\n"
+            f"Document ID: {item.get('document_id')}\n"
+            f"Content:\n{item.get('content')}\n"
         )
+        
     return "\n---\n".join(output)
+
+@tool("fetch_document_content", description="Retrieve the full text content and metadata of a specific document by its ID or title.", args_schema=FetchDocumentInput)
+async def fetch_document_content_tool(document_ref: str)-> str:
+    title, text = await resolve_document_content(document_ref)
+    if not text or not text.strip():
+        return f"Document '{document_ref}' was not found or contains no readable text."
+    
+    max_preview_len = 10000
+    truncated_note = ""
+    if len(text) > max_preview_len:
+        text = text[:max_preview_len]
+        truncated_note = f"\n\n[Note: Document truncated to first {max_preview_len} characters.]"
+        
+    return f"## Document Title: {title}\n\nContent:\n{text}{truncated_note}"
+
 
 
 
 #for database searching
-@tool("search_database")
+@tool("search_database", description="Search database records.")
 async def search_database_tool(query:str, limit: int=10)->str:
     return (f"found {limit} results for {query}")
 
 
 
 #for web searching
-@tool("search_web")
+@tool("search_web", description="Search the web.")
 async def search_on_web(query: str, results: int = 10)->str:
     return f"Results for: {query}"
-
-print(search_on_web.name)
 
 
 

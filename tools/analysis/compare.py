@@ -58,7 +58,7 @@ class DocComparisonService:
             - The documents may contain OCR noise, formatting inconsistencies, or extraction artifcats.
             - Analyze only facts supported by the provided text. Do not invent missing information.
             - Focus directly on the user's query or comparison intent.
-            """)
+            """),
             ("human", """User Comparison Query: {query}
             --- DOCUMENT 1: {doc_a_title} ---
             {doc_a_text}
@@ -113,42 +113,52 @@ async def compare_documents(
         doct_b_title=title_b
     )
 
-
-#tools for the document analysis agent
-
-@tool("compare_documents")
-async def compare_document_tool(query:str, current_doc: str, doc_compare: str) -> str:
-    #comparing the two documents to identify similarities,differences and unique points.
-
-
-    results = await compare_documents(query=query, current_doc=current_doc,doc_compare=doc_compare)
+class CompareDocumentsInput(BaseModel):
+    query: str = Field(
+        default="Compare the key points, provisions, similarities, and differences between these two documents.",
+        description="Specific question or comparison prompt explaining what aspects to compare."
+    )
+    
+    current_doc: str = Field(
+        description="The first document's ID (e.g. '1'), title, or full text."
+    )
+    doc_compare: str = Field(
+        description="The second document's ID (e.g. '2'), title, or full text."
+    )
+    
+@tool("compare_documents", description="Compare two documents to idnetify similarities, differences, and unique points.", args_schema=CompareDocumentsInput)
+async def compare_document_tool(current_doc:str, doc_compare: str, query: str = "Compare these documents.")->str:
+    
+    results = await compare_documents(query=query, current_doc=current_doc, doc_compare=doc_compare)
     if not results:
-        return "Unable to perform comparison: One or both documents could not be found or have no readable text"
-
-    output=[
-        f"### Document Comparison Summary\n{results.summary}\n"
-    ]
+        return "Unable to perform comparison: One or both documents could not be found have no readable text."
+    
+    output = [f"### Document Comparison Summary\n{results.summary}\n"]
     if results.similarities:
         output.append("### Key Similarities:")
         output.extend([f"- {item}" for item in results.similarities])
         output.append("")
-
+        
     if results.differences:
-        output.append("#### Key Similarities")
+        output.append("### Key Differences")
         output.extend([f"- {item}" for item in results.differences])
-
+        output.append("")
+        
     if results.doc_a_unique_points:
-        output.append("#### Unique to First Document:")
-        output.extend([f"- {item}" for item in results.doc_a_unique_points])
+        output.append("### Unique to First Document:")
+        output.extend(f"- {item}" for item in results.doc_a_unique_points)
         output.append("")
-
+    
     if results.doc_b_unique_points:
-        output.append("#### Unique to Second Document:")
-        output.extend([f"- {item}" for item in results.doc_b_unique_points])
-        output.append("")
-
+        output.append("### Unique to Second Document:")
+        output.extend(f"- {item}" for item in results.doc_b_unique_points)
+        output.append("")    
+    
     if results.conclusion:
-        output.append(f"#### Conclusion / Synthesis:\n{results.conclusion}\n")
+        output.append(f"### Conclusion / Synthesis:\n{results.conclusion}\n")
         output.append(f"*(Confidence: {results.confidence:.2f})*")
-        return "\n".join(output)
+    
+    return "\n".join(output)
+
+      
     
