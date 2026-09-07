@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from langchain_core.messages import HumanMessage
 
 from fastapi import(
     status, HTTPException, APIRouter, Depends
@@ -119,6 +120,7 @@ async def talk_to_ai(
     await db.refresh(user_message)
     
     initial_state = {
+        "messages": [HumanMessage(content=payload.content)],
         "question": payload.content,
         "attachment_ids": payload.attachment_ids or [],
         "user_id" : current_user.id

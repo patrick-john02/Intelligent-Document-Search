@@ -237,7 +237,7 @@ export default function LoginPage() {
                 }}
               >
                 {isLoading ? (
-                  <CircularProgress size={22} sx={{ color: "#FFFFFF" }} />
+                  <CircularProgress size={22} sx={{ color: "#ffff" }} />
                 ) : (
                   "Sign In"
                 )}
