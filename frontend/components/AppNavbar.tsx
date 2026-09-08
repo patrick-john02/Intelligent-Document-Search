@@ -14,6 +14,8 @@ import SideMenuMobile from './SideMenuMobile';
 import MenuButton from './MenuButton';
 import ColorModeIconDropdown from '@/shared-theme/ColorModeIconDropdown';
 
+import { DashboardRole } from './dashboard/types';
+
 const Toolbar = styled(MuiToolbar)({
   width: '100%',
   padding: '12px',
@@ -30,7 +32,7 @@ const Toolbar = styled(MuiToolbar)({
   },
 });
 
-export default function AppNavbar() {
+export default function AppNavbar({ currentRole }: { currentRole?: DashboardRole }) {
   const [open, setOpen] = React.useState(false);
 
   const toggleDrawer = (newOpen: boolean) => () => {
@@ -74,7 +76,7 @@ export default function AppNavbar() {
           <MenuButton aria-label="menu" onClick={toggleDrawer(true)}>
             <MenuRoundedIcon />
           </MenuButton>
-          <SideMenuMobile open={open} toggleDrawer={toggleDrawer} />
+          <SideMenuMobile open={open} toggleDrawer={toggleDrawer} currentRole={currentRole} />
         </Stack>
       </Toolbar>
     </AppBar>

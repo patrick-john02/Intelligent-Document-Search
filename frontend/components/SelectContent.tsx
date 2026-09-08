@@ -1,24 +1,24 @@
-import * as React from 'react';
-import MuiAvatar from '@mui/material/Avatar';
-import MuiListItemAvatar from '@mui/material/ListItemAvatar';
-import MenuItem from '@mui/material/MenuItem';
-import ListItemText from '@mui/material/ListItemText';
-import ListItemIcon from '@mui/material/ListItemIcon';
-import ListSubheader from '@mui/material/ListSubheader';
-import Select, { SelectChangeEvent, selectClasses } from '@mui/material/Select';
-import Divider from '@mui/material/Divider';
-import { styled } from '@mui/material/styles';
-import AddRoundedIcon from '@mui/icons-material/AddRounded';
-import DevicesRoundedIcon from '@mui/icons-material/DevicesRounded';
-import SmartphoneRoundedIcon from '@mui/icons-material/SmartphoneRounded';
-import ConstructionRoundedIcon from '@mui/icons-material/ConstructionRounded';
+"use client";
+
+import * as React from "react";
+import MuiAvatar from "@mui/material/Avatar";
+import MuiListItemAvatar from "@mui/material/ListItemAvatar";
+import MenuItem from "@mui/material/MenuItem";
+import ListItemText from "@mui/material/ListItemText";
+import ListSubheader from "@mui/material/ListSubheader";
+import Select, { SelectChangeEvent, selectClasses } from "@mui/material/Select";
+import { styled } from "@mui/material/styles";
+import AccountBalanceRoundedIcon from "@mui/icons-material/AccountBalanceRounded";
+import FolderSpecialRoundedIcon from "@mui/icons-material/FolderSpecialRounded";
+import LayersRoundedIcon from "@mui/icons-material/LayersRounded";
+import { useAuth } from "@/context/AuthContext";
 
 const Avatar = styled(MuiAvatar)(({ theme }) => ({
-  width: 28,
-  height: 28,
-  backgroundColor: (theme.vars || theme).palette.background.paper,
-  color: (theme.vars || theme).palette.text.secondary,
-  border: `1px solid ${(theme.vars || theme).palette.divider}`,
+  width: 32,
+  height: 32,
+  backgroundColor: (theme.vars || theme).palette.primary.main,
+  color: (theme.vars || theme).palette.primary.contrastText,
+  borderRadius: 8,
 }));
 
 const ListItemAvatar = styled(MuiListItemAvatar)({
@@ -27,75 +27,87 @@ const ListItemAvatar = styled(MuiListItemAvatar)({
 });
 
 export default function SelectContent() {
-  const [company, setCompany] = React.useState('');
+  const { user } = useAuth();
+  const defaultOffice = user?.office || "BLGF Region II";
+  const [station, setStation] = React.useState("records");
 
   const handleChange = (event: SelectChangeEvent) => {
-    setCompany(event.target.value as string);
+    setStation(event.target.value as string);
   };
 
   return (
     <Select
-      labelId="company-select"
-      id="company-simple-select"
-      value={company}
+      labelId="station-select-label"
+      id="station-select"
+      value={station}
       onChange={handleChange}
       displayEmpty
-      inputProps={{ 'aria-label': 'Select company' }}
+      inputProps={{ "aria-label": "Select Department Division" }}
       fullWidth
       sx={{
         maxHeight: 56,
-        width: 215,
-        '&.MuiList-root': {
-          p: '8px',
+        width: "100%",
+        borderRadius: 2,
+        bgcolor: "background.paper",
+        "& .MuiOutlinedInput-notchedOutline": {
+          borderColor: "divider",
+        },
+        "&.MuiList-root": {
+          p: "8px",
         },
         [`& .${selectClasses.select}`]: {
-          display: 'flex',
-          alignItems: 'center',
-          gap: '2px',
-          pl: 1,
+          display: "flex",
+          alignItems: "center",
+          gap: "2px",
+          py: 1,
+          pl: 1.25,
         },
       }}
     >
-      <ListSubheader sx={{ pt: 0 }}>Production</ListSubheader>
-      <MenuItem value="">
+      <ListSubheader sx={{ pt: 0, fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase" }}>
+        {defaultOffice}
+      </ListSubheader>
+
+      <MenuItem value="records">
         <ListItemAvatar>
-          <Avatar alt="Sitemark web">
-            <DevicesRoundedIcon sx={{ fontSize: '1rem' }} />
+          <Avatar variant="rounded">
+            <FolderSpecialRoundedIcon sx={{ fontSize: "1.1rem" }} />
           </Avatar>
         </ListItemAvatar>
-        <ListItemText primary="Sitemark-web" secondary="Web app" />
+        <ListItemText
+          primary={user?.division || "Records & Archive"}
+          secondary="Primary Station"
+          primaryTypographyProps={{ fontSize: "0.85rem", fontWeight: 600 }}
+          secondaryTypographyProps={{ fontSize: "0.72rem" }}
+        />
       </MenuItem>
-      <MenuItem value={10}>
+
+      <MenuItem value="assessment">
         <ListItemAvatar>
-          <Avatar alt="Sitemark App">
-            <SmartphoneRoundedIcon sx={{ fontSize: '1rem' }} />
+          <Avatar variant="rounded" sx={{ bgcolor: "secondary.main" }}>
+            <LayersRoundedIcon sx={{ fontSize: "1.1rem" }} />
           </Avatar>
         </ListItemAvatar>
-        <ListItemText primary="Sitemark-app" secondary="Mobile application" />
+        <ListItemText
+          primary="Assessment Regulations"
+          secondary="Division Repository"
+          primaryTypographyProps={{ fontSize: "0.85rem", fontWeight: 600 }}
+          secondaryTypographyProps={{ fontSize: "0.72rem" }}
+        />
       </MenuItem>
-      <MenuItem value={20}>
+
+      <MenuItem value="treasury">
         <ListItemAvatar>
-          <Avatar alt="Sitemark Store">
-            <DevicesRoundedIcon sx={{ fontSize: '1rem' }} />
+          <Avatar variant="rounded" sx={{ bgcolor: "success.main" }}>
+            <AccountBalanceRoundedIcon sx={{ fontSize: "1.1rem" }} />
           </Avatar>
         </ListItemAvatar>
-        <ListItemText primary="Sitemark-Store" secondary="Web app" />
-      </MenuItem>
-      <ListSubheader>Development</ListSubheader>
-      <MenuItem value={30}>
-        <ListItemAvatar>
-          <Avatar alt="Sitemark Store">
-            <ConstructionRoundedIcon sx={{ fontSize: '1rem' }} />
-          </Avatar>
-        </ListItemAvatar>
-        <ListItemText primary="Sitemark-Admin" secondary="Web app" />
-      </MenuItem>
-      <Divider sx={{ mx: -1 }} />
-      <MenuItem value={40}>
-        <ListItemIcon>
-          <AddRoundedIcon />
-        </ListItemIcon>
-        <ListItemText primary="Add product" secondary="Web app" />
+        <ListItemText
+          primary="Local Treasury Operations"
+          secondary="Circulars & Advisories"
+          primaryTypographyProps={{ fontSize: "0.85rem", fontWeight: 600 }}
+          secondaryTypographyProps={{ fontSize: "0.72rem" }}
+        />
       </MenuItem>
     </Select>
   );

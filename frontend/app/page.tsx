@@ -71,7 +71,7 @@ export default function LoginPage() {
         variant="outlined"
         sx={{
           width: "100%",
-          maxWidth: 420,
+          maxWidth: 480,
           bgcolor: "background.paper",
           borderColor: "divider",
           boxShadow: "0 4px 20px -2px rgba(0, 0, 0, 0.04)",
@@ -206,23 +206,6 @@ export default function LoginPage() {
                     </Typography>
                   }
                 />
-
-                <Link
-                  href="#"
-                  variant="body2"
-                  underline="hover"
-                  sx={{
-                    color: "text.secondary",
-                    fontSize: "0.82rem",
-                    "&:hover": { color: "text.primary" },
-                  }}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    alert("Please contact the System Administrator to reset your password.");
-                  }}
-                >
-                  Forgot password?
-                </Link>
               </Stack>
 
               <Button
@@ -234,6 +217,17 @@ export default function LoginPage() {
                   py:1.2,
                   fontWeight: 600,
                   borderRadius: 2,
+                  width: '100%',
+                  maxWidth: {xs: '100%', sm: '400px'},
+                  mx: 'auto',
+
+                  bgcolor: '#2563eb',
+                  color: '#ffff',
+
+                  '&:hover':{
+                    bgColor: '#1d4ed8',
+                  },
+
                 }}
               >
                 {isLoading ? (
