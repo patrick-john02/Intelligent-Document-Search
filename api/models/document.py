@@ -1,9 +1,10 @@
 from sqlalchemy.orm import Mapped, mapped_column, DeclarativeBase, relationship
-from sqlalchemy import String, Integer, DateTime, Date, Boolean, ForeignKey, BigInteger, Text, JSON, Float
+from sqlalchemy import String, Integer, DateTime, Date, Boolean, ForeignKey, BigInteger, Text, JSON, Float, UUID
 from typing import List, TYPE_CHECKING
 from datetime import datetime, date
 from sqlalchemy import Enum as DocumentsEnum
 from enum import Enum
+import uuid
 
 
 if TYPE_CHECKING:
@@ -180,8 +181,8 @@ class DocumentProcessingJobs(Base):
     )
 
 
-#todo new table
-# class UserSearchHistory(Base):
 
-#todo new table
-# class DocumentAnnotations(Base):
+#TODO: put a chunk mapping here for developer views
+# class LchainPgEmbed(Base):
+#     __table__ = 'langchain_pg_embedding'
+#     id: Mapped[UUID] = mapped_column(UUID)

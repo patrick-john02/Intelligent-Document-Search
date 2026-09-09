@@ -2,10 +2,12 @@ from fastapi import HTTPException, status, APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 
+
 from core.dependencies import get_db
 from core.security import get_current_active_user
 from api.models.document import DocumentModel
 from api.models.users import Users
+from api.models.agents_tasks import AgentExecutions
 
 router = APIRouter(prefix="/admin", tags=["Admin Dashboard"])
 app = router
@@ -33,7 +35,22 @@ async def admin_dashboard(
     result = await db.execute(document_counts)
     total_document = result.scalar_one()
 
+    ai_query = select(func.count(AgentExecutions.id))
+
+    result = await db.execute(ai_query)
+    total_ai_query =  result.scalar_one()
+
     return {
-        "total_users": total_users,
-        "total_documents": total_document,
+        "total_digitalized": total_document,
+        "active_personnel": total_users,
+        "monthly_ai_queries": total_ai_query
     }
+
+
+#TODO: ingestion volume and retrieval inquiries
+
+
+#TODO: category distribution
+
+#TODO: document clearance and ingestion repository
+
