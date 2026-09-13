@@ -1,58 +1,46 @@
 from langgraph.graph import StateGraph, START, END
-from langgraph.checkpoint.memory import MemorySaver
+from langgraph.checkpoint.memory import MemorySaver #RAM temporary persistent storage.
 from langgraph.types import RetryPolicy
 from agents.state import IntentAgentState
-from agents.nodes import (
-    classify_intent_node, 
-    get_attachment_ids_node, 
-    call_doc_analysis_node,
-    call_reporting_node,
-    call_researcher_node,
-    ask_for_clarification_node,
-    reject_request_node,
-    generated_answer_node
-)
+from langgraph.prebuilt import ToolNode, tools_condition
+
+from tools.registry import ALL_TOOLS
+from agents.nodes import agent_node
 from agents.routing import intent_classifier_router
+
+#checkpointers and store
+from agents.checkpointer import posgres_checkpointer, store
 
 workflow = StateGraph(IntentAgentState)
 
+#NODE A : reasoning Node(LLM thinks, decides tools or answer)
+workflow.add_node("agent_node", agent_node, retry_policy=RetryPolicy(max_attempts=3))
 
-workflow.add_node("classify_intent_node", classify_intent_node, retry_policy=RetryPolicy(max_attempts=3))
-workflow.add_node("get_attachment_ids_node", get_attachment_ids_node)
-workflow.add_node("call_doc_analysis_node", call_doc_analysis_node)
-workflow.add_node("call_researcher_node", call_researcher_node)
-workflow.add_node("call_reporting_node", call_reporting_node)
+#NODE B Tool execution node (this will runs any tool called by the LLM)
+workflow.add_node("tools", ToolNode(ALL_TOOLS))
 
-workflow.add_node("ask_for_clarification_node", ask_for_clarification_node)
-workflow.add_node("reject_request_node", reject_request_node)
-workflow.add_node("generated_answer_node", generated_answer_node)
+workflow.add_edge(START, "agent_node")
 
-#transitions of context per agents
-workflow.add_edge(START, "get_attachment_ids_node")
-workflow.add_edge("get_attachment_ids_node", "classify_intent_node")
 
 workflow.add_conditional_edges(
-    "classify_intent_node", 
-    intent_classifier_router,
+    "agent_node", 
     {
-        "call_researcher_node": "call_researcher_node",
-        "call_doc_analysis_node":"call_doc_analysis_node",
-        "call_reporting_node":"call_reporting_node",
-        "ask_for_clarification_node":"ask_for_clarification_node",
-        "reject_request_node":"reject_request_node",
+        "tools": "tools",
+        END:END
     }
 )
 
-
-workflow.add_edge("call_researcher_node", "generated_answer_node")
-workflow.add_edge("call_doc_analysis_node", "generated_answer_node")
-workflow.add_edge("call_reporting_node", "generated_answer_node")
-
-workflow.add_edge("generated_answer_node", END)
-workflow.add_edge("ask_for_clarification_node", END)
-workflow.add_edge("reject_request_node", END)
+workflow.add_edge("tools", "agent_node")
 
 #Compile
 #for now I will use MemorySaver, and soon i will use AsyncPostgresSaver() on production
-memory = MemorySaver() 
-app = workflow.compile(checkpointer=memory)
+# memory = MemorySaver() 
+
+# app = workflow.compile(checkpointer=memory)
+app=workflow.compile(
+    checkpointer=posgres_checkpointer, 
+    store=store
+)
+
+
+

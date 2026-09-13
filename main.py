@@ -1,7 +1,11 @@
 from fastapi import FastAPI
 from fastapi_pagination import add_pagination
 from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
+
+
 from core.configurations import app_settings
+from agents.checkpointer import init_checkpointer, close_checkpointer
 
 from api.views import (
     document_views,
@@ -14,6 +18,15 @@ from api.views.admin import (
     user_management,
     admin_dashboard,
 )
+
+@asynccontextmanager
+async def lifespan(app:FastAPI):
+    await init_checkpointer()
+    yield
+    await close_checkpointer()
+    
+
+
 
 app = FastAPI(title="Document Archiving system with Semantic Retrieval System")
 

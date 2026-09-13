@@ -7,11 +7,7 @@ class IntentAgentState(TypedDict, total=False):
     #stores the chat history. "add messages" means APPEND, never overwrite
     messages: Annotated[List[BaseMessage], add_messages]
 
-    question: str
+    question: Optional[str]
     user_id: Optional[int]
-    intent: Optional[str]
-    attachment_ids: List[int]
-    mentioned_document_ids: List[int]
-    target_agent: Optional[str]
-    agent_result: Optional[str]
+    attachment_ids: Optional[List[int]]
     final_response: Optional[str]

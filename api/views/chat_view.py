@@ -125,10 +125,14 @@ async def talk_to_ai(
         "attachment_ids": payload.attachment_ids or [],
         "user_id" : current_user.id
     }
-    config = {"configurable": {"thread_id":str(conversation.id)}}
+    config = {
+        "configurable": {"thread_id":str(conversation.id)},
+        "recursion_limit": 6 #guardrail : stops execution after 6 steps maximum
+    }
     
     agent_output = await agent_app.ainvoke(initial_state, config=config)
-    ai_content = agent_output.get("final_response") or "No response generated."
+    last_msg = agent_output.get("messages", [])[-1].content if agent_output.get("message") else None
+    ai_content = agent_output.get("final_response") or last_msg or "No response generated."
     
     assistant_message = ChatMessages(
         conversation_id = conversation.id,

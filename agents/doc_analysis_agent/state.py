@@ -1,6 +1,11 @@
-from typing import TypedDict, Optional
+from typing import TypedDict, Optional, List, Annotated
+from langchain_core.messages import BaseMessage
+from langgraph.graph.message import add_messages
 
 class DocAnalysisAgent(TypedDict, total=False): 
+    message: Annotated[List[BaseMessage], add_messages]
+
+
     question: str
     document_text: Optional[str]
     document_id: Optional[int]
