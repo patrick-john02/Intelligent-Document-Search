@@ -77,8 +77,10 @@ export default function SelectContent() {
         <ListItemText
           primary={user?.division || "Records & Archive"}
           secondary="Primary Station"
-          primaryTypographyProps={{ fontSize: "0.85rem", fontWeight: 600 }}
-          secondaryTypographyProps={{ fontSize: "0.72rem" }}
+          slotProps={{
+            primary: { sx: { fontSize: "0.85rem", fontWeight: 600 } },
+            secondary: { sx: { fontSize: "0.72rem" } },
+          }}
         />
       </MenuItem>
 
@@ -91,8 +93,10 @@ export default function SelectContent() {
         <ListItemText
           primary="Assessment Regulations"
           secondary="Division Repository"
-          primaryTypographyProps={{ fontSize: "0.85rem", fontWeight: 600 }}
-          secondaryTypographyProps={{ fontSize: "0.72rem" }}
+          slotProps={{
+            primary: { sx: { fontSize: "0.85rem", fontWeight: 600 } },
+            secondary: { sx: { fontSize: "0.72rem" } },
+          }}
         />
       </MenuItem>
 
@@ -105,8 +109,10 @@ export default function SelectContent() {
         <ListItemText
           primary="Local Treasury Operations"
           secondary="Circulars & Advisories"
-          primaryTypographyProps={{ fontSize: "0.85rem", fontWeight: 600 }}
-          secondaryTypographyProps={{ fontSize: "0.72rem" }}
+          slotProps={{
+            primary: { sx: { fontSize: "0.85rem", fontWeight: 600 } },
+            secondary: { sx: { fontSize: "0.72rem" } },
+          }}
         />
       </MenuItem>
     </Select>

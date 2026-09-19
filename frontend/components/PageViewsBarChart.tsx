@@ -23,20 +23,20 @@ const Y_AXIS_DATA = [{ width: 50 }];
 const SERIES_DATA = [
   {
     id: 'page-views',
-    label: 'Archived Documents',
-    data: [2234, 3872, 2998, 4125, 3357, 2789, 2998],
+    label: 'Documents Archived',
+    data: [142, 185, 160, 210, 195, 178, 178],
     stack: 'A',
   },
   {
     id: 'downloads',
-    label: 'Semantic AI Searches',
-    data: [3098, 4215, 2384, 2101, 4752, 3593, 2384],
+    label: 'Semantic Searches',
+    data: [620, 840, 715, 930, 885, 760, 820],
     stack: 'A',
   },
   {
     id: 'conversions',
-    label: 'Citations Verified',
-    data: [4051, 2275, 3129, 4693, 3904, 2038, 2275],
+    label: 'Verified Citations',
+    data: [380, 520, 490, 610, 570, 480, 540],
     stack: 'A',
   },
 ];
@@ -71,12 +71,12 @@ export default function PageViewsBarChart() {
             }}
           >
             <Typography variant="h4" component="p" sx={{ fontWeight: 800 }}>
-              1.3M
+              14,850
             </Typography>
             <Chip size="small" color="success" label="+14.8%" sx={{ fontWeight: 700 }} />
           </Stack>
           <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-            Archival records ingested and AI searches for the last 6 months
+            Archived records ingested and semantic AI queries resolved over the last 6 months
           </Typography>
         </Stack>
         <BarChart

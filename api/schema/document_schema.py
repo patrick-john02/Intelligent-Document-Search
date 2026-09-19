@@ -121,10 +121,11 @@ class CategorySchema(BaseModel):
 
 #DASHBOARD RECENT ARCHIVED DIRECTIVES
 class RecArcDirSchema(BaseModel):
-    title: str
-    department_order: str
-    series_years: date
-    physical_shelf_location: str
+    id: Optional[int] = None
+    title: Optional[str] = None
+    department_order: Optional[str] = None
+    series_years: Optional[date] = None
+    physical_shelf_location: Optional[str] = None
     category: Optional[DocumentCategorySchema] = None
 
     model_config = ConfigDict(from_attributes=True)

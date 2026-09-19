@@ -6,7 +6,6 @@ from langgraph.prebuilt import ToolNode, tools_condition
 
 from tools.registry import ALL_TOOLS
 from agents.nodes import agent_node
-from agents.routing import intent_classifier_router
 
 #checkpointers and store
 from agents.checkpointer import posgres_checkpointer, store
@@ -23,10 +22,11 @@ workflow.add_edge(START, "agent_node")
 
 
 workflow.add_conditional_edges(
-    "agent_node", 
+    "agent_node",
+    tools_condition,
     {
         "tools": "tools",
-        END:END
+        END: END
     }
 )
 

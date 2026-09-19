@@ -1,39 +1,41 @@
 "use client";
 
-import * as React from 'react';
-import { styled } from '@mui/material/styles';
-import AppBar from '@mui/material/AppBar';
-import Box from '@mui/material/Box';
-import Stack from '@mui/material/Stack';
-import MuiToolbar from '@mui/material/Toolbar';
-import { tabsClasses } from '@mui/material/Tabs';
-import Typography from '@mui/material/Typography';
-import MenuRoundedIcon from '@mui/icons-material/MenuRounded';
-import DashboardRoundedIcon from '@mui/icons-material/DashboardRounded';
-import SideMenuMobile from './SideMenuMobile';
-import MenuButton from './MenuButton';
-import ColorModeIconDropdown from '@/shared-theme/ColorModeIconDropdown';
+import React, { useState } from "react";
+import { usePathname } from "next/navigation";
+import AppBar from "@mui/material/AppBar";
+import Box from "@mui/material/Box";
+import Stack from "@mui/material/Stack";
+import Toolbar from "@mui/material/Toolbar";
+import Typography from "@mui/material/Typography";
+import MenuRoundedIcon from "@mui/icons-material/MenuRounded";
+import SideMenuMobile from "./SideMenuMobile";
+import MenuButton from "./MenuButton";
+import ColorModeIconDropdown from "@/shared-theme/ColorModeIconDropdown";
+import { DashboardRole } from "./dashboard/types";
 
-import { DashboardRole } from './dashboard/types';
-
-const Toolbar = styled(MuiToolbar)({
-  width: '100%',
-  padding: '12px',
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'start',
-  justifyContent: 'center',
-  gap: '12px',
-  flexShrink: 0,
-  [`& ${tabsClasses.list}`]: {
-    gap: '8px',
-    p: '8px',
-    pb: 0,
-  },
-});
+const PAGE_TITLES: Record<string, string> = {
+  "/dashboard": "Dashboard",
+  "/search": "Smart Search",
+  "/chat": "AI Assistant",
+  "/documents": "Document Archive",
+  "/locator": "Physical Locator",
+  "/uploads": "My Uploads",
+  "/bookmarks": "Saved Directives",
+  "/help": "Search Guide",
+  "/admin/approvals": "Document Approvals",
+  "/admin/users": "User Management",
+  "/admin/audit": "Audit & Compliance",
+  "/admin/analytics": "Usage Analytics",
+  "/developer/tasks": "OCR & Task Pipeline",
+  "/developer/database": "Vector & DB Health",
+  "/developer/logs": "System Logs & Traces",
+};
 
 export default function AppNavbar({ currentRole }: { currentRole?: DashboardRole }) {
-  const [open, setOpen] = React.useState(false);
+  const [open, setOpen] = useState(false);
+  const pathname = usePathname();
+
+  const title = PAGE_TITLES[pathname] || "DocuArchive";
 
   const toggleDrawer = (newOpen: boolean) => () => {
     setOpen(newOpen);
@@ -43,67 +45,80 @@ export default function AppNavbar({ currentRole }: { currentRole?: DashboardRole
     <AppBar
       position="fixed"
       sx={{
-        display: { xs: 'auto', md: 'none' },
+        display: { xs: "auto", md: "none" },
         boxShadow: 0,
-        bgcolor: 'background.paper',
-        backgroundImage: 'none',
-        borderBottom: '1px solid',
-        borderColor: 'divider',
-        top: 'var(--template-frame-height, 0px)',
+        bgcolor: "background.paper",
+        backgroundImage: "none",
+        borderBottom: "1px solid",
+        borderColor: "divider",
+        top: 0,
+        zIndex: (theme) => theme.zIndex.drawer + 1,
       }}
     >
-      <Toolbar variant="regular">
-        <Stack
-          direction="row"
-          sx={{
-            alignItems: 'center',
-            flexGrow: 1,
-            width: '100%',
-            gap: 1,
-          }}
-        >
-          <Stack
-            direction="row"
-            spacing={1}
-            sx={{ justifyContent: 'center', mr: 'auto' }}
+      <Toolbar
+        variant="dense"
+        sx={{
+          minHeight: 56,
+          px: 2,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 1.5,
+        }}
+      >
+        <Stack direction="row" spacing={1.5} sx={{ alignItems: "center", minWidth: 0 }}>
+          <Box
+            sx={{
+              width: 30,
+              height: 30,
+              borderRadius: 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              bgcolor: (theme) =>
+                theme.palette.mode === "dark"
+                  ? "rgba(255, 255, 255, 0.08)"
+                  : "rgba(15, 23, 42, 0.06)",
+              border: "1px solid",
+              borderColor: "divider",
+              flexShrink: 0,
+            }}
           >
-            <CustomIcon />
-            <Typography variant="h4" component="h1" sx={{ color: 'text.primary' }}>
-              Dashboard
-            </Typography>
-          </Stack>
+            <Box
+              component="img"
+              src="/globe.svg"
+              alt="Logo"
+              sx={{
+                width: 16,
+                height: 16,
+                filter: (theme) =>
+                  theme.palette.mode === "dark"
+                    ? "invert(1) brightness(1.8)"
+                    : "none",
+              }}
+            />
+          </Box>
+          <Typography
+            variant="subtitle1"
+            noWrap
+            sx={{
+              fontWeight: 700,
+              fontSize: "0.95rem",
+              color: "text.primary",
+            }}
+          >
+            {title}
+          </Typography>
+        </Stack>
+
+        <Stack direction="row" spacing={0.75} sx={{ alignItems: "center" }}>
           <ColorModeIconDropdown />
           <MenuButton aria-label="menu" onClick={toggleDrawer(true)}>
-            <MenuRoundedIcon />
+            <MenuRoundedIcon sx={{ fontSize: 20 }} />
           </MenuButton>
           <SideMenuMobile open={open} toggleDrawer={toggleDrawer} currentRole={currentRole} />
         </Stack>
       </Toolbar>
     </AppBar>
-  );
-}
-
-export function CustomIcon() {
-  return (
-    <Box
-      sx={{
-        width: '1.5rem',
-        height: '1.5rem',
-        bgcolor: 'black',
-        borderRadius: '999px',
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        alignSelf: 'center',
-        backgroundImage:
-          'linear-gradient(135deg, hsl(210, 98%, 60%) 0%, hsl(210, 100%, 35%) 100%)',
-        color: 'hsla(210, 100%, 95%, 0.9)',
-        border: '1px solid',
-        borderColor: 'hsl(210, 100%, 55%)',
-        boxShadow: 'inset 0 2px 5px rgba(255, 255, 255, 0.3)',
-      }}
-    >
-      <DashboardRoundedIcon color="inherit" sx={{ fontSize: '1rem' }} />
-    </Box>
   );
 }

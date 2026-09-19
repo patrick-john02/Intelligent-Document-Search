@@ -11,43 +11,32 @@ import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import LinearProgress, { linearProgressClasses } from '@mui/material/LinearProgress';
 
-import {
-  IndiaFlag,
-  UsaFlag,
-  BrazilFlag,
-  GlobeFlag,
-} from '../internals/components/CustomIcons';
-
 const data = [
-  { label: 'Treasury Advisories', value: 50000 },
-  { label: 'Assessment Regs', value: 35000 },
-  { label: 'Legal Opinions', value: 10000 },
-  { label: 'Memorandums', value: 5000 },
+  { label: 'Admin Orders', value: 624 },
+  { label: 'Memorandums', value: 437 },
+  { label: 'Reports & Audits', value: 125 },
+  { label: 'Circulars & Advisories', value: 62 },
 ];
 
-const countries = [
+const categories = [
   {
-    name: 'Treasury Advisories',
+    name: 'Administrative Orders',
     value: 50,
-    flag: <IndiaFlag />,
     color: 'hsl(220, 25%, 65%)',
   },
   {
-    name: 'Assessment Regs',
+    name: 'Office Memorandums',
     value: 35,
-    flag: <UsaFlag />,
     color: 'hsl(220, 25%, 45%)',
   },
   {
-    name: 'Legal Opinions',
+    name: 'Reports & Audits',
     value: 10,
-    flag: <BrazilFlag />,
     color: 'hsl(220, 25%, 30%)',
   },
   {
-    name: 'Memorandums',
+    name: 'Circulars & Advisories',
     value: 5,
-    flag: <GlobeFlag />,
     color: 'hsl(220, 25%, 20%)',
   },
 ];
@@ -162,12 +151,13 @@ export default function ChartUserByCountry() {
             <PieCenterLabel primaryText="1,248" secondaryText="Total" />
           </PieChart>
         </Box>
-        {countries.map((country, index) => (
+        {categories.map((category, index) => (
           <Stack
             key={index}
             direction="row"
-            sx={{ alignItems: 'center', gap: 2, pb: 1.5 }}
+            sx={{ alignItems: 'center', gap: 1.5, pb: 1.5 }}
           >
+            <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: category.color, flexShrink: 0 }} />
             <Stack sx={{ gap: 1, flexGrow: 1 }}>
               <Stack
                 direction="row"
@@ -178,19 +168,19 @@ export default function ChartUserByCountry() {
                 }}
               >
                 <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                  {country.name}
+                  {category.name}
                 </Typography>
                 <Typography variant="body2" sx={{ color: 'text.secondary', fontWeight: 600 }}>
-                  {country.value}%
+                  {category.value}%
                 </Typography>
               </Stack>
               <LinearProgress
                 variant="determinate"
                 aria-label="Document category percentage"
-                value={country.value}
+                value={category.value}
                 sx={{
                   [`& .${linearProgressClasses.bar}`]: {
-                    backgroundColor: country.color,
+                    backgroundColor: category.color,
                   },
                 }}
               />

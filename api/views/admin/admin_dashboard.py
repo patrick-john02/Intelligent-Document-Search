@@ -17,7 +17,7 @@ async def admin_dashboard(
     db: AsyncSession = Depends(get_db),
     current_user: Users = Depends(get_current_active_user)
 ):
-    if not current_user.is_superuser and current_user.system_role_id != 3:
+    if not current_user.is_superuser and current_user.system_role_id not in (1, 3):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You are not authorized to access this!"

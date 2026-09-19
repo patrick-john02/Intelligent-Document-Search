@@ -13,7 +13,11 @@ import {
   usePickerContext,
 } from '@mui/x-date-pickers';
 
-interface ButtonFieldProps extends DatePickerFieldProps {}
+interface ButtonFieldProps extends Partial<DatePickerFieldProps> {
+  disabled?: boolean;
+  className?: string;
+  id?: string;
+}
 
 function ButtonField(props: ButtonFieldProps) {
   const pickerContext = usePickerContext();

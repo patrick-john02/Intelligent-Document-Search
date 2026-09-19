@@ -20,7 +20,8 @@ from api.schema.document_schema import RecArcDirSchema
 
 
 
-app = APIRouter(prefix="/dashbard", tags=["Staff Dashboard"])
+router = APIRouter(prefix="/dashboard", tags=["Staff Dashboard"])
+app = router
 
 
 class AnalyticsResponse(BaseModel):
@@ -28,7 +29,7 @@ class AnalyticsResponse(BaseModel):
     ai_inquiries_resolved: int
     recent_uploads: int
 
-@app.get("/analytics", status_code=status.HTTP_200_OK)
+@router.get("/analytics", status_code=status.HTTP_200_OK)
 async def analytics_counts(
     db:AsyncSession=Depends(get_db),
     current_user: Users = Depends(get_current_active_user)
@@ -67,20 +68,20 @@ async def analytics_counts(
     return AnalyticsResponse(
         archived_documents=total_docs,
         ai_inquiries_resolved=total_agents,
-        recent_upload=recent_docs,
+        recent_uploads=recent_docs,
     )
 
 
-@app.get("/list_archived_dir", status_code=status.HTTP_200_OK, response_model=list[RecArcDirSchema])
+@router.get("/list_archived_dir", status_code=status.HTTP_200_OK, response_model=list[RecArcDirSchema])
 async def get_archive_dir(
     db:AsyncSession=Depends(get_db),
     current_user:Users=Depends(get_current_active_user)
 ):
-    recent_docs = datetime.now(timezone.utc) - timedelta(days=7)
-
-    query = select(DocumentModel).where(
-        DocumentModel.is_deleted.is_(False),
-        DocumentModel.created_at >= recent_docs
+    query = (
+        select(DocumentModel)
+        .where(DocumentModel.is_deleted.is_(False))
+        .order_by(DocumentModel.created_at.desc())
+        .limit(10)
     )
 
     result = await db.execute(query)

@@ -10,8 +10,8 @@ export interface RoleConfig{
 
 }
 
-export const ROLE_CONFIGS: Record<DashboardRole, RoleConfig>={
-    staff:{
+export const ROLE_CONFIGS: Record<DashboardRole, RoleConfig> = {
+    staff: {
         id: "staff",
         label: "Staff View",
         description: "Personal Document Management",
@@ -22,34 +22,43 @@ export const ROLE_CONFIGS: Record<DashboardRole, RoleConfig>={
         label: "Admin View",
         description: "Admin Officer, Document Management",
         badgeColor: "primary",
-
     },
-    developer:{
+    developer: {
         id: "developer",
-        label: "Developer View",
-        description: "Oversee all of the Functions",
+        label: "Super Admin View",
+        description: "System Oversight & Engineering",
         badgeColor: "warning",
-
-    }
-    
+    },
 };
 
-export function getDefaultRole(user:User | null): DashboardRole{
-    if(!user){
+export function getDefaultRole(user: User | null): DashboardRole {
+    if (!user) {
         return "staff";
     }
 
-    const username = user.username?.toLowerCase() || "";
-
-    if(user.is_superuser && (username.includes("dev") || username === "developer")){
+    // 1. Role 1 and True Super User -> Super Admin / Developer
+    if (user.system_role_id === 1 && user.is_superuser) {
         return "developer";
     }
 
-    if(user.is_superuser){
+    // 2. Role 1 and False Super User -> Admin
+    if (user.system_role_id === 1 && !user.is_superuser) {
+        return "admin";
+    }
+
+    // 3. Role 2 and False Super User -> Staff
+    if (user.system_role_id === 2 && !user.is_superuser) {
+        return "staff";
+    }
+
+    // Fallbacks
+    if (user.is_superuser) {
+        return "developer";
+    }
+
+    if (user.system_role_id === 1) {
         return "admin";
     }
 
     return "staff";
 }
-
-

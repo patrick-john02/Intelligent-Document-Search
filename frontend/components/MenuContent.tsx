@@ -99,9 +99,13 @@ export default function MenuContent({ currentRole }: MenuContentProps) {
                 </ListItemIcon>
                 <ListItemText
                   primary={item.text}
-                  primaryTypographyProps={{
-                    fontSize: "0.84rem",
-                    fontWeight: isActive ? 700 : 500,
+                  slotProps={{
+                    primary: {
+                      sx: {
+                        fontSize: "0.84rem",
+                        fontWeight: isActive ? 700 : 500,
+                      },
+                    },
                   }}
                 />
                 {item.badge && (
@@ -174,9 +178,13 @@ export default function MenuContent({ currentRole }: MenuContentProps) {
                   </ListItemIcon>
                   <ListItemText
                     primary={item.text}
-                    primaryTypographyProps={{
-                      fontSize: "0.84rem",
-                      fontWeight: isActive ? 700 : 500,
+                    slotProps={{
+                      primary: {
+                        sx: {
+                          fontSize: "0.84rem",
+                          fontWeight: isActive ? 700 : 500,
+                        },
+                      },
                     }}
                   />
                 </ListItemButton>

@@ -1,18 +1,13 @@
 "use client";
 
 import React from "react";
-import {
-  Box,
-  Paper,
-  Typography,
-  ToggleButton,
-  ToggleButtonGroup,
-  Chip,
-} from "@mui/material";
+import Box from "@mui/material/Box";
+import ToggleButton from "@mui/material/ToggleButton";
+import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
+import Chip from "@mui/material/Chip";
 import PersonOutlineRoundedIcon from "@mui/icons-material/PersonOutlineRounded";
 import AdminPanelSettingsOutlinedIcon from "@mui/icons-material/AdminPanelSettingsOutlined";
 import TerminalOutlinedIcon from "@mui/icons-material/TerminalOutlined";
-import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
 import { useAuth } from "@/context/AuthContext";
 import { DashboardRole, getDefaultRole, ROLE_CONFIGS } from "./types";
 
@@ -28,6 +23,11 @@ export default function RoleSwitcherBar({
   const { user } = useAuth();
   const actualRole = getDefaultRole(user);
 
+  // Normal staff users are locked to Staff view and cannot switch
+  if (!user?.is_superuser && actualRole !== "developer" && actualRole !== "admin") {
+    return null;
+  }
+
   const handleRoleChange = (
     _event: React.MouseEvent<HTMLElement>,
     newRole: DashboardRole | null
@@ -38,69 +38,27 @@ export default function RoleSwitcherBar({
   };
 
   return (
-    <Paper
-      elevation={0}
+    <Box
       sx={{
-        p: 1.5,
-        px: 2,
-        borderRadius: 2,
-        border: "1px solid",
-        borderColor: "divider",
-        bgcolor: "background.paper",
         display: "flex",
-        flexDirection: { xs: "column", md: "row" },
-        alignItems: { xs: "flex-start", md: "center" },
-        justifyContent: "space-between",
-        gap: 2,
-        mb: 3,
+        justifyContent: "flex-end",
+        alignItems: "center",
+        gap: 1.5,
+        mb: 2.5,
       }}
     >
-      {/* Left: Perspective Indicator & User Account Details */}
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, flexWrap: "wrap" }}>
-        <Box
-          sx={{
-            display: "flex",
-            alignItems: "center",
-            gap: 1,
-            color: "text.secondary",
-          }}
-        >
-          <VisibilityOutlinedIcon fontSize="small" />
-          <Typography variant="body2" sx={{ fontWeight: 600, color: "text.primary" }}>
-            Perspective:
-          </Typography>
-        </Box>
-
-        {/* Active Role Chip */}
+      {/* Preview Alert pill if switching away from your real account role */}
+      {activeRole !== actualRole && (
         <Chip
           size="small"
-          label={ROLE_CONFIGS[activeRole].label}
-          color={ROLE_CONFIGS[activeRole].badgeColor}
-          sx={{ fontWeight: 700, fontSize: "0.75rem" }}
+          label={`Previewing ${ROLE_CONFIGS[activeRole].label}`}
+          color="warning"
+          variant="outlined"
+          sx={{ fontWeight: 600, fontSize: "0.75rem" }}
         />
+      )}
 
-        {/* User Account Info */}
-        <Typography variant="caption" sx={{ color: "text.secondary" }}>
-          (Account:{" "}
-          <strong>
-            {user?.is_superuser ? "Super Admin" : "Staff"} • {user?.username || "Guest / Design Mode"}
-          </strong>
-          )
-        </Typography>
-
-        {/* Preview Alert pill if switching away from your real account role */}
-        {activeRole !== actualRole && (
-          <Chip
-            size="small"
-            variant="outlined"
-            label="Preview Mode"
-            color="warning"
-            sx={{ fontSize: "0.7rem", height: 22 }}
-          />
-        )}
-      </Box>
-
-      {/* Right: Toggle Button Group with 3 clickable ToggleButtons */}
+      {/* Role Toggle Buttons for Administrators & Developers */}
       <ToggleButtonGroup
         value={activeRole}
         exclusive
@@ -108,29 +66,27 @@ export default function RoleSwitcherBar({
         size="small"
         aria-label="dashboard role perspective"
         sx={{
-          bgcolor: "action.hover",
+          bgcolor: "background.paper",
+          border: "1px solid",
+          borderColor: "divider",
           p: 0.5,
           borderRadius: 2,
           "& .MuiToggleButton-root": {
             border: "none",
             borderRadius: 1.5,
             px: 1.5,
-            py: 0.6,
+            py: 0.5,
             textTransform: "none",
             fontWeight: 600,
-            fontSize: "0.8rem",
+            fontSize: "0.78rem",
             color: "text.secondary",
             display: "flex",
             alignItems: "center",
             gap: 0.75,
-            cursor: "pointer",
             "&.Mui-selected": {
-              bgcolor: "background.paper",
+              bgcolor: "action.selected",
               color: "text.primary",
-              boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-              "&:hover": {
-                bgcolor: "background.paper",
-              },
+              fontWeight: 700,
             },
           },
         }}
@@ -150,6 +106,6 @@ export default function RoleSwitcherBar({
           <span>Developer View</span>
         </ToggleButton>
       </ToggleButtonGroup>
-    </Paper>
+    </Box>
   );
 }

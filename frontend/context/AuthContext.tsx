@@ -20,6 +20,7 @@ export interface User{
     division: string;
     is_active: boolean;
     is_superuser: boolean;
+    system_role_id?: number;
 }
 
 interface AuthContextType{

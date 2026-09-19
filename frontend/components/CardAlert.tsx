@@ -22,7 +22,7 @@ export default function CardAlert() {
       }}
     >
       <CardContent sx={{ p: 2, "&:last-child": { pb: 2 } }}>
-        <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+        <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 1 }}>
           <AutoAwesomeRoundedIcon fontSize="small" sx={{ color: "primary.main" }} />
           <Typography variant="subtitle2" sx={{ fontWeight: 700, fontSize: "0.82rem" }}>
             AI Research Assistant
