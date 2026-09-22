@@ -9,6 +9,7 @@ import InputAdornment from "@mui/material/InputAdornment";
 import Button from "@mui/material/Button";
 import Paper from "@mui/material/Paper";
 import Chip from "@mui/material/Chip";
+import Avatar from "@mui/material/Avatar";
 import Divider from "@mui/material/Divider";
 import FormControl from "@mui/material/FormControl";
 import InputLabel from "@mui/material/InputLabel";
@@ -59,6 +60,16 @@ const INITIAL_DOCUMENTS: ArchiveDocument[] = [
     ],
     summary:
       "Prescribes the operational rules for local government units regarding property valuations, schedule of market values, and statutory delinquent penalties.",
+    uploadedBy: {
+      name: "Maria Santos",
+      division: "Administrative Records",
+      position: "Senior Records Officer",
+    },
+    executiveBrief: {
+      statutoryMandate: "Prescribes uniform valuation schedule and market assessment standards for provincial LGUs under BLGF Department Order 2024-018.",
+      targetEntities: "Provincial & City Assessors, Municipal Valuation Officers, Local Boards of Assessment.",
+      archivalDisposition: "Series 2024 active regulation • Filed in Cabinet A • Shelf 2 (Binder 04).",
+    },
   },
   {
     id: "doc-2",
@@ -83,6 +94,16 @@ const INITIAL_DOCUMENTS: ArchiveDocument[] = [
     ],
     summary:
       "Directs provincial and municipal treasury collection units to interface electronic receipts with the central regional archival node.",
+    uploadedBy: {
+      name: "Engr. Juan Dela Cruz",
+      division: "Treasury Operations",
+      position: "Revenue Assessment Specialist",
+    },
+    executiveBrief: {
+      statutoryMandate: "Mandates transition of manual local treasury receipting to the regional electronic collection node under Circular TC-2024-009.",
+      targetEntities: "Municipal Treasurers, Revenue Collection Clerks, Regional Accounting Section.",
+      archivalDisposition: "Series 2024 active circular • Filed in Cabinet B • Shelf 1 (Binder 12).",
+    },
   },
   {
     id: "doc-3",
@@ -107,6 +128,16 @@ const INITIAL_DOCUMENTS: ArchiveDocument[] = [
     ],
     summary:
       "Formal legal opinion clarifying local authority to levy municipal franchise taxes on telecommunications and power utility infrastructure.",
+    uploadedBy: {
+      name: "Atty. Karen Reyes",
+      division: "Legal Affairs Unit",
+      position: "Legal Counsel",
+    },
+    executiveBrief: {
+      statutoryMandate: "Affirms statutory authority of LGUs to levy local franchise taxes on power and telecom utilities pursuant to LGC Section 137.",
+      targetEntities: "City & Municipal Legal Officers, Sangguniang Panlalawigan, Local Treasury Enforcers.",
+      archivalDisposition: "Series 2023 legal opinion • Filed in Cabinet C • Shelf 4 (Binder 08).",
+    },
   },
   {
     id: "doc-4",
@@ -131,6 +162,16 @@ const INITIAL_DOCUMENTS: ArchiveDocument[] = [
     ],
     summary:
       "Guidelines for scanning physical paper records into the digital archive, barcode labeling, and automated vector indexing.",
+    uploadedBy: {
+      name: "Roberto Morales",
+      division: "Custodial Archives",
+      position: "Records Archivist",
+    },
+    executiveBrief: {
+      statutoryMandate: "Standardizes 300 DPI multi-page digitization protocols, dual-pass quality verification, and shelf barcode indexing.",
+      targetEntities: "Archival Custodians, Digitization Technicians, Central Records Officers.",
+      archivalDisposition: "Series 2024 operational standard • Filed in Cabinet A • Shelf 1 (Binder 01).",
+    },
   },
   {
     id: "doc-5",
@@ -155,6 +196,16 @@ const INITIAL_DOCUMENTS: ArchiveDocument[] = [
     ],
     summary:
       "Schedule of mandatory regional compliance audits covering revenue collections and archival integrity across Region II.",
+    uploadedBy: {
+      name: "Director Alicia Tan",
+      division: "Office of the Regional Director",
+      position: "Regional Director",
+    },
+    executiveBrief: {
+      statutoryMandate: "Institutes mandatory Q3 cash collection reconciliation and audit compliance verification across all provincial districts.",
+      targetEntities: "Regional Audit Teams, District Finance Supervisors, Internal Control Custodians.",
+      archivalDisposition: "Series 2024 confidential memorandum • Filed in Cabinet D • Shelf 3 (Binder 19).",
+    },
   },
 ];
 
@@ -250,7 +301,7 @@ export default function DocumentArchivePage(props: { disableCustomTheme?: boolea
                 />
               </Box>
               <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                Cataloged physical binders and digitized OCR records for Region II.
+                Official registry of cataloged directives, physical records, and digitized archives.
               </Typography>
             </Box>
 
@@ -449,7 +500,7 @@ export default function DocumentArchivePage(props: { disableCustomTheme?: boolea
                                   sx={{ height: 20, fontSize: "0.68rem", fontWeight: 700, borderRadius: 1 }}
                                 />
                                 <Chip
-                                  label={`${doc.ocrAccuracy}% OCR`}
+                                  label={`${doc.ocrAccuracy}% Clarity`}
                                   size="small"
                                   variant="outlined"
                                   color="success"
@@ -457,6 +508,35 @@ export default function DocumentArchivePage(props: { disableCustomTheme?: boolea
                                 />
                               </Box>
                             </Box>
+
+                            {/* Uploaded By Staff Row */}
+                            {doc.uploadedBy && (
+                              <Box sx={{ display: "flex", alignItems: "center", gap: 1, mt: 0.75 }}>
+                                <Avatar
+                                  sx={{
+                                    width: 22,
+                                    height: 22,
+                                    fontSize: "0.65rem",
+                                    fontWeight: 700,
+                                    bgcolor: "primary.main",
+                                    color: "primary.contrastText",
+                                  }}
+                                >
+                                  {doc.uploadedBy.name
+                                    .split(" ")
+                                    .map((n) => n[0])
+                                    .slice(0, 2)
+                                    .join("")}
+                                </Avatar>
+                                <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.74rem" }}>
+                                  Uploaded by{" "}
+                                  <Box component="span" sx={{ fontWeight: 600, color: "text.primary" }}>
+                                    {doc.uploadedBy.name}
+                                  </Box>{" "}
+                                  ({doc.uploadedBy.division})
+                                </Typography>
+                              </Box>
+                            )}
 
                             <Divider sx={{ my: 1 }} />
 
@@ -545,11 +625,12 @@ export default function DocumentArchivePage(props: { disableCustomTheme?: boolea
           </Box>
         </Box>
 
-        {/* Ingest Document Modal */}
+        {/* Ingest Document Modal with Duplicate Pre-Check */}
         <IngestDocumentDialog
           open={isIngestOpen}
           onClose={() => setIsIngestOpen(false)}
           onIngestSuccess={handleIngestSuccess}
+          existingDocuments={documents}
         />
       </Box>
     </AppTheme>

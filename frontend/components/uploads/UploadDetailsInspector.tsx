@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
@@ -8,6 +8,8 @@ import Stack from "@mui/material/Stack";
 import Divider from "@mui/material/Divider";
 import Chip from "@mui/material/Chip";
 import Button from "@mui/material/Button";
+import Avatar from "@mui/material/Avatar";
+import Alert from "@mui/material/Alert";
 import Link from "next/link";
 import { StaffUploadItem } from "./types";
 
@@ -16,6 +18,7 @@ interface UploadDetailsInspectorProps {
   onClose: () => void;
   onUploadNewVersion: (item: StaffUploadItem) => void;
   onAssignShelf: (id: string) => void;
+  onPublishDoc?: (item: StaffUploadItem) => void;
 }
 
 export default function UploadDetailsInspector({
@@ -23,7 +26,10 @@ export default function UploadDetailsInspector({
   onClose,
   onUploadNewVersion,
   onAssignShelf,
+  onPublishDoc,
 }: UploadDetailsInspectorProps) {
+  const [barcodePrinted, setBarcodePrinted] = useState(false);
+
   if (!item) {
     return (
       <Paper
@@ -51,40 +57,57 @@ export default function UploadDetailsInspector({
     );
   }
 
+  // Complete 5-stage pipeline milestones
   const milestones = [
     {
-      name: "File Received",
+      name: "1. File Received",
       status: "completed",
-      detail: "Scanned document received and verified.",
+      detail: "Scanned document received and checksum verified.",
     },
     {
-      name: "Text Extraction",
+      name: "2. Text Extraction",
       status: item.status === "Processing" ? "processing" : "completed",
-      detail: item.status === "Processing" ? "Verifying document text..." : "Document text verified.",
+      detail: item.status === "Processing" ? "Verifying document text clarity..." : "Document text verified.",
     },
     {
-      name: "Search Index",
+      name: "3. Vector Indexing",
       status: item.status === "Processing" ? "pending" : "completed",
-      detail: item.status === "Processing" ? "Queued for indexing." : "Ready in Smart Search.",
+      detail: item.status === "Processing" ? "Queued for semantic vector search." : "Indexed for semantic search.",
     },
     {
-      name: "Physical Storage Assigned",
+      name: "4. Physical Storage Tagged",
       status: "completed",
       detail: `${item.shelfLocation.cabinet} • ${item.shelfLocation.shelf} (${item.shelfLocation.binder})`,
     },
+    {
+      name: "5. Master Archive Publication",
+      status:
+        item.status === "Published" || item.status === "Completed"
+          ? "completed"
+          : item.status === "Needs Review"
+          ? "pending"
+          : "processing",
+      detail:
+        item.status === "Published" || item.status === "Completed"
+          ? "Cleared and active in regional repository."
+          : item.status === "Needs Review"
+          ? "Staff review required before publishing."
+          : "Awaiting final clearance.",
+    },
   ];
 
-  const versionList = item.versionHistory && item.versionHistory.length > 0
-    ? item.versionHistory
-    : [
-        {
-          version: item.version || "v1.0",
-          date: item.uploadedAt,
-          fileName: item.fileName,
-          uploadedBy: "Staff Officer",
-          notes: "Initial upload",
-        },
-      ];
+  const versionList =
+    item.versionHistory && item.versionHistory.length > 0
+      ? item.versionHistory
+      : [
+          {
+            version: item.version || "v1.0",
+            date: item.uploadedAt,
+            fileName: item.fileName,
+            uploadedBy: item.uploadedBy?.name || "Staff Officer",
+            notes: "Initial upload",
+          },
+        ];
 
   return (
     <Paper
@@ -113,7 +136,7 @@ export default function UploadDetailsInspector({
       >
         <Box sx={{ flex: 1, pr: 1 }}>
           <Typography variant="caption" sx={{ fontWeight: 700, color: "text.secondary", textTransform: "uppercase" }}>
-            Document Details
+            Document Details & Ingestion Stage
           </Typography>
           <Typography variant="subtitle2" sx={{ fontWeight: 800, lineHeight: 1.3, mt: 0.25 }}>
             {item.orderNo}
@@ -130,7 +153,7 @@ export default function UploadDetailsInspector({
 
       {/* Scrollable Body */}
       <Box sx={{ flex: 1, overflowY: "auto", p: 2 }}>
-        {/* Document Title & Category */}
+        {/* Document Title */}
         <Box sx={{ mb: 1.5 }}>
           <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.68rem", fontWeight: 700, textTransform: "uppercase" }}>
             Directive Title
@@ -140,6 +163,7 @@ export default function UploadDetailsInspector({
           </Typography>
         </Box>
 
+        {/* Badges */}
         <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mb: 2 }}>
           <Chip
             label={item.category}
@@ -166,6 +190,61 @@ export default function UploadDetailsInspector({
             sx={{ height: 22, fontSize: "0.68rem", fontWeight: 600, borderRadius: 1 }}
           />
         </Box>
+
+        {/* Uploaded By Staff Member */}
+        {item.uploadedBy && (
+          <Paper
+            variant="outlined"
+            sx={{
+              p: 1.25,
+              mb: 2,
+              borderRadius: 1,
+              bgcolor: "action.hover",
+              borderColor: "divider",
+              display: "flex",
+              alignItems: "center",
+              gap: 1.25,
+            }}
+          >
+            <Avatar
+              sx={{
+                width: 34,
+                height: 34,
+                fontSize: "0.8rem",
+                fontWeight: 700,
+                bgcolor: "primary.main",
+                color: "primary.contrastText",
+              }}
+            >
+              {item.uploadedBy.name
+                .split(" ")
+                .map((n) => n[0])
+                .slice(0, 2)
+                .join("")}
+            </Avatar>
+            <Box sx={{ minWidth: 0, flex: 1 }}>
+              <Typography
+                variant="caption"
+                sx={{
+                  color: "text.secondary",
+                  fontSize: "0.66rem",
+                  fontWeight: 700,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.04em",
+                  display: "block",
+                }}
+              >
+                Uploaded By Staff Officer
+              </Typography>
+              <Typography variant="subtitle2" sx={{ fontWeight: 800, fontSize: "0.84rem", lineHeight: 1.2 }}>
+                {item.uploadedBy.name}
+              </Typography>
+              <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.72rem" }}>
+                {item.uploadedBy.position || item.uploadedBy.division}
+              </Typography>
+            </Box>
+          </Paper>
+        )}
 
         <Divider sx={{ mb: 2 }} />
 
@@ -206,7 +285,7 @@ export default function UploadDetailsInspector({
                   {ver.notes || "Document upload"}
                 </Typography>
                 <Typography variant="caption" sx={{ color: "text.secondary", display: "block", fontSize: "0.65rem", mt: 0.25 }}>
-                  File: {ver.fileName}
+                  File: {ver.fileName} • Uploaded by: {ver.uploadedBy}
                 </Typography>
               </Paper>
             ))}
@@ -215,9 +294,9 @@ export default function UploadDetailsInspector({
 
         <Divider sx={{ mb: 2 }} />
 
-        {/* Status Verification Checklist */}
+        {/* 5-Stage Ingestion Verification Checklist */}
         <Typography variant="caption" sx={{ fontWeight: 700, color: "text.secondary", textTransform: "uppercase", display: "block", mb: 1 }}>
-          Document Verification
+          5-Stage Ingestion Verification
         </Typography>
 
         <Stack spacing={1} sx={{ mb: 2.5 }}>
@@ -252,9 +331,9 @@ export default function UploadDetailsInspector({
 
         <Divider sx={{ mb: 2 }} />
 
-        {/* Physical Storage Coordinates */}
+        {/* Physical Storage Coordinates & Barcode Label */}
         <Typography variant="caption" sx={{ fontWeight: 700, color: "text.secondary", textTransform: "uppercase", display: "block", mb: 1 }}>
-          Physical Storage Location
+          Physical Storage Location & Barcode
         </Typography>
         <Paper
           variant="outlined"
@@ -301,37 +380,28 @@ export default function UploadDetailsInspector({
             </Box>
           </Box>
 
-          <Box sx={{ display: "flex", gap: 1, mt: 1.5 }}>
-            <Button
-              component={Link}
-              href="/locator"
-              size="small"
-              variant="outlined"
-              fullWidth
-              sx={{
-                borderRadius: 1,
-                fontSize: "0.72rem",
-                textTransform: "none",
-                fontWeight: 600,
-                py: "2px",
-              }}
-            >
-              Open Shelf Locator
-            </Button>
+          {/* Barcode Print Action */}
+          <Box sx={{ mt: 1.5 }}>
             <Button
               size="small"
-              variant="outlined"
-              onClick={() => onAssignShelf(item.id)}
+              variant={barcodePrinted ? "contained" : "outlined"}
+              color={barcodePrinted ? "success" : "primary"}
               fullWidth
+              onClick={() => {
+                setBarcodePrinted(true);
+                setTimeout(() => setBarcodePrinted(false), 2500);
+              }}
               sx={{
                 borderRadius: 1,
-                fontSize: "0.72rem",
+                fontSize: "0.74rem",
                 textTransform: "none",
-                fontWeight: 600,
-                py: "2px",
+                fontWeight: 700,
+                py: 0.5,
               }}
             >
-              Edit Location
+              {barcodePrinted
+                ? "✓ Barcode Sticker Sent to Label Printer"
+                : `🖨️ Print Physical Barcode Sticker (${item.shelfLocation.barcode || "TAGGED"})`}
             </Button>
           </Box>
         </Paper>
@@ -357,8 +427,28 @@ export default function UploadDetailsInspector({
           </Typography>
         </Paper>
 
-        {/* Actions Strip: Upload New Version & Open in Archive */}
+        {/* Actions Strip */}
         <Stack spacing={1}>
+          {/* Approve & Publish to Master Archive if not already published */}
+          {item.status !== "Published" && item.status !== "Completed" && (
+            <Button
+              variant="contained"
+              color="success"
+              fullWidth
+              size="small"
+              onClick={() => onPublishDoc?.(item)}
+              sx={{
+                borderRadius: 1,
+                textTransform: "none",
+                fontWeight: 700,
+                boxShadow: "none",
+                py: 0.8,
+              }}
+            >
+              ✓ Approve & Publish to Master Archive
+            </Button>
+          )}
+
           <Button
             variant="contained"
             color="primary"
@@ -373,13 +463,30 @@ export default function UploadDetailsInspector({
               py: 0.75,
             }}
           >
-            Upload New Version
+            Upload New Revision Version
+          </Button>
+
+          <Button
+            component={Link}
+            href={`/chat?q=${encodeURIComponent(`Tell me about ${item.title} (${item.orderNo})`)}`}
+            variant="outlined"
+            fullWidth
+            size="small"
+            sx={{
+              borderRadius: 1,
+              textTransform: "none",
+              fontWeight: 600,
+              py: 0.75,
+            }}
+          >
+            Ask AI Assistant About This Upload
           </Button>
 
           <Button
             component={Link}
             href="/documents"
             variant="outlined"
+            color="inherit"
             fullWidth
             size="small"
             sx={{

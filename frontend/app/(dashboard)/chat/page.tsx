@@ -24,6 +24,9 @@ import ThumbDownOutlinedIcon from "@mui/icons-material/ThumbDownOutlined";
 import ThumbDownRoundedIcon from "@mui/icons-material/ThumbDownRounded";
 import ContentCopyRoundedIcon from "@mui/icons-material/ContentCopyRounded";
 import RefreshRoundedIcon from "@mui/icons-material/RefreshRounded";
+import AlternateEmailRoundedIcon from "@mui/icons-material/AlternateEmailRounded";
+import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
+import AutoAwesomeRoundedIcon from "@mui/icons-material/AutoAwesomeRounded";
 
 // Layout & Customizations
 import SideMenu from "@/components/SideMenu";
@@ -34,6 +37,11 @@ import { getDefaultRole } from "@/components/dashboard/types";
 
 // Chat Subcomponents
 import ConversationSidebar, { ConversationItem } from "@/components/chat/ConversationSidebar";
+import DocumentMentionDropdown, {
+  MENTIONABLE_DOCUMENTS,
+  MentionableDocument,
+} from "@/components/chat/DocumentMentionDropdown";
+import MultiAgentStepper, { PipelineStep } from "@/components/chat/MultiAgentStepper";
 
 export interface ReferencedDoc {
   id: string;
@@ -52,6 +60,8 @@ export interface ChatMessage {
   text: string;
   referencedDocs?: ReferencedDoc[];
   feedback?: "liked" | "disliked" | null;
+  pipelineSteps?: PipelineStep[];
+  targetedDoc?: MentionableDocument;
 }
 
 const INITIAL_CONVERSATIONS: ConversationItem[] = [
@@ -129,6 +139,13 @@ export default function ChatPage(props: { disableCustomTheme?: boolean }) {
   const [expandedDocId, setExpandedDocId] = useState<string | null>(null);
   const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
 
+  // Mention State for Agent Targeted Directives
+  const [showMentionMenu, setShowMentionMenu] = useState<boolean>(false);
+  const [mentionQuery, setMentionQuery] = useState<string>("");
+  const [mentionSelectedIndex, setMentionSelectedIndex] = useState<number>(0);
+  const [targetedDoc, setTargetedDoc] = useState<MentionableDocument | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
   // Auto-scroll anchor
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
@@ -167,33 +184,153 @@ export default function ChatPage(props: { disableCustomTheme?: boolean }) {
     setConversations([newConv, ...conversations]);
     setActiveConvId(newId);
     setMessages([]);
+    setTargetedDoc(null);
+  };
+
+  // Mention handler when typing
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    setInputText(value);
+
+    const cursor = e.target.selectionStart ?? value.length;
+    const textBeforeCursor = value.slice(0, cursor);
+    const atMatch = textBeforeCursor.match(/@([a-zA-Z0-9\-_.]*)$/);
+
+    if (atMatch) {
+      setMentionQuery(atMatch[1]);
+      setShowMentionMenu(true);
+      setMentionSelectedIndex(0);
+    } else {
+      setShowMentionMenu(false);
+    }
+  };
+
+  const handleSelectMention = (doc: MentionableDocument) => {
+    const cursor = inputRef.current?.selectionStart ?? inputText.length;
+    const textBeforeCursor = inputText.slice(0, cursor);
+    const textAfterCursor = inputText.slice(cursor);
+
+    const newBefore = textBeforeCursor.replace(/@([a-zA-Z0-9\-_.]*)$/, `@[${doc.orderNo}] `);
+    setInputText(newBefore + textAfterCursor);
+    setTargetedDoc(doc);
+    setShowMentionMenu(false);
+
+    setTimeout(() => {
+      inputRef.current?.focus();
+    }, 50);
+  };
+
+  const handleTriggerMention = () => {
+    setInputText((prev) => (prev.endsWith(" ") || prev === "" ? `${prev}@` : `${prev} @`));
+    setMentionQuery("");
+    setShowMentionMenu(true);
+    setMentionSelectedIndex(0);
+    setTimeout(() => {
+      inputRef.current?.focus();
+    }, 50);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (showMentionMenu) {
+      const normalizedQuery = mentionQuery.toLowerCase().trim();
+      const filtered = MENTIONABLE_DOCUMENTS.filter(
+        (doc) =>
+          !normalizedQuery ||
+          doc.orderNo.toLowerCase().includes(normalizedQuery) ||
+          doc.title.toLowerCase().includes(normalizedQuery) ||
+          doc.category.toLowerCase().includes(normalizedQuery) ||
+          doc.shelfLocation.toLowerCase().includes(normalizedQuery)
+      );
+
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        if (filtered.length > 0) {
+          setMentionSelectedIndex((prev) => (prev + 1) % filtered.length);
+        }
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        if (filtered.length > 0) {
+          setMentionSelectedIndex((prev) => (prev - 1 + filtered.length) % filtered.length);
+        }
+        return;
+      }
+      if ((e.key === "Enter" || e.key === "Tab") && !e.shiftKey) {
+        e.preventDefault();
+        if (filtered.length > 0 && filtered[mentionSelectedIndex]) {
+          handleSelectMention(filtered[mentionSelectedIndex]);
+        }
+        return;
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setShowMentionMenu(false);
+        return;
+      }
+    }
+
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage(e);
+    }
   };
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputText.trim()) return;
 
+    // Detect if message targets a specific document
+    const activeDoc =
+      targetedDoc ||
+      MENTIONABLE_DOCUMENTS.find((d) => inputText.includes(`@[${d.orderNo}]`));
+
     const userMessage: ChatMessage = {
       id: `user-${Date.now()}`,
       sender: "user",
       timestamp: "Just now",
       text: inputText,
+      targetedDoc: activeDoc,
     };
 
     setMessages((prev) => [...prev, userMessage]);
     const prompt = inputText;
     setInputText("");
+    setTargetedDoc(null);
+    setShowMentionMenu(false);
     setIsGenerating(true);
 
-    // Simulate AI response
+    // Simulate Multi-Agent execution response
     setTimeout(() => {
-      const assistantMessage: ChatMessage = {
-        id: `ai-${Date.now()}`,
-        sender: "assistant",
-        timestamp: "Just now",
-        text: `Based on the regional archive database regarding "${prompt}", all applicable directives have been cross-verified. The provisions cited below are currently active and filed under the records management division.`,
-        feedback: null,
-        referencedDocs: [
+      let aiText = "";
+      let steps: PipelineStep[] = [];
+      let referencedDocs: ReferencedDoc[] = [];
+
+      if (activeDoc) {
+        aiText = `🎯 Multi-Agent Targeted Scope Active for ${activeDoc.orderNo}: "${activeDoc.title}".\n\nDirectly retrieved vector embeddings and linearized full text from physical location: ${activeDoc.shelfLocation}.\n\nKey Provisions Analyzed by Supervisor Agent:\n• Assessment & Compliance: ${activeDoc.summary}\n• Archival Integrity: Verified active validity under Series ${activeDoc.seriesYear}.\n• Physical Cross-Reference: Original stamped duplicate archived in ${activeDoc.shelfLocation}.`;
+
+        steps = [
+          { name: `1. Resolve @${activeDoc.orderNo}`, status: "completed", timeOrCount: activeDoc.shelfLocation },
+          { name: "2. Security Clearance", status: "completed", timeOrCount: `Verified ${activeDoc.clearance}` },
+          { name: "3. Vector Chunks Extract", status: "completed", timeOrCount: "4 Chunks (18ms)" },
+          { name: "4. Multi-Agent Synthesis", status: "completed", timeOrCount: "Targeted Brief" },
+        ];
+
+        referencedDocs = [
+          {
+            id: `doc-${Date.now()}`,
+            title: activeDoc.title,
+            orderNo: activeDoc.orderNo,
+            seriesYear: activeDoc.seriesYear,
+            shelfLocation: activeDoc.shelfLocation,
+            relevanceMatch: "99.4% Targeted Match",
+            excerpt: activeDoc.summary,
+          },
+        ];
+      } else {
+        aiText = `Based on the regional archive database regarding "${prompt}", all applicable directives have been cross-verified. The provisions cited below are currently active and filed under the records management division.`;
+
+        referencedDocs = [
           {
             id: `doc-${Date.now()}`,
             title: "LGU Real Property Assessment Advisory Guidelines and Valuation Standards",
@@ -204,8 +341,20 @@ export default function ChatPage(props: { disableCustomTheme?: boolean }) {
             excerpt:
               "Section 4.1 Delinquent Assessment Penalties: Municipal treasurers shall enforce the revised 2% monthly surcharges on unremitted real property taxes, with a statutory maximum ceiling of 72 months from the date of final demand notice.",
           },
-        ],
+        ];
+      }
+
+      const assistantMessage: ChatMessage = {
+        id: `ai-${Date.now()}`,
+        sender: "assistant",
+        timestamp: "Just now",
+        text: aiText,
+        feedback: null,
+        pipelineSteps: steps.length > 0 ? steps : undefined,
+        referencedDocs,
+        targetedDoc: activeDoc,
       };
+
       setMessages((prev) => [...prev, assistantMessage]);
       setIsGenerating(false);
     }, 850);
@@ -255,6 +404,31 @@ export default function ChatPage(props: { disableCustomTheme?: boolean }) {
       );
       setIsGenerating(false);
     }, 700);
+  };
+
+  const renderMessageContent = (text: string) => {
+    const parts = text.split(/(@\[[^\]]+\])/g);
+    return parts.map((part, i) => {
+      if (part.startsWith("@[") && part.endsWith("]")) {
+        const docOrder = part.slice(2, -1);
+        return (
+          <Chip
+            key={i}
+            label={`@${docOrder}`}
+            size="small"
+            color="primary"
+            sx={{
+              mx: 0.5,
+              height: 22,
+              fontSize: "0.75rem",
+              fontWeight: 700,
+              borderRadius: 1,
+            }}
+          />
+        );
+      }
+      return <span key={i}>{part}</span>;
+    });
   };
 
   return (
@@ -312,9 +486,6 @@ export default function ChatPage(props: { disableCustomTheme?: boolean }) {
                   sx={{ height: 20, fontSize: "0.68rem", fontWeight: 700, borderRadius: 1 }}
                 />
               </Box>
-              <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                Ask questions to find and verify rules from archived official directives.
-              </Typography>
             </Box>
           </Box>
 
@@ -386,7 +557,7 @@ export default function ChatPage(props: { disableCustomTheme?: boolean }) {
                               </Typography>
                             </Box>
                             <Typography variant="body2" sx={{ color: "text.primary", lineHeight: 1.55 }}>
-                              {msg.text}
+                              {renderMessageContent(msg.text)}
                             </Typography>
                           </Paper>
                         </Box>
@@ -413,6 +584,27 @@ export default function ChatPage(props: { disableCustomTheme?: boolean }) {
                               {msg.timestamp}
                             </Typography>
                           </Box>
+
+                          {/* Multi-Agent Stepper Pipeline if targeted scope */}
+                          {msg.pipelineSteps && (
+                            <Box sx={{ mb: 2 }}>
+                              <MultiAgentStepper steps={msg.pipelineSteps} />
+                            </Box>
+                          )}
+
+                          {/* Targeted Directive Indicator */}
+                          {msg.targetedDoc && (
+                            <Box sx={{ mb: 1.5 }}>
+                              <Chip
+                                icon={<AutoAwesomeRoundedIcon sx={{ fontSize: "13px !important" }} />}
+                                label={`Targeted Agent Directive: ${msg.targetedDoc.orderNo} (${msg.targetedDoc.shelfLocation})`}
+                                size="small"
+                                color="primary"
+                                variant="outlined"
+                                sx={{ height: 22, fontSize: "0.72rem", fontWeight: 700 }}
+                              />
+                            </Box>
+                          )}
 
                           {/* Response Text */}
                           <Typography
@@ -689,74 +881,119 @@ export default function ChatPage(props: { disableCustomTheme?: boolean }) {
                     {prompt}
                   </Button>
                 ))}
+
+                <Divider orientation="vertical" flexItem sx={{ mx: 0.5, height: 16, my: "auto" }} />
+
+                <Button
+                  size="small"
+                  startIcon={<AlternateEmailRoundedIcon sx={{ fontSize: 13 }} />}
+                  onClick={handleTriggerMention}
+                  variant="outlined"
+                  color="primary"
+                  sx={{
+                    fontSize: "0.72rem",
+                    textTransform: "none",
+                    borderRadius: 1,
+                    py: "1px",
+                    px: "8px",
+                    fontWeight: 700,
+                  }}
+                >
+                  Target Directive (@)
+                </Button>
               </Box>
 
               {/* Chat Input Bar (Pinned at Bottom, Expands Upward with Multiline) */}
-              <Paper
-                elevation={0}
-                variant="outlined"
-                sx={{
-                  p: 1,
-                  borderRadius: 1,
-                  bgcolor: "background.paper",
-                  borderColor: "divider",
-                  flexShrink: 0,
-                }}
-              >
-                <form onSubmit={handleSendMessage}>
-                  <Box sx={{ display: "flex", gap: 1, alignItems: "flex-end" }}>
-                    {/* Multiline input: expands upward as user types */}
-                    <TextField
-                      fullWidth
-                      multiline
-                      minRows={1}
-                      maxRows={6}
-                      value={inputText}
-                      onChange={(e) => setInputText(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && !e.shiftKey) {
-                          e.preventDefault();
-                          handleSendMessage(e);
-                        }
-                      }}
-                      placeholder="Ask a question about circulars, memorandums, or tax rules... (Shift+Enter for newline)"
-                      sx={{
-                        "& .MuiOutlinedInput-root": {
-                          borderRadius: 1,
-                          fontSize: "0.9rem",
-                          p: "8px 12px",
-                        },
-                      }}
-                    />
+              <Box sx={{ position: "relative", width: "100%", flexShrink: 0 }}>
+                {/* Floating Mention Autocomplete Popover */}
+                <DocumentMentionDropdown
+                  open={showMentionMenu}
+                  query={mentionQuery}
+                  selectedIndex={mentionSelectedIndex}
+                  onSelect={handleSelectMention}
+                  onClose={() => setShowMentionMenu(false)}
+                />
 
-                    {/* Solo Icon Send Button */}
-                    <IconButton
-                      type="submit"
-                      color="primary"
-                      disabled={!inputText.trim()}
-                      sx={{
-                        borderRadius: 1,
-                        bgcolor: "primary.main",
-                        color: "primary.contrastText",
-                        width: 40,
-                        height: 40,
-                        flexShrink: 0,
-                        mb: "1px",
-                        "&:hover": {
-                          bgcolor: "primary.dark",
-                        },
-                        "&.Mui-disabled": {
-                          bgcolor: "action.disabledBackground",
-                          color: "action.disabled",
-                        },
-                      }}
-                      aria-label="Send message"
-                    >
-                      <SendRoundedIcon sx={{ fontSize: 18 }} />
-                    </IconButton>
-                  </Box>
-                </form>
-              </Paper>
+                <Paper
+                  elevation={0}
+                  variant="outlined"
+                  sx={{
+                    p: 1.25,
+                    borderRadius: 1.5,
+                    bgcolor: "background.paper",
+                    borderColor: showMentionMenu ? "primary.main" : "divider",
+                    transition: "border-color 0.15s ease",
+                  }}
+                >
+                  {/* Active Targeted Directive Chip */}
+                  {targetedDoc && (
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1, flexWrap: "wrap" }}>
+                      <Chip
+                        icon={<AutoAwesomeRoundedIcon sx={{ fontSize: "14px !important" }} />}
+                        label={`Agent Target: ${targetedDoc.orderNo} (${targetedDoc.shelfLocation})`}
+                        color="primary"
+                        size="small"
+                        onDelete={() => setTargetedDoc(null)}
+                        deleteIcon={<CloseRoundedIcon sx={{ fontSize: "14px !important" }} />}
+                        sx={{ fontWeight: 700, borderRadius: 1.5, fontSize: "0.74rem" }}
+                      />
+                      <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.7rem" }}>
+                        Vector retrieval scoped specifically to this directive
+                      </Typography>
+                    </Box>
+                  )}
+
+                  <form onSubmit={handleSendMessage}>
+                    <Box sx={{ display: "flex", gap: 1, alignItems: "flex-end" }}>
+                      {/* Multiline input: expands upward as user types */}
+                      <TextField
+                        fullWidth
+                        multiline
+                        inputRef={inputRef}
+                        minRows={1}
+                        maxRows={6}
+                        value={inputText}
+                        onChange={handleInputChange}
+                        onKeyDown={handleKeyDown}
+                        placeholder="Ask a question, or type '@' to target a specific directive for the agent... (Shift+Enter for newline)"
+                        sx={{
+                          "& .MuiOutlinedInput-root": {
+                            borderRadius: 1,
+                            fontSize: "0.9rem",
+                            p: "8px 12px",
+                          },
+                        }}
+                      />
+
+                      {/* Solo Icon Send Button */}
+                      <IconButton
+                        type="submit"
+                        color="primary"
+                        disabled={!inputText.trim()}
+                        sx={{
+                          borderRadius: 1,
+                          bgcolor: "primary.main",
+                          color: "primary.contrastText",
+                          width: 40,
+                          height: 40,
+                          flexShrink: 0,
+                          mb: "1px",
+                          "&:hover": {
+                            bgcolor: "primary.dark",
+                          },
+                          "&.Mui-disabled": {
+                            bgcolor: "action.disabledBackground",
+                            color: "action.disabled",
+                          },
+                        }}
+                        aria-label="Send message"
+                      >
+                        <SendRoundedIcon sx={{ fontSize: 18 }} />
+                      </IconButton>
+                    </Box>
+                  </form>
+                </Paper>
+              </Box>
             </Box>
           </Box>
         </Box>

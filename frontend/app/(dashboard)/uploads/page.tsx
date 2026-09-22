@@ -38,19 +38,24 @@ const SEED_UPLOADS: StaffUploadItem[] = [
     uploadedAt: "2024-08-28 09:15",
     status: "Published",
     version: "v1.1",
+    uploadedBy: {
+      name: "Maria Santos",
+      division: "Administrative Records",
+      position: "Senior Records Officer",
+    },
     versionHistory: [
       {
         version: "v1.1",
         date: "2024-08-28 09:15",
         fileName: "blgf-do-2024-018-assessment-guidelines-signed.pdf",
-        uploadedBy: "Staff Officer",
+        uploadedBy: "Maria Santos",
         notes: "Uploaded officially signed copy with assessor dry seal",
       },
       {
         version: "v1.0",
         date: "2024-08-20 11:30",
         fileName: "blgf-do-2024-018-assessment-guidelines-draft.pdf",
-        uploadedBy: "Staff Officer",
+        uploadedBy: "Maria Santos",
         notes: "Initial advance copy upload",
       },
     ],
@@ -84,12 +89,17 @@ const SEED_UPLOADS: StaffUploadItem[] = [
     uploadedAt: "2024-08-24 11:42",
     status: "Published",
     version: "v1.0",
+    uploadedBy: {
+      name: "Engr. Juan Dela Cruz",
+      division: "Treasury Operations",
+      position: "Revenue Assessment Specialist",
+    },
     versionHistory: [
       {
         version: "v1.0",
         date: "2024-08-24 11:42",
         fileName: "tc-2024-009-revenue-collection.pdf",
-        uploadedBy: "Staff Officer",
+        uploadedBy: "Engr. Juan Dela Cruz",
         notes: "Initial document upload",
       },
     ],
@@ -123,12 +133,17 @@ const SEED_UPLOADS: StaffUploadItem[] = [
     uploadedAt: "2024-08-20 14:05",
     status: "Published",
     version: "v1.0",
+    uploadedBy: {
+      name: "Roberto Morales",
+      division: "Custodial Archives",
+      position: "Records Archivist",
+    },
     versionHistory: [
       {
         version: "v1.0",
         date: "2024-08-20 14:05",
         fileName: "sop-doc-2024-001-ingestion.pdf",
-        uploadedBy: "Staff Officer",
+        uploadedBy: "Roberto Morales",
         notes: "Initial SOP upload",
       },
     ],
@@ -162,12 +177,17 @@ const SEED_UPLOADS: StaffUploadItem[] = [
     uploadedAt: "2024-09-19 10:15",
     status: "Processing",
     version: "v1.0",
+    uploadedBy: {
+      name: "Engr. Juan Dela Cruz",
+      division: "Assessments & Valuations Office",
+      position: "Valuation Specialist",
+    },
     versionHistory: [
       {
         version: "v1.0",
         date: "2024-09-19 10:15",
         fileName: "do-2024-031-land-titling-sync.pdf",
-        uploadedBy: "Staff Officer",
+        uploadedBy: "Engr. Juan Dela Cruz",
         notes: "Initial upload",
       },
     ],
@@ -201,12 +221,17 @@ const SEED_UPLOADS: StaffUploadItem[] = [
     uploadedAt: "2024-09-19 08:30",
     status: "Processing",
     version: "v1.0",
+    uploadedBy: {
+      name: "Maria Santos",
+      division: "Treasury Operations",
+      position: "Senior Revenue Clerk",
+    },
     versionHistory: [
       {
         version: "v1.0",
         date: "2024-09-19 08:30",
         fileName: "ra-2024-014-tax-amnesty.pdf",
-        uploadedBy: "Staff Officer",
+        uploadedBy: "Maria Santos",
         notes: "Initial upload",
       },
     ],
@@ -240,12 +265,17 @@ const SEED_UPLOADS: StaffUploadItem[] = [
     uploadedAt: "2024-09-18 16:50",
     status: "Needs Review",
     version: "v1.0",
+    uploadedBy: {
+      name: "Atty. Karen Reyes",
+      division: "Legal Affairs & Rulings",
+      position: "Legal Counsel",
+    },
     versionHistory: [
       {
         version: "v1.0",
         date: "2024-09-18 16:50",
         fileName: "mo-2023-088-commercial-rates.pdf",
-        uploadedBy: "Staff Officer",
+        uploadedBy: "Atty. Karen Reyes",
         notes: "Carbon copy scan upload",
       },
     ],
@@ -337,6 +367,30 @@ export default function MyUploadsPage(props: { disableCustomTheme?: boolean }) {
     setIsModalOpen(true);
   };
 
+  const handlePublishDoc = (docToPublish: StaffUploadItem) => {
+    setUploadsList((prev) =>
+      prev.map((d) =>
+        d.id === docToPublish.id
+          ? {
+              ...d,
+              status: "Published",
+              stages: {
+                ...d.stages,
+                status: {
+                  status: "completed",
+                  timestamp: new Date().toISOString().substring(0, 16).replace("T", " "),
+                  detail: "Published to master regional archive.",
+                },
+              },
+            }
+          : d
+      )
+    );
+    setNotification(
+      `Directive "${docToPublish.orderNo}" has been approved and published to the Master Document Archive.`
+    );
+  };
+
   return (
     <AppTheme {...props}>
       <CssBaseline enableColorScheme />
@@ -382,17 +436,18 @@ export default function MyUploadsPage(props: { disableCustomTheme?: boolean }) {
             <Box>
               <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
                 <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                  Categories
+                  My Uploads & Ingestion Workspace
                 </Typography>
                 <Chip
-                  label={`${TEAMS_CATEGORIES.length} Categories`}
+                  label="Digitization & Versioning Hub"
                   size="small"
+                  color="primary"
                   variant="outlined"
-                  sx={{ height: 20, fontSize: "0.68rem", fontWeight: 600, borderRadius: 1 }}
+                  sx={{ height: 20, fontSize: "0.68rem", fontWeight: 700, borderRadius: 1 }}
                 />
               </Box>
               <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                Browse documents grouped by category. Click any category box to open its files and version history.
+                Upload directives, track multi-stage AI text extraction, manage version revisions, and assign physical storage barcodes.
               </Typography>
             </Box>
 
@@ -480,6 +535,7 @@ export default function MyUploadsPage(props: { disableCustomTheme?: boolean }) {
                   setIsModalOpen(true);
                 }}
                 onUploadNewVersion={handleOpenVersionModal}
+                onPublishDoc={handlePublishDoc}
               />
             ) : (
               <TeamsCategoryGrid
@@ -499,6 +555,7 @@ export default function MyUploadsPage(props: { disableCustomTheme?: boolean }) {
             }}
             onUploadSuccess={handleUploadSuccess}
             versionTargetDoc={versionTargetDoc}
+            existingUploads={uploadsList}
           />
         </Box>
       </Box>

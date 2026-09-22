@@ -2,10 +2,15 @@ from __future__ import annotations
 
 import asyncio
 import uuid
+import anydoc
+import io
+import pypdfium2 as pdfium
+
 from dataclasses import dataclass, field
 from typing import Any
+from PIL import Image
+from rapidocr_onnxruntime import RapidOCR
 
-import anydoc
 from api.models.document import DocumentVersion
 from core.dependencies import Deps, SessionLocal, deps
 from langchain_core.documents import Document
@@ -14,6 +19,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from datetime import datetime
 from api.models.document import DocumentVersion, DocumentChunks
+
+
 
 from depicdoc import linearize_document
 
@@ -27,9 +34,111 @@ class FileChunk:
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
-async def extract_text(file_bytes: bytes) -> str:
-    markdown = anydoc.to_markdown_bytes(file_bytes)
-    return markdown
+ocr_engine = RapidOCR()
+
+def _ocr_pil_image(image: Image.Image)->str:
+    try:
+        result, _ = ocr_engine(image)
+        if not result:
+            return ""
+
+        lines = [line[1] for line in result if len(line) > 1 and line[1]]
+        return "\n".join(lines)
+
+    except Exception as e:
+        print(f"[OCR] RapidOCR error on image: {str(e)}")
+        return ""
+
+
+#extract text from raw image bytes (.png, jpeg, etc.)
+def _extract_from_image_bytes(image_bytes: bytes)->str:
+    try:
+        image = Image.open(io.BytesIO(image_bytes))
+        return _ocr_pil_image(image)
+    except Exception as e:
+        print(f"[OCR] Errror Decoding image bytes: {str(e)}")
+        return ""
+
+#render pdf pages as images and runs OCR on each page.
+def _extract_from_scanned_pdf(file_bytes:bytes)->str:
+    try:
+        pdf = pdfium.PdfDocument(file_bytes)
+        page_texts = []
+        for index in range(len(pdf)):
+            page = pdf[index]
+            pil_image = page.render(scale=2.0).to_pil()
+            page_content = _ocr_pil_image(pil_image)
+            if page_content.strip():
+                page_texts.append(f"## Page {index + 1} \n\n{page_content.strip()}")
+        return "\n\n".join(page_texts)
+
+    except Exception as e:
+        print(f"[OCR] Error running OCR on PDF pages: {e}")
+        return ""
+
+
+#orchestrates digital text + ocr page by page
+# - Page has digital text -> Fast digital extraction
+# - Page is an image/scan -> RapidOCR takes over
+# - Stitches everything together in original order
+def extract_pdf_interleaved(file_bytes:bytes)->str:
+    try:
+        pdf = pdfium.PdfDocument(file_bytes)
+        assembled_pages = []
+
+        for page_index in range(len(pdf)):
+            page = pdf[page_index]
+
+            text_page = page.get_textpage()
+            digital_text = text_page.get_text_range().strip()
+
+            if len(digital_text) > 80:
+                assembled_pages.append(f"## Page {page_index + 1}\n\n{digital_text}")
+
+            else:
+                pil_image = page.render(scale=2.0).to_pil()
+                ocr_text = _ocr_pil_image(pil_image)
+
+                if ocr_text.strip():
+                    assembled_pages.append(f"## Page {page_index + 1} [Scanned Page]\n\n{ocr_text.strip()}")
+                elif digital_text:
+                    assembled_pages.append(f"## Page {page_index + 1}\n\n{digital_text}")
+
+        return "\n\n".join(assembled_pages)
+    except Exception as e:
+        print(f"[Ingestion] Interleaved PDF extraction error: {str(e)}")
+        return ""
+    
+
+
+async def extract_text(file_bytes:bytes,  file_name: str = "")->str:
+    ext = file_name.lower().split(".")[-1] if "." in file_name else ""
+
+    if ext in ["png", "jpg", "jpeg", "webp", "tiff", "bpm"]:
+        print(f"[Ingestion] '{file_name}' detected as image. Running RapidOCR...")
+        return _extract_from_image_bytes(file_bytes)
+
+
+    #raw text and data files
+    if ext in ["txt", "csv", "md"]:
+        print(f"[Ingestion] '{file_name}' detected as text file. Decoding...")
+        return file_bytes.decode("utf-8", errors="ignore")
+
+    #office documents
+    if ext in ["docx", "pptx", "xlsx", "doc"]: 
+        return anydoc.to_markdown_bytes(file_bytes)
+
+    print(f"[Ingestion] Processing PDF '{file_name}' through Interleaved Engine...")
+    result = extract_pdf_interleaved(file_bytes)
+    if result and len(result.strip()) > 0:
+        return result
+
+    return anydoc.to_markdown_bytes(file_bytes)
+
+
+# async def extract_text(file_bytes: bytes) -> str:
+#     markdown = anydoc.to_markdown_bytes(file_bytes)
+#     return markdown
 
 
 def chunk_text(
@@ -108,7 +217,8 @@ async def process_uploaded_file(
         with open(file_path, "rb") as f:
             file_bytes = f.read()
 
-        markdown = await extract_text(file_bytes)
+        # markdown = await extract_text(file_bytes)
+        markdown = await extract_text(file_bytes, file_name=file_name)
         linearized_markdown = linearize_document(markdown)
         text_chunk = chunk_text(linearized_markdown)
 

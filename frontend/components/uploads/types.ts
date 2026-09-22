@@ -53,6 +53,12 @@ export interface StaffUploadItem {
   };
   extractedSummary: string;
   notes?: string;
+  uploadedBy?: {
+    name: string;
+    division: string;
+    position?: string;
+    avatar?: string;
+  };
 }
 
 export interface UploadMetrics {

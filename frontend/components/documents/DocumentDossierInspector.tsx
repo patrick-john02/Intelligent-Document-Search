@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
@@ -8,6 +8,8 @@ import Stack from "@mui/material/Stack";
 import Chip from "@mui/material/Chip";
 import Button from "@mui/material/Button";
 import Divider from "@mui/material/Divider";
+import Avatar from "@mui/material/Avatar";
+import CircularProgress from "@mui/material/CircularProgress";
 import Link from "next/link";
 import { ArchiveDocument } from "./types";
 
@@ -20,6 +22,23 @@ export default function DocumentDossierInspector({
   document,
   onClose,
 }: DocumentDossierInspectorProps) {
+  const [isBriefGenerating, setIsBriefGenerating] = useState(false);
+  const [briefGenerated, setBriefGenerated] = useState(false);
+
+  // Reset brief state when selecting a different document
+  useEffect(() => {
+    setBriefGenerated(false);
+    setIsBriefGenerating(false);
+  }, [document?.id]);
+
+  const handleGenerateBrief = () => {
+    setIsBriefGenerating(true);
+    setTimeout(() => {
+      setIsBriefGenerating(false);
+      setBriefGenerated(true);
+    }, 700);
+  };
+
   if (!document) {
     return (
       <Paper
@@ -41,7 +60,7 @@ export default function DocumentDossierInspector({
           No Document Selected
         </Typography>
         <Typography variant="caption" sx={{ color: "text.secondary", maxWidth: 260 }}>
-          Select any record from the ledger or cabinet map to inspect its physical shelf coordinates, OCR fidelity, and AI metadata.
+          Select any record from the ledger or cabinet map to inspect its physical shelf coordinates, text clarity, and catalog metadata.
         </Typography>
       </Paper>
     );
@@ -117,8 +136,8 @@ export default function DocumentDossierInspector({
         {document.title}
       </Typography>
 
-      {/* Badges: Category, Clearance, OCR score */}
-      <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mb: 2.5 }}>
+      {/* Badges: Category, Clearance, Text Clarity */}
+      <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mb: 2 }}>
         <Chip
           label={document.category}
           size="small"
@@ -134,12 +153,198 @@ export default function DocumentDossierInspector({
           sx={{ fontWeight: 600, fontSize: "0.7rem", height: 22, borderRadius: 1 }}
         />
         <Chip
-          label={`${document.ocrAccuracy}% OCR Fidelity`}
+          label={`${document.ocrAccuracy}% Text Clarity`}
           size="small"
           color="success"
           variant="outlined"
           sx={{ fontWeight: 700, fontSize: "0.7rem", height: 22, borderRadius: 1 }}
         />
+      </Box>
+
+      {/* Custodian / Uploaded By Card */}
+      {document.uploadedBy && (
+        <Paper
+          variant="outlined"
+          sx={{
+            p: 1.5,
+            mb: 2.5,
+            borderRadius: 1,
+            bgcolor: "action.hover",
+            borderColor: "divider",
+            display: "flex",
+            alignItems: "center",
+            gap: 1.5,
+          }}
+        >
+          <Avatar
+            sx={{
+              width: 38,
+              height: 38,
+              fontSize: "0.85rem",
+              fontWeight: 800,
+              bgcolor: "primary.main",
+              color: "primary.contrastText",
+            }}
+          >
+            {document.uploadedBy.name
+              .split(" ")
+              .map((n) => n[0])
+              .slice(0, 2)
+              .join("")}
+          </Avatar>
+          <Box sx={{ minWidth: 0, flex: 1 }}>
+            <Typography
+              variant="caption"
+              sx={{
+                color: "text.secondary",
+                fontSize: "0.68rem",
+                fontWeight: 700,
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+                display: "block",
+              }}
+            >
+              Ingested By Official Custodian
+            </Typography>
+            <Typography variant="subtitle2" sx={{ fontWeight: 800, fontSize: "0.88rem", lineHeight: 1.2 }}>
+              {document.uploadedBy.name}
+            </Typography>
+            <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.74rem" }}>
+              {document.uploadedBy.position || document.uploadedBy.division}
+            </Typography>
+          </Box>
+        </Paper>
+      )}
+
+      {/* 1-Click "Agent Brief" Component */}
+      <Box sx={{ mb: 2.5 }}>
+        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
+          <Typography
+            variant="caption"
+            sx={{
+              fontWeight: 700,
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+              color: "text.secondary",
+            }}
+          >
+            Executive Agent Brief
+          </Typography>
+          <Chip
+            label="DocAnalysisAgent"
+            size="small"
+            color="secondary"
+            variant="outlined"
+            sx={{ height: 18, fontSize: "0.62rem", fontWeight: 700, borderRadius: 1 }}
+          />
+        </Box>
+
+        {!briefGenerated ? (
+          <Button
+            fullWidth
+            size="small"
+            variant="outlined"
+            color="secondary"
+            disabled={isBriefGenerating}
+            onClick={handleGenerateBrief}
+            sx={{
+              borderRadius: 1,
+              textTransform: "none",
+              fontWeight: 700,
+              py: 1,
+              fontSize: "0.8rem",
+              borderStyle: "dashed",
+              borderWidth: 1.5,
+            }}
+          >
+            {isBriefGenerating ? (
+              <Stack direction="row" spacing={1} sx={{ alignItems: "center", justifyContent: "center" }}>
+                <CircularProgress size={16} color="secondary" />
+                <Typography variant="caption" sx={{ fontWeight: 700 }}>
+                  Synthesizing Statutory Brief...
+                </Typography>
+              </Stack>
+            ) : (
+              "⚡ 1-Click Agent Brief (Executive Synthesis)"
+            )}
+          </Button>
+        ) : (
+          <Paper
+            variant="outlined"
+            sx={{
+              p: 1.5,
+              borderRadius: 1,
+              bgcolor: "action.selected",
+              borderColor: "secondary.main",
+              borderLeft: "3px solid",
+              borderLeftColor: "secondary.main",
+            }}
+          >
+            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 800, fontSize: "0.82rem", color: "text.primary" }}>
+                Agent Executive Synthesis
+              </Typography>
+              <Chip
+                label="Checkpointer Verified"
+                size="small"
+                color="success"
+                sx={{ height: 18, fontSize: "0.62rem", fontWeight: 700, borderRadius: 1 }}
+              />
+            </Box>
+
+            <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mb: 1, lineHeight: 1.4 }}>
+              Synthesized from official record text, verifying statutory authority and compliance mandates.
+            </Typography>
+
+            <Stack spacing={0.75}>
+              <Box sx={{ display: "flex", gap: 1, alignItems: "flex-start" }}>
+                <Typography variant="caption" sx={{ fontWeight: 800, color: "secondary.main", minWidth: 16 }}>
+                  •
+                </Typography>
+                <Typography variant="caption" sx={{ color: "text.primary", lineHeight: 1.4 }}>
+                  <strong>Statutory Mandate:</strong>{" "}
+                  {document.executiveBrief?.statutoryMandate ||
+                    `Enforces administrative directives and statutory regulatory procedures for ${document.title}.`}
+                </Typography>
+              </Box>
+              <Box sx={{ display: "flex", gap: 1, alignItems: "flex-start" }}>
+                <Typography variant="caption" sx={{ fontWeight: 800, color: "secondary.main", minWidth: 16 }}>
+                  •
+                </Typography>
+                <Typography variant="caption" sx={{ color: "text.primary", lineHeight: 1.4 }}>
+                  <strong>Target Entities:</strong>{" "}
+                  {document.executiveBrief?.targetEntities ||
+                    "Provincial & Municipal Assessors, Local Treasurers, and Archival Custodians."}
+                </Typography>
+              </Box>
+              <Box sx={{ display: "flex", gap: 1, alignItems: "flex-start" }}>
+                <Typography variant="caption" sx={{ fontWeight: 800, color: "secondary.main", minWidth: 16 }}>
+                  •
+                </Typography>
+                <Typography variant="caption" sx={{ color: "text.primary", lineHeight: 1.4 }}>
+                  <strong>Archival Disposition:</strong>{" "}
+                  {document.executiveBrief?.archivalDisposition ||
+                    `Archived under Series ${document.seriesYear} • Registered in ${document.shelfLocation}.`}
+                </Typography>
+              </Box>
+            </Stack>
+
+            <Divider sx={{ my: 1 }} />
+
+            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <Typography variant="caption" sx={{ fontSize: "0.68rem", color: "text.secondary" }}>
+                Pipeline: DocAnalysisAgent • Checkpointer: pg_vector_chk
+              </Typography>
+              <Button
+                size="small"
+                onClick={() => setBriefGenerated(false)}
+                sx={{ fontSize: "0.68rem", textTransform: "none", p: 0, minWidth: "auto", color: "text.secondary" }}
+              >
+                Reset
+              </Button>
+            </Box>
+          </Paper>
+        )}
       </Box>
 
       {/* 3. Physical Archive Coordinates */}
@@ -204,7 +409,7 @@ export default function DocumentDossierInspector({
             mb: 0.75,
           }}
         >
-          Summary & Archival Abstract
+          Official Summary & Mandate
         </Typography>
         <Paper
           variant="outlined"
@@ -235,13 +440,13 @@ export default function DocumentDossierInspector({
               mb: 0.75,
             }}
           >
-            AI Semantic Tags & Confidence
+            Subject Matter & Key Topics
           </Typography>
           <Stack direction="row" spacing={0.75} sx={{ flexWrap: "wrap", gap: 0.5 }}>
             {document.tags.map((tag, idx) => (
               <Chip
                 key={idx}
-                label={`${tag.name} (${Math.round(tag.score * 100)}%)`}
+                label={`${tag.name} (${Math.round(tag.score * 100)}% match)`}
                 size="small"
                 variant="outlined"
                 sx={{ fontSize: "0.7rem", height: 22, borderRadius: 1 }}

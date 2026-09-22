@@ -56,8 +56,8 @@ add_pagination(router)
 
 STORAGE_DIRECTORY = Path(os.getenv("DOCUMENT_PATH", "./documents"))
 ALLOWED_EXTENSIONS = {
-    'pdf', 'doc', 'docx', 'ppt', 'xlsx', 'xls', 'txt',
-    'csv'
+    'pdf', 'doc', 'docx', 'ppt', 'xlsx', 'xls', 'txt', 'csv',
+    'png', 'jpg', 'jpeg', 'webp', 'tiff', 'bmp'
 }
 
 #fetch all documents

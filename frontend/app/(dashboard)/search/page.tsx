@@ -218,16 +218,16 @@ export default function SmartSearchPage(props: { disableCustomTheme?: boolean })
                   Smart Search
                 </Typography>
                 <Chip
-                  label={isSemanticMode ? "Semantic AI Vector Search" : "Exact Metadata Match"}
+                  label={isSemanticMode ? "Semantic Search" : "Exact Metadata Match"}
                   size="small"
                   color={isSemanticMode ? "primary" : "default"}
                   variant="outlined"
                   sx={{ fontWeight: 700, fontSize: "0.68rem", height: 20, borderRadius: 1 }}
                 />
               </Box>
-              <Typography variant="caption" sx={{ color: "text.secondary" }}>
+              {/* <Typography variant="caption" sx={{ color: "text.secondary" }}>
                 Search official archival records by conceptual topic, policy queries, or exact directive numbers.
-              </Typography>
+              </Typography> */}
             </Box>
           </Box>
 

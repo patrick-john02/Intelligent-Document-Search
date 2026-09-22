@@ -17,4 +17,15 @@ export interface ArchiveDocument {
   status: "Indexed" | "Processing" | "Archived";
   tags: { name: string; score: number }[];
   summary: string;
+  uploadedBy?: {
+    name: string;
+    division: string;
+    position?: string;
+    avatar?: string;
+  };
+  executiveBrief?: {
+    statutoryMandate: string;
+    targetEntities: string;
+    archivalDisposition: string;
+  };
 }

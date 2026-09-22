@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
@@ -16,6 +16,9 @@ import Select from "@mui/material/Select";
 import MenuItem from "@mui/material/MenuItem";
 import Divider from "@mui/material/Divider";
 import Paper from "@mui/material/Paper";
+import Alert from "@mui/material/Alert";
+import Chip from "@mui/material/Chip";
+import { useAuth } from "@/context/AuthContext";
 import { StaffUploadItem } from "./types";
 
 interface NewUploadModalProps {
@@ -23,60 +26,115 @@ interface NewUploadModalProps {
   onClose: () => void;
   onUploadSuccess: (item: StaffUploadItem) => void;
   versionTargetDoc?: StaffUploadItem | null;
+  existingUploads?: StaffUploadItem[];
 }
+
+const CATEGORY_OPTIONS = [
+  "Assessment Regulations",
+  "Treasury Advisories",
+  "Legal Opinions",
+  "Memorandums & Audits",
+  "Standard Procedures",
+];
 
 export default function NewUploadModal({
   open,
   onClose,
   onUploadSuccess,
   versionTargetDoc = null,
+  existingUploads = [],
 }: NewUploadModalProps) {
+  const { user } = useAuth();
   const isVersioning = Boolean(versionTargetDoc);
 
+  // Form Fields
   const [fileName, setFileName] = useState("");
   const [fileSize, setFileSize] = useState("3.4 MB");
+  const [title, setTitle] = useState("");
+  const [orderNo, setOrderNo] = useState("");
+  const [seriesYear, setSeriesYear] = useState("2024");
+  const [category, setCategory] = useState("Assessment Regulations");
   const [clearance, setClearance] = useState<"Public" | "Internal" | "Restricted" | "Confidential">("Public");
+  const [summary, setSummary] = useState("");
   const [cabinet, setCabinet] = useState("Cabinet A");
   const [shelf, setShelf] = useState("Shelf 2");
   const [binder, setBinder] = useState("Binder 05");
   const [versionNotes, setVersionNotes] = useState("");
 
-  // Sync state if versioning an existing document
+  // Sync state if versioning an existing document or resetting
   useEffect(() => {
     if (versionTargetDoc) {
+      setTitle(versionTargetDoc.title);
+      setOrderNo(versionTargetDoc.orderNo);
+      setSeriesYear(String(versionTargetDoc.seriesYear || "2024"));
+      setCategory(versionTargetDoc.category);
       setClearance(versionTargetDoc.clearance);
       setCabinet(versionTargetDoc.shelfLocation.cabinet);
       setShelf(versionTargetDoc.shelfLocation.shelf);
       setBinder(versionTargetDoc.shelfLocation.binder);
-      setVersionNotes("Updated high-contrast scanned copy with official stamp");
+      setSummary(versionTargetDoc.extractedSummary || "");
+      setVersionNotes("Updated scanned copy with official dry seal and signatures");
     } else {
+      setTitle("");
+      setOrderNo("");
+      setSeriesYear("2024");
+      setCategory("Assessment Regulations");
       setClearance("Public");
       setCabinet("Cabinet A");
       setShelf("Shelf 2");
       setBinder("Binder 05");
+      setSummary("");
       setVersionNotes("");
     }
     setFileName("");
   }, [versionTargetDoc, open]);
 
+  // Handle file selection and auto-generate readable title
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       setFileName(file.name);
       const mb = (file.size / (1024 * 1024)).toFixed(1);
       setFileSize(`${mb === "0.0" ? "2.1" : mb} MB`);
+
+      if (!isVersioning && !title) {
+        const clean = file.name
+          .replace(/\.[^/.]+$/, "")
+          .replace(/[_-]/g, " ")
+          .trim();
+        if (clean.length > 3) {
+          setTitle(clean.charAt(0).toUpperCase() + clean.slice(1));
+        }
+      }
     }
   };
+
+  // Live Barcode Tag calculation
+  const computedBarcode = `R2-${cabinet.replace(" ", "").toUpperCase()}-${shelf.replace(" ", "").toUpperCase()}-${binder.replace(" ", "").toUpperCase()}`;
+
+  // Duplicate Check against existing uploads
+  const duplicateConflict = useMemo(() => {
+    if (isVersioning || !existingUploads || existingUploads.length === 0) return null;
+    const cleanOrder = orderNo.trim().toLowerCase();
+    if (cleanOrder) {
+      const match = existingUploads.find((d) => d.orderNo.toLowerCase() === cleanOrder);
+      if (match) return match;
+    }
+    return null;
+  }, [orderNo, existingUploads, isVersioning]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!fileName.trim()) return;
 
-    const barcode = `R2-${cabinet.replace(" ", "").toUpperCase()}-${shelf.replace(" ", "").toUpperCase()}-${binder.replace(" ", "").toUpperCase()}`;
     const timestamp = new Date().toISOString().replace("T", " ").substring(0, 16);
+    const uploaderName = user
+      ? `${user.first_name || ""} ${user.last_name || ""}`.trim() || "Maria Santos"
+      : "Maria Santos";
+    const uploaderDivision = user?.division || "Administrative Records";
 
     if (isVersioning && versionTargetDoc) {
-      // Calculate next version
+      // Advance version number (e.g., v1.0 -> v1.1)
       const currentVerNumber = parseFloat(versionTargetDoc.version.replace("v", "")) || 1.0;
       const nextVer = `v${(currentVerNumber + 0.1).toFixed(1)}`;
 
@@ -87,12 +145,17 @@ export default function NewUploadModal({
         version: nextVer,
         uploadedAt: timestamp,
         status: "Processing",
+        uploadedBy: {
+          name: uploaderName,
+          division: uploaderDivision,
+          position: user?.office || "Senior Records Officer",
+        },
         versionHistory: [
           {
             version: nextVer,
             date: timestamp,
             fileName,
-            uploadedBy: "Staff Officer",
+            uploadedBy: uploaderName,
             notes: versionNotes || "Revised version upload",
           },
           ...(versionTargetDoc.versionHistory || []),
@@ -101,46 +164,30 @@ export default function NewUploadModal({
           cabinet,
           shelf,
           binder,
-          barcode,
+          barcode: computedBarcode,
           tagged: true,
+        },
+        stages: {
+          upload: { status: "completed", timestamp, detail: "Revision received & verified." },
+          textExtraction: { status: "processing", detail: "Extracting updated text..." },
+          indexing: { status: "pending", detail: "Queued for vector re-indexing." },
+          physicalTag: { status: "completed", detail: `Cabinet ${cabinet} • ${shelf} (${binder})` },
+          status: { status: "pending", detail: "Pending review." },
         },
       };
 
       onUploadSuccess(updatedDoc);
     } else {
       // New Document Upload
-      const cleanName = fileName.replace(/\.[^/.]+$/, "").replace(/[_-]/g, " ");
-      let autoCategory = "Assessment Regulations";
-      let autoTitle = "Local Government Directive on Municipal Revenue Assessment & Guidelines";
-      let autoOrderNo = `BLGF-DO-2024-${Math.floor(100 + Math.random() * 900)}`;
-
-      const lowerName = fileName.toLowerCase();
-      if (lowerName.includes("treasury") || lowerName.includes("tax") || lowerName.includes("revenue")) {
-        autoCategory = "Treasury Advisories";
-        autoTitle = "Treasury Circular on Local Revenue Collections and Automation Protocols";
-        autoOrderNo = `TC-2024-0${Math.floor(10 + Math.random() * 89)}`;
-      } else if (lowerName.includes("legal") || lowerName.includes("opinion") || lowerName.includes("ruling")) {
-        autoCategory = "Legal Opinions";
-        autoTitle = "Legal Opinion on Municipal Franchise Tax Exemption for Public Utilities";
-        autoOrderNo = `LO-R2-2024-${Math.floor(10 + Math.random() * 89)}`;
-      } else if (lowerName.includes("memo") || lowerName.includes("audit")) {
-        autoCategory = "Memorandums & Audits";
-        autoTitle = "Regional Memorandum on Q3 Financial Audits and Inter-Agency Ingestion";
-        autoOrderNo = `RM-2024-0${Math.floor(10 + Math.random() * 89)}`;
-      } else if (lowerName.includes("sop") || lowerName.includes("procedure") || lowerName.includes("manual")) {
-        autoCategory = "Standard Procedures";
-        autoTitle = "Standard Operating Procedure for Physical Document Ingestion and OCR Scanning";
-        autoOrderNo = `SOP-DOC-2024-00${Math.floor(1 + Math.random() * 9)}`;
-      } else if (cleanName.length > 5) {
-        autoTitle = cleanName.charAt(0).toUpperCase() + cleanName.slice(1);
-      }
+      const finalTitle = title.trim() || "Regional Policy Directive on Administrative Operational Standards";
+      const finalOrderNo = orderNo.trim() || `BLGF-DO-2024-${Math.floor(100 + Math.random() * 900)}`;
 
       const newItem: StaffUploadItem = {
         id: `up-${Date.now()}`,
-        title: autoTitle,
-        orderNo: autoOrderNo,
-        seriesYear: 2024,
-        category: autoCategory,
+        title: finalTitle,
+        orderNo: finalOrderNo,
+        seriesYear: parseInt(seriesYear) || 2024,
+        category,
         clearance,
         fileName,
         fileSize,
@@ -148,30 +195,37 @@ export default function NewUploadModal({
         uploadedAt: timestamp,
         status: "Processing",
         version: "v1.0",
+        uploadedBy: {
+          name: uploaderName,
+          division: uploaderDivision,
+          position: user?.office || "Senior Records Officer",
+        },
         versionHistory: [
           {
             version: "v1.0",
             date: timestamp,
             fileName,
-            uploadedBy: "Staff Officer",
-            notes: "Initial upload",
+            uploadedBy: uploaderName,
+            notes: versionNotes || "Initial document upload",
           },
         ],
         shelfLocation: {
           cabinet,
           shelf,
           binder,
-          barcode,
+          barcode: computedBarcode,
           tagged: true,
         },
         stages: {
           upload: { status: "completed", timestamp, detail: "File received and verified." },
           textExtraction: { status: "processing", detail: "Reading document content..." },
           indexing: { status: "pending", detail: "Queued for catalog indexing." },
-          physicalTag: { status: "completed", detail: `Assigned shelf location ${barcode}.` },
+          physicalTag: { status: "completed", detail: `Assigned shelf location ${computedBarcode}.` },
           status: { status: "pending", detail: "Awaiting final clearance." },
         },
-        extractedSummary: `Official issuance regarding ${autoCategory.toLowerCase()}. Document filed in ${cabinet}, ${shelf}.`,
+        extractedSummary:
+          summary.trim() ||
+          `Official regional directive regarding ${category.toLowerCase()}. Filed under ${finalOrderNo} in ${cabinet}, ${shelf}.`,
       };
 
       onUploadSuccess(newItem);
@@ -185,7 +239,7 @@ export default function NewUploadModal({
     <Dialog
       open={open}
       onClose={onClose}
-      maxWidth="sm"
+      maxWidth="md"
       fullWidth
       slotProps={{
         paper: {
@@ -197,16 +251,27 @@ export default function NewUploadModal({
       }}
     >
       <DialogTitle sx={{ pb: 1 }}>
-        <Typography variant="h6" sx={{ fontWeight: 700 }}>
-          {isVersioning
-            ? `Upload New Version: ${versionTargetDoc?.orderNo}`
-            : "Upload Document"}
-        </Typography>
-        <Typography variant="caption" sx={{ color: "text.secondary" }}>
-          {isVersioning
-            ? "Upload an updated scan or revision. The document will advance to the next version."
-            : "Upload a document file, set clearance, and select its physical storage coordinates."}
-        </Typography>
+        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <Box>
+            <Typography variant="h6" sx={{ fontWeight: 800 }}>
+              {isVersioning ? `Upload New Revision Version` : "Upload & Digitize Document"}
+            </Typography>
+            <Typography variant="caption" sx={{ color: "text.secondary" }}>
+              {isVersioning
+                ? `Upload an updated scan or amended copy for ${versionTargetDoc?.orderNo}. It will advance to the next version.`
+                : "Submit a raw scanned directive to initiate multi-stage text extraction, barcode tagging, and catalog indexing."}
+            </Typography>
+          </Box>
+
+          {isVersioning && (
+            <Chip
+              label={`Target: ${versionTargetDoc?.version} ➔ Next Version`}
+              color="primary"
+              size="small"
+              sx={{ fontWeight: 700, borderRadius: 1 }}
+            />
+          )}
+        </Box>
       </DialogTitle>
 
       <form onSubmit={handleSubmit}>
@@ -216,21 +281,23 @@ export default function NewUploadModal({
             <Box>
               <Typography
                 variant="caption"
-                sx={{ fontWeight: 700, color: "text.secondary", textTransform: "uppercase", display: "block", mb: 1 }}
+                sx={{ fontWeight: 700, color: "text.secondary", textTransform: "uppercase", display: "block", mb: 0.75 }}
               >
-                Document File
+                Document Scan File
               </Typography>
               <Paper
                 variant="outlined"
                 sx={{
-                  p: 3,
+                  p: 2.5,
                   borderRadius: 1,
                   borderStyle: "dashed",
+                  borderWidth: 1.5,
                   borderColor: fileName ? "primary.main" : "divider",
                   bgcolor: fileName ? "action.selected" : "action.hover",
                   textAlign: "center",
                   cursor: "pointer",
                   position: "relative",
+                  transition: "all 0.15s ease",
                   "&:hover": { borderColor: "primary.main" },
                 }}
               >
@@ -249,43 +316,103 @@ export default function NewUploadModal({
                   }}
                 />
                 <Typography variant="subtitle2" sx={{ fontWeight: 700, color: "text.primary", mb: 0.5 }}>
-                  {fileName ? fileName : "Click or drag document file here"}
+                  {fileName ? `Selected: ${fileName} (${fileSize})` : "Click or drag document scan file here"}
                 </Typography>
                 <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                  Supported formats: PDF, TIFF, JPG, PNG, DOCX
+                  Supported formats: PDF, TIFF, JPG, PNG, DOCX (Max 25 MB)
                 </Typography>
               </Paper>
             </Box>
 
-            {/* Versioning Notes if applicable */}
+            {/* Version Revision Notes (if versioning) */}
             {isVersioning && (
               <TextField
                 label="Version Revision Notes"
                 size="small"
                 fullWidth
+                required
                 value={versionNotes}
                 onChange={(e) => setVersionNotes(e.target.value)}
-                placeholder="e.g. Scanned official stamp copy, updated appendix..."
+                placeholder="e.g. Scanned official stamp copy, updated appendix with dry seal..."
                 slotProps={{ input: { sx: { borderRadius: 1 } } }}
               />
             )}
 
+            {/* Duplicate Conflict Warning */}
+            {duplicateConflict && (
+              <Alert severity="warning" sx={{ borderRadius: 1 }}>
+                <Typography variant="caption" sx={{ fontWeight: 700, display: "block" }}>
+                  Duplicate Order Number Detected
+                </Typography>
+                A directive with Order No <strong>{duplicateConflict.orderNo}</strong> is already filed in{" "}
+                <strong>{duplicateConflict.shelfLocation.cabinet} • {duplicateConflict.shelfLocation.shelf}</strong>. If you are uploading an update, consider using &quot;Upload New Version&quot; instead.
+              </Alert>
+            )}
+
             <Divider />
 
-            {/* Clearance Level */}
-            <Box>
-              <Typography
-                variant="caption"
-                sx={{ fontWeight: 700, color: "text.secondary", textTransform: "uppercase", display: "block", mb: 1 }}
-              >
-                Clearance Level
-              </Typography>
+            {/* Document Title */}
+            <TextField
+              label="Document Title"
+              size="small"
+              fullWidth
+              required
+              disabled={isVersioning}
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="e.g. Revised Guidelines on Real Property Assessment and Valuation Standards"
+              slotProps={{ input: { sx: { borderRadius: 1 } } }}
+            />
+
+            {/* Order No & Series Year Grid */}
+            <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "2fr 1fr" }, gap: 2 }}>
+              <TextField
+                label="Department Order / Circular No."
+                size="small"
+                required
+                disabled={isVersioning}
+                value={orderNo}
+                onChange={(e) => setOrderNo(e.target.value)}
+                placeholder="e.g. BLGF-DO-2024-025"
+                slotProps={{ input: { sx: { borderRadius: 1 } } }}
+              />
+
+              <TextField
+                label="Series Year"
+                size="small"
+                disabled={isVersioning}
+                value={seriesYear}
+                onChange={(e) => setSeriesYear(e.target.value)}
+                placeholder="e.g. 2024"
+                slotProps={{ input: { sx: { borderRadius: 1 } } }}
+              />
+            </Box>
+
+            {/* Category & Clearance Level Grid */}
+            <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 2 }}>
+              <FormControl size="small" fullWidth disabled={isVersioning}>
+                <InputLabel id="upload-category-label">Category Division</InputLabel>
+                <Select
+                  labelId="upload-category-label"
+                  value={category}
+                  label="Category Division"
+                  onChange={(e) => setCategory(e.target.value)}
+                  sx={{ borderRadius: 1 }}
+                >
+                  {CATEGORY_OPTIONS.map((cat) => (
+                    <MenuItem key={cat} value={cat}>
+                      {cat}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
               <FormControl size="small" fullWidth>
-                <InputLabel id="upload-clearance-label">Clearance</InputLabel>
+                <InputLabel id="upload-clearance-label">Clearance Level</InputLabel>
                 <Select
                   labelId="upload-clearance-label"
                   value={clearance}
-                  label="Clearance"
+                  label="Clearance Level"
                   onChange={(e) => setClearance(e.target.value as any)}
                   sx={{ borderRadius: 1 }}
                 >
@@ -297,16 +424,41 @@ export default function NewUploadModal({
               </FormControl>
             </Box>
 
+            {/* Document Summary / Administrative Scope */}
+            {!isVersioning && (
+              <TextField
+                label="Executive Summary / Scope of Directive"
+                size="small"
+                fullWidth
+                multiline
+                rows={2}
+                value={summary}
+                onChange={(e) => setSummary(e.target.value)}
+                placeholder="Brief summary of statutory rules or instructions for regional assessment and treasury personnel..."
+                slotProps={{ input: { sx: { borderRadius: 1 } } }}
+              />
+            )}
+
             <Divider />
 
-            {/* Physical Storage Coordinates */}
+            {/* Physical Storage Coordinates with Barcode Tag */}
             <Box>
-              <Typography
-                variant="caption"
-                sx={{ fontWeight: 700, color: "text.secondary", textTransform: "uppercase", display: "block", mb: 1 }}
-              >
-                Physical Storage Coordinates
-              </Typography>
+              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
+                <Typography
+                  variant="caption"
+                  sx={{ fontWeight: 700, color: "text.secondary", textTransform: "uppercase" }}
+                >
+                  Physical Storage Assignment & Barcode Tag
+                </Typography>
+                <Chip
+                  label={`Generated Tag: ${computedBarcode}`}
+                  size="small"
+                  color="primary"
+                  variant="outlined"
+                  sx={{ height: 20, fontSize: "0.68rem", fontWeight: 700, fontFamily: "monospace" }}
+                />
+              </Box>
+
               <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr 1fr" }, gap: 1.5 }}>
                 <FormControl size="small" fullWidth>
                   <InputLabel id="upload-cabinet-label">Cabinet</InputLabel>
@@ -341,7 +493,7 @@ export default function NewUploadModal({
                 </FormControl>
 
                 <TextField
-                  label="Binder / Folder"
+                  label="Binder / Folder Ref"
                   size="small"
                   value={binder}
                   onChange={(e) => setBinder(e.target.value)}
@@ -368,7 +520,7 @@ export default function NewUploadModal({
             variant="contained"
             color="primary"
             size="small"
-            disabled={!fileName.trim()}
+            disabled={!fileName.trim() || (!isVersioning && !title.trim())}
             sx={{
               borderRadius: 1,
               textTransform: "none",
@@ -377,7 +529,7 @@ export default function NewUploadModal({
               px: 3,
             }}
           >
-            Upload
+            {isVersioning ? "Upload New Version" : "Confirm & Start Ingestion"}
           </Button>
         </DialogActions>
       </form>

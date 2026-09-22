@@ -10,8 +10,8 @@ import Divider from "@mui/material/Divider";
 export default function ArchiveMetricsBar() {
   const metrics = [
     { label: "Archived Documents", value: "1,248 Records" },
-    { label: "OCR Extraction Fidelity", value: "98.6% Accuracy" },
-    { label: "Total Digitized Storage", value: "14.8 GB (PDF/OCR)" },
+    { label: "Digitization Quality", value: "98.6% Clarity" },
+    { label: "Archived Storage", value: "14.8 GB (Cataloged)" },
     { label: "Physical Cabinets", value: "4 Units In Service" },
   ];
 

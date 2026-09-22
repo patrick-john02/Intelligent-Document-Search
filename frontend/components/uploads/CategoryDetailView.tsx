@@ -11,6 +11,7 @@ import Divider from "@mui/material/Divider";
 import Tabs from "@mui/material/Tabs";
 import Tab from "@mui/material/Tab";
 import LinearProgress from "@mui/material/LinearProgress";
+import Avatar from "@mui/material/Avatar";
 import { StaffUploadItem } from "./types";
 import { CategoryMeta } from "./TeamsCategoryGrid";
 import UploadDetailsInspector from "./UploadDetailsInspector";
@@ -23,6 +24,7 @@ interface CategoryDetailViewProps {
   onBackToGrid: () => void;
   onOpenUploadModal: () => void;
   onUploadNewVersion: (doc: StaffUploadItem) => void;
+  onPublishDoc?: (doc: StaffUploadItem) => void;
 }
 
 export default function CategoryDetailView({
@@ -33,6 +35,7 @@ export default function CategoryDetailView({
   onBackToGrid,
   onOpenUploadModal,
   onUploadNewVersion,
+  onPublishDoc,
 }: CategoryDetailViewProps) {
   const [activeTab, setActiveTab] = useState<number>(0);
 
@@ -266,6 +269,31 @@ export default function CategoryDetailView({
                                   {doc.clearance}
                                 </Typography>
                               </Box>
+
+                              {/* Uploaded By Staff Row */}
+                              {doc.uploadedBy && (
+                                <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, mt: 0.75 }}>
+                                  <Avatar
+                                    sx={{
+                                      width: 18,
+                                      height: 18,
+                                      fontSize: "0.6rem",
+                                      fontWeight: 700,
+                                      bgcolor: "primary.main",
+                                      color: "primary.contrastText",
+                                    }}
+                                  >
+                                    {doc.uploadedBy.name
+                                      .split(" ")
+                                      .map((n) => n[0])
+                                      .slice(0, 2)
+                                      .join("")}
+                                  </Avatar>
+                                  <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.72rem" }}>
+                                    Uploaded by <strong>{doc.uploadedBy.name}</strong> • {doc.uploadedBy.division}
+                                  </Typography>
+                                </Box>
+                              )}
                             </Box>
 
                             <Box sx={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 0.5 }}>
@@ -357,6 +385,7 @@ export default function CategoryDetailView({
             onClose={() => {}}
             onUploadNewVersion={onUploadNewVersion}
             onAssignShelf={() => {}}
+            onPublishDoc={onPublishDoc}
           />
         </Box>
       </Box>
