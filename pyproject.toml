@@ -8,6 +8,7 @@ dependencies = [
     "alembic>=1.18.5",
     "asyncpg>=0.31.0",
     "beautifulsoup4>=4.15.0",
+    "celery>=5.6.3",
     "deepagents>=0.6.12",
     "depicdocs",
     "dotenv>=0.9.9",

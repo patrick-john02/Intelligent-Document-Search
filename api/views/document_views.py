@@ -1,7 +1,7 @@
 from fastapi import (
-    UploadFile, File, Depends, HTTPException, APIRouter, status, Form, BackgroundTasks
+    UploadFile, File, Depends, HTTPException, APIRouter, status, Form
 )
-
+from rag.ingestion import process_document_task
 from fastapi_pagination import Page, add_pagination, paginate
 from sqlalchemy import select, desc, func, update, or_
 from fastapi.concurrency import run_in_threadpool
@@ -284,7 +284,7 @@ async def delete_document(
 #upload a document
 @router.post("/upload", status_code=status.HTTP_201_CREATED, response_model=DocumentUploadResponseSchema)
 async def created_document_file(
-    background_tasks: BackgroundTasks,
+    # background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     title: str = Form(...),
     department_order: str = Form(...),
@@ -360,11 +360,17 @@ async def created_document_file(
     await db.commit()
     await db.refresh(document)
     
-    background_tasks.add_task(
-        process_uploaded_file,
-        document_version.id,
-        filename,
-        str(final_file_path),
+    # background_tasks.add_task(
+    #     process_uploaded_file,
+    #     document_version.id,
+    #     filename,
+    #     str(final_file_path),
+    # )
+
+    process_document_task.delay(
+        document_version_id=version_id,
+        file_name=filename,
+        file_path=str(final_file_path)
     )
     
     
@@ -384,7 +390,7 @@ async def created_document_file(
 @router.post("/{document_id}/new-version", status_code=status.HTTP_201_CREATED, response_model=DocumentVersionSchema)
 async def upload_new_version(
     document_id: int,
-    background_tasks: BackgroundTasks,
+    # background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     db:AsyncSession=Depends(get_db),
     current_user: Users = Depends(get_current_active_user),
@@ -404,13 +410,9 @@ async def upload_new_version(
     checksum = hashlib.sha256(file_bytes).hexdigest()
     now_utc = datetime.now(manila_tz).replace(tzinfo=None)
 
-
-    
     versioning = select(func.max(DocumentVersion.version_number)).where(
         DocumentVersion.document_id == document_id
     )
-
-
     
     latest_version = await db.scalar(versioning)
     version_number = (latest_version or 0) + 1 
@@ -457,13 +459,18 @@ async def upload_new_version(
     db.add(document)
     await db.commit()
     
-    background_tasks.add_task(
-        process_uploaded_file,
-        document_version.id,
-        filename,
-        str(final_file_path),
+    # background_tasks.add_task(
+    #     process_uploaded_file,
+    #     document_version.id,
+    #     filename,
+    #     str(final_file_path),
+    # )
+
+    process_document_task.delay(
+        document_version_id=document_version.id,
+        file_name=filename,
+        file_path=str(final_file_path)
     )
-    
     
     return{
         "id": document_version.id,

@@ -1,6 +1,6 @@
 Intelligent Document Searching System
 
-stack used: LangChain, Langgraph, FASTAPI, 
+stack used: LangChain, Langgraph, FASTAPI, Posgresql, 
 llm: local Ollama
 
 # setup the docker
@@ -9,6 +9,10 @@ type on terminal vscode :
 cd deployment
 docker compose up -d
 docker compose up -d pgadmin - for the UI on browser
+
+#CELERY
+docker run --name archive-redis -d -p 6379:6379 redis:7
+
 
 # creds
 Email: admin@admin.com
@@ -22,6 +26,7 @@ uv run alembic upgrade head
 
 
 new update: i used Anydoc on the part of ingestion.py for text extraction, rather than doing if else manully on python.
+
 
 agents to be created: 
 1. supervisor agent 

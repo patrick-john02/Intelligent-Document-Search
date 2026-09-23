@@ -19,6 +19,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from datetime import datetime
 from api.models.document import DocumentVersion, DocumentChunks
+from rag.worker import celery_app
 
 
 
@@ -92,17 +93,20 @@ def extract_pdf_interleaved(file_bytes:bytes)->str:
             text_page = page.get_textpage()
             digital_text = text_page.get_text_range().strip()
 
-            if len(digital_text) > 80:
+            alnum_count = sum(c.isalnum() for c in digital_text)
+
+            if alnum_count >= 15:
                 assembled_pages.append(f"## Page {page_index + 1}\n\n{digital_text}")
 
             else:
                 pil_image = page.render(scale=2.0).to_pil()
                 ocr_text = _ocr_pil_image(pil_image)
 
-                if ocr_text.strip():
-                    assembled_pages.append(f"## Page {page_index + 1} [Scanned Page]\n\n{ocr_text.strip()}")
+                if sum(c.isalnum() for c in ocr_text) > alnum_count:
+                    assembled_pages.append(f"## Page {page_index + 1} [Scanned Page]")
                 elif digital_text:
                     assembled_pages.append(f"## Page {page_index + 1}\n\n{digital_text}")
+
 
         return "\n\n".join(assembled_pages)
     except Exception as e:
@@ -114,26 +118,33 @@ def extract_pdf_interleaved(file_bytes:bytes)->str:
 async def extract_text(file_bytes:bytes,  file_name: str = "")->str:
     ext = file_name.lower().split(".")[-1] if "." in file_name else ""
 
-    if ext in ["png", "jpg", "jpeg", "webp", "tiff", "bpm"]:
+    if ext in ["png", "jpg", "jpeg", "webp", "tiff", "bmp"]:
         print(f"[Ingestion] '{file_name}' detected as image. Running RapidOCR...")
-        return _extract_from_image_bytes(file_bytes)
 
+        # return _extract_from_image_bytes(file_bytes)
+        return await asyncio.to_thread(_extract_from_image_bytes, file_bytes) #offload ocr to a separate thread
 
     #raw text and data files
     if ext in ["txt", "csv", "md"]:
         print(f"[Ingestion] '{file_name}' detected as text file. Decoding...")
-        return file_bytes.decode("utf-8", errors="ignore")
+
+        # return file_bytes.decode("utf-8", errors="ignore")
+        return asyncio.to_thread(anydoc.to_markdown_bytes, file_bytes) #offload anydoc parsing
 
     #office documents
     if ext in ["docx", "pptx", "xlsx", "doc"]: 
-        return anydoc.to_markdown_bytes(file_bytes)
+        # return anydoc.to_markdown_bytes(file_bytes)
+        return await asyncio.to_thread(anydoc.to_markdown_bytes, file_bytes)
 
     print(f"[Ingestion] Processing PDF '{file_name}' through Interleaved Engine...")
-    result = extract_pdf_interleaved(file_bytes)
+
+    # result = extract_pdf_interleaved(file_bytes)
+    result = await asyncio.to_thread(extract_pdf_interleaved, file_bytes) #off load pdf rendering and ocr extrction
     if result and len(result.strip()) > 0:
         return result
 
-    return anydoc.to_markdown_bytes(file_bytes)
+    # return anydoc.to_markdown_bytes(file_bytes)
+    return await asyncio.to_thread(anydoc.to_markdown_bytes, file_bytes)
 
 
 # async def extract_text(file_bytes: bytes) -> str:
@@ -189,6 +200,8 @@ async def insert_file_chunk(
 async def process_uploaded_file(
     document_version_id: int, file_name: str, file_path: str
 ) -> None:
+    text_chunk = []
+    document_id = version_number = clearance_level = None
     try:
         # print(f"Extracting Text from {document_version_id}")
 
@@ -219,8 +232,11 @@ async def process_uploaded_file(
 
         # markdown = await extract_text(file_bytes)
         markdown = await extract_text(file_bytes, file_name=file_name)
-        linearized_markdown = linearize_document(markdown)
-        text_chunk = chunk_text(linearized_markdown)
+
+        # linearized_markdown = linearize_document(markdown)
+        # text_chunk = chunk_text(linearized_markdown)
+        linearized_markdown = await asyncio.to_thread(linearize_document, markdown) 
+        text_chunk = await asyncio.to_thread(chunk_text, linearized_markdown)
 
         table_chunks = [c for c in text_chunk if "[Columns:" in c or " | " in c]
 
@@ -283,7 +299,7 @@ async def process_uploaded_file(
 
             version = await db_session.get(DocumentVersion, document_version_id)
             if version:
-                version.status = "indexed"
+                version.status = "failed"
             await db_session.commit()
 
 
@@ -292,3 +308,18 @@ async def process_uploaded_file(
             # if version:
             #     version.status = "failed"
             #     await db_session.commit()
+
+
+@celery_app.task(name="task.process_document", bind=True, max_retries=3)
+def process_document_task(self, document_version_id: int, file_name: str, file_path:str):
+    #synchronous tasks that spins up an event loop to run the async ingestion layer
+    print(f"[CELERY] starting ingestion for {file_name} (version ID: {document_version_id})")
+
+    try:
+        #run the async ingestion pipeline in the celery worker
+        asyncio.run(process_uploaded_file(document_version_id, file_name, file_path))
+        return {"status":"success", "document_version_id": document_version_id}
+
+    except Exception as e:
+        print(f"[CELERY] Task failed: {e}")
+        raise self.retry(exc=e, countdown=60)
