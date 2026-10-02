@@ -10,7 +10,7 @@ import httpx
 
 from core.database import SessionLocal 
 from core.configurations import(
-    ollama_url, chat_model,
+    ollama_url, chat_model, embedding_model
 )
 
 
@@ -23,10 +23,14 @@ async def get_db()->AsyncGenerator[AsyncSession, None]:
             await session.close()
             
 http_client = httpx.AsyncClient()
-embedding_client = OllamaEmbeddings(
-    model = "nomic-embed-text",
-    base_url=ollama_url,
-)
+# embedding_client = OllamaEmbeddings(
+#     model = "nomic-embed-text",
+#     base_url=ollama_url,
+# )
+
+
+embedding_client=embedding_model
+
 vector_store = PGVector(
     connection = app_settings.DATABASE_URL,
     embeddings=embedding_client,
