@@ -19,6 +19,11 @@ class AppSettings(BaseSettings):
     LLM_MODEL: str = "qwen3:8b"
     VISION_LLM: str = "qwen2-vl:7b"
     EMBEDDING_MODEL: str = "nomic-embed-text"
+    EMBEDDING_TOKENIZER: str = "Qwen/Qwen2.5-0.5B"
+    RERANKER_MODEL: str = "qwen2.5:1.5b-instruct"
+    RERANKER_ENABLED: bool = True
+    RERANKER_CANDIDATE_POOL: int = 20
+    RERANKER_TOP_K: int = 5
     DOCUMENT_PATH: str = "./documents/"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")

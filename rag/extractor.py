@@ -1,3 +1,4 @@
+#rag/extractor.py handles extraction & OCR.
 from __future__ import annotations
 
 import asyncio 
@@ -48,6 +49,11 @@ def _extract_from_image_bytes(image_bytes:bytes)-> tuple[str, float]:
     except Exception as e:
         print(f"[OCR] Error decoding image bytes: {str(e)}")
         return "", 0.0
+
+
+
+
+    
     
 
 

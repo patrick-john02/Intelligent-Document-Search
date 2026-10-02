@@ -36,6 +36,7 @@ dependencies = [
     "rapidocr-onnxruntime>=1.4.4",
     "sqlalchemy>=2.0.51",
     "tavily-python>=0.7.26",
+    "transformers>=5.18.0",
     "tzdata>=2026.3",
 ]
 

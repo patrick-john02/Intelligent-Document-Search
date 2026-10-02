@@ -6,6 +6,7 @@ from langchain_core.tools import BaseTool
 from tools.documents.search import(
     search_document_tool,
     fetch_document_content_tool,
+    fetch_parent_context_tool,
 )
 
 #analysis tools
@@ -16,10 +17,12 @@ from tools.analysis.detect_duplicates import detect_duplicates_tool
 RESEARCH_TOOLS: List[BaseTool] = [
     search_document_tool,
     fetch_document_content_tool,
+    fetch_parent_context_tool,
 ]
 
 DOC_ANALYSIS_TOOLS: List[BaseTool] = [
     fetch_document_content_tool,
+    fetch_parent_context_tool,
     compare_document_tool,
     detect_duplicates_tool,
 ]

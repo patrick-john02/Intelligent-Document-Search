@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Mapped, mapped_column, DeclarativeBase, relationship
-from sqlalchemy import String, Integer, DateTime, Date, Boolean, ForeignKey, BigInteger, Text, JSON, Float, UUID
-from typing import List, TYPE_CHECKING
+from sqlalchemy import String, Integer, DateTime, Date, Boolean, ForeignKey, BigInteger, Text, JSON, Float, UUID, Computed, UniqueConstraint
+from sqlalchemy.dialects.postgresql import TSVECTOR
+from typing import List, TYPE_CHECKING, Any
 from datetime import datetime, date
 from sqlalchemy import Enum as DocumentsEnum
 from enum import Enum
@@ -90,6 +91,7 @@ class DocumentVersion(Base):
     uploaded_by: Mapped["Users"] = relationship(back_populates="uploaded_versions", lazy="selectin")
 
     chunks: Mapped[list["DocumentChunks"]] = relationship(back_populates="document_version")
+    parent_chunks: Mapped[list["DocumentParentChunks"]] = relationship(back_populates="document_version")
     cms_sources: Mapped[list["ChatMessageSources"]] = relationship(back_populates="document_version")
 
 class DocumentTag(Base):
@@ -156,12 +158,46 @@ class DocumentChunks(Base):
     content: Mapped[str] = mapped_column(Text)
     page_number: Mapped[int | None] = mapped_column(Integer)
     token_count: Mapped[int] = mapped_column(Integer)
+    parent_chunk_id: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)
     vector_id: Mapped[int] = mapped_column(Integer)
     chunk_metadata: Mapped[dict[str, object]] = mapped_column("metadata", JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime)
+    search_vector: Mapped[Any | None] = mapped_column(
+        TSVECTOR,
+        Computed("to_tsvector('english', coalesce(content, ''))", persisted=True),
+        nullable=True,
+    )
 
     document_version: Mapped["DocumentVersion"] = relationship(back_populates="chunks")
     cms_sources: Mapped[list["ChatMessageSources"]] = relationship(back_populates="chunk")
+
+    __table_args__ = (
+        UniqueConstraint("document_version_id", "chunk_index", name="uq_document_chunks_version_chunk_index"),
+    )
+
+
+class DocumentParentChunks(Base):
+    """
+    Stores full enclosing parent sections (e.g. ~1,000 - 1,500 tokens).
+    Provides surrounding context to Document Analysis Agent when precise
+    child chunks (~400 tokens) are retrieved.
+    """
+    __tablename__ = "document_parent_chunks"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    document_version_id: Mapped[int] = mapped_column(ForeignKey("document_version.id"), index=True)
+    parent_id: Mapped[str] = mapped_column(String(100), index=True)
+    section_title: Mapped[str] = mapped_column(String(500), default="")
+    content: Mapped[str] = mapped_column(Text)
+    page_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    token_count: Mapped[int] = mapped_column(Integer, default=0)
+    chunk_metadata: Mapped[dict[str, object]] = mapped_column("metadata", JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime)
+
+    document_version: Mapped["DocumentVersion"] = relationship(back_populates="parent_chunks")
+
+    __table_args__ = (
+        UniqueConstraint("document_version_id", "parent_id", name="uq_document_parent_chunks_version_parent_id"),
+    )
 
 
 
