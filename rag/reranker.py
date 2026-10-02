@@ -1,4 +1,3 @@
-# rag/reranker.py: Sequential Cross-Encoder Reranker for Two-Stage Hybrid Retrieval
 from __future__ import annotations
 
 import json
@@ -11,28 +10,10 @@ from core.configurations import app_settings, ollama_url
 
 logger = logging.getLogger(__name__)
 
-# ============================================================================
-# ARCHITECTURAL RATIONALE: TWO-STAGE RETRIEVAL PIPELINE
-#
-# Stage 1: Candidate Generation (Dense pgvector + Sparse Lexical FTS -> RRF)
-#   - Dense retrieval: Finds semantically similar vectors across the whole archive.
-#   - Lexical retrieval: Finds exact government identifiers (DV-2026-00128, AO No. 14).
-#   - RRF: Merges dense and lexical rankings into a broad pool of ~20 candidates.
-#
-# Stage 2: Cross-Encoder Reranking (Qwen3-Reranker)
-#   - Evaluates full cross-attention between (query, document_chunk).
-#   - Scores genuine semantic alignment without vector compression losses.
-#   - Prunes ~20 candidate chunks down to top ~5-8 high-precision chunks.
-#
-# Sequential, NOT Alternative:
-#   RRF generates the candidate set; the reranker deeply reevaluates that set.
-# ============================================================================
 
 class QwenReranker:
-    """
-    Cross-Encoder relevance reranker powered by the Qwen model family.
-    Evaluates query-document pairs to produce calibrated relevance scores in [0.0, 1.0].
-    """
+
+
 
     def __init__(
         self,
@@ -50,10 +31,10 @@ class QwenReranker:
         candidates: list[dict[str, Any]],
         top_k: int = 5,
     ) -> list[dict[str, Any]]:
-        """
-        Reranks a list of candidate chunks against the user query.
-        Returns the top_k candidates sorted by cross-encoder relevance score.
-        """
+
+
+
+
         if not candidates:
             return []
 
@@ -62,7 +43,10 @@ class QwenReranker:
 
         try:
             scored_candidates = await self._score_candidates(query, candidates)
-            # Sort descending by rerank_score (falling back to relevance_score or vector_score)
+
+
+
+
             scored_candidates.sort(
                 key=lambda x: x.get("rerank_score", x.get("relevance_score", 0.0)),
                 reverse=True,
@@ -78,7 +62,10 @@ class QwenReranker:
         candidates: list[dict[str, Any]],
         batch_size: int = 10,
     ) -> list[dict[str, Any]]:
-        """Batches candidate evaluation to keep prompt size and inference latency optimal."""
+
+
+
+
         results = [c.copy() for c in candidates]
 
         for i in range(0, len(results), batch_size):
@@ -96,11 +83,16 @@ class QwenReranker:
         batch: list[dict[str, Any]],
         offset: int = 0,
     ) -> dict[int, float]:
-        """Sends a structured cross-attention scoring prompt to Ollama."""
+
+
+
+
         doc_entries = []
         for local_idx, doc in enumerate(batch):
             global_idx = offset + local_idx
-            # Truncate preview to first 350 chars for fast cross-attention assessment
+
+
+
             snippet = doc.get("content", "").replace("\n", " ").strip()[:350]
             doc_entries.append(f"[{global_idx}] {snippet}")
 
@@ -136,7 +128,8 @@ class QwenReranker:
         return self._parse_scores(raw_text)
 
     def _parse_scores(self, raw_text: str) -> dict[int, float]:
-        """Parses score mappings from JSON or regex patterns."""
+
+
         scores: dict[int, float] = {}
         try:
             parsed = json.loads(raw_text)
@@ -155,7 +148,9 @@ class QwenReranker:
                     if isinstance(item, dict) and "id" in item and "score" in item:
                         scores[int(item["id"])] = float(item["score"])
         except Exception:
-            # Fallback regex search for pattern [id]: score
+
+
+
             matches = re.findall(r"\[?(\d+)\]?\s*[:=]\s*([0-1]?\.\d+|\d+)", raw_text)
             for m_id, m_score in matches:
                 try:
@@ -165,5 +160,7 @@ class QwenReranker:
         return scores
 
 
-# Global reranker instance
+
+
+
 reranker = QwenReranker()

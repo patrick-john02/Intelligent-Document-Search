@@ -1,4 +1,3 @@
-#rag/metadata.py handles metadata fetching & schemas.
 from __future__ import annotations
 
 

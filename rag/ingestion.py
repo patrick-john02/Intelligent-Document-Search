@@ -1,4 +1,3 @@
-#rag/ingestion.py orchestrates the pipeline (extract -> metadata -> chunk -> store).
 from __future__ import annotations
 
 import asyncio
