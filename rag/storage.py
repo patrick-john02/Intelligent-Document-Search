@@ -1,4 +1,3 @@
-# rag/storage.py: Vector store & PostgreSQL chunk persistence with parent-child support
 from __future__ import annotations
 
 import uuid
@@ -9,12 +8,18 @@ import logging
 from sqlalchemy import delete, text
 from core.dependencies import SessionLocal, deps
 from langchain_core.documents import Document
-from api.models.document import DocumentVersion, DocumentChunks, DocumentParentChunks
+
+from api.models.document import (
+    DocumentVersion, 
+    DocumentChunks, 
+    DocumentParentChunks, 
+    DocumentProcessingJobs,
+)
+
+from api.models.enums.docs import JobStatus
 from rag.chunker import FileChunk, ParentChunk, ChunkingResult
 
 logger = logging.getLogger(__name__)
-
-
 
 
 async def save_chunks_to_vector_store(
@@ -22,14 +27,8 @@ async def save_chunks_to_vector_store(
     document_version_id: int | None = None,
 ) -> None:
 
-
-
     if not file_chunks:
         return
-
-
-
-
 
     if document_version_id is None and len(file_chunks) > 0:
         document_version_id = getattr(file_chunks[0], "document_version_id", None)
@@ -44,8 +43,6 @@ async def save_chunks_to_vector_store(
         str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{c.document_version_id}_chunk_{c.chunk_id}"))
         for c in file_chunks
     ]
-
-
 
     if document_version_id is not None:
         try:
@@ -66,15 +63,7 @@ async def save_chunks_to_vector_store(
             await deps.vector_store.adelete(ids=ids)
         except Exception:
             pass
-
-
-
     await deps.vector_store.aadd_documents(documents=docs, ids=ids)
-
-
-
-
-
 
 
 async def save_chunks_to_database(
@@ -82,8 +71,6 @@ async def save_chunks_to_database(
     file_chunks: Sequence[FileChunk],
     parent_chunks: Sequence[ParentChunk] | None = None,
 ) -> None:
-
-
 
     async with SessionLocal() as db_session:
 
@@ -94,11 +81,6 @@ async def save_chunks_to_database(
         await db_session.execute(
             delete(DocumentParentChunks).where(DocumentParentChunks.document_version_id == document_version_id)
         )
-
-
-
-
-
 
         if parent_chunks:
             for p in parent_chunks:
@@ -114,9 +96,15 @@ async def save_chunks_to_database(
                 )
                 db_session.add(db_parent)
 
-
-
-
+        if not file_chunks:
+            # Empty extraction guard: never mark a document with 0 chunks as 'indexed'
+            version = await db_session.get(DocumentVersion, document_version_id)
+            if version:
+                version.status = "failed: empty document (0 chunks)"
+            await db_session.commit()
+            raise ValueError(
+                f"Document version {document_version_id} produced 0 chunks. Empty extraction cannot be marked as indexed."
+            )
 
         for i, c in enumerate(file_chunks):
             db_chunk = DocumentChunks(
@@ -133,9 +121,6 @@ async def save_chunks_to_database(
             )
             db_session.add(db_chunk)
 
-
-
-
         version = await db_session.get(DocumentVersion, document_version_id)
         if version:
             version.status = "indexed"
@@ -144,14 +129,44 @@ async def save_chunks_to_database(
 
 
 
-async def update_document_status(document_version_id: int, status: str) -> None:
-
-
-
+async def update_document_status(
+    document_version_id: int,
+    status: str,
+    error_message: str | None = None,
+) -> None:
+    """Updates document version status and records processing job state.
+    Logs a corresponding entry in DocumentProcessingJobs (JobStatus.PROCESSING,
+    COMPLETED, or FAILED).
+    """
     async with SessionLocal() as db_session:
         version = await db_session.get(DocumentVersion, document_version_id)
         if version:
-            version.status = status
+            if status == "failed" and error_message:
+                clean_err = str(error_message).strip().replace("\n", " ")
+                version.status = f"failed: {clean_err}"[:255]
+            else:
+                version.status = status[:255]
+
+            # Record job progress in DocumentProcessingJobs table
+            try:
+                job_map = {
+                    "processing": JobStatus.PROCESSING,
+                    "indexed": JobStatus.COMPLETED,
+                    "completed": JobStatus.COMPLETED,
+                    "failed": JobStatus.FAILED,
+                }
+                job_key = status.lower().split(":")[0]
+                job_state = job_map.get(job_key, JobStatus.PENDING)
+
+                job = DocumentProcessingJobs(
+                    current_agent=f"ingestion_worker:v{document_version_id}"[:100],
+                    job_status=job_state,
+                )
+                
+                db_session.add(job)
+            except Exception as job_err:
+                logger.warning(f"[Storage] Could not record DocumentProcessingJobs: {job_err}")
+
             await db_session.commit()
 
 
@@ -160,9 +175,6 @@ async def save_document_chunks(
     file_chunks: Sequence[FileChunk] | ChunkingResult,
 ) -> None:
 
-
-
-
     if isinstance(file_chunks, ChunkingResult):
         children = file_chunks.chunks
         parents = file_chunks.parents
@@ -170,6 +182,11 @@ async def save_document_chunks(
         children = list(file_chunks)
         parents = []
 
+
+    if not children:
+        raise ValueError(
+            f"Document version {document_version_id} produced 0 chunks. Empty extraction cannot be indexed."
+        )
 
     await save_chunks_to_vector_store(children, document_version_id=document_version_id)
     await save_chunks_to_database(document_version_id, children, parents)

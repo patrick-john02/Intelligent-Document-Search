@@ -250,10 +250,19 @@ def split_oversized_table(
 def create_structured_sections_with_parents(
     blocks: list[StructuralBlock],
     doc_meta: DocumentMetadata,
-    target_tokens: int = 400,
-    max_tokens: int = 600,
+    parent_target: int = 1200,
+    parent_max: int = 1600,
+    child_target: int = 400,
 ) -> tuple[list[StructuredSection], list[ParentChunk]]:
+    """Groups structural blocks into large ParentChunks (~1,200 to 1,600 tokens).
 
+    Why separate parent and child budgets?
+    - Parent chunks serve as broad contextual containers retrieved by `fetch_parent_context`.
+    - By grouping parents at 1,200–1,600 tokens and downstream splitting them into ~400-token
+      children with overlap, we ensure each parent encompasses multiple child chunks.
+    - This allows child chunks to have high retrieval precision while the parent provides
+      meaningful surrounding context without 1:1 redundancy.
+    """
     sections: list[StructuredSection] = []
     parent_chunks: list[ParentChunk] = []
     current_content: list[str] = []
@@ -271,7 +280,6 @@ def create_structured_sections_with_parents(
                 parent_id = f"P{section_counter:03d}"
                 tokens = count_tokens(text)
 
-
                 parent_meta = build_chunk_metadata(doc_meta, chunk_id=section_counter)
                 parent_meta.update({
                     "parent_id": parent_id,
@@ -281,6 +289,7 @@ def create_structured_sections_with_parents(
                     "token_count": tokens,
                     "is_parent": True,
                 })
+                # Store the full parent section (~1,200 tokens) in ParentChunk for database persistence
                 parent_chunks.append(
                     ParentChunk(
                         parent_id=parent_id,
@@ -295,6 +304,8 @@ def create_structured_sections_with_parents(
                     )
                 )
 
+                # Keep this section linked to parent_id; downstream split_oversized_sections
+                # will partition it into ~400-token children with overlap.
                 sections.append(
                     StructuredSection(
                         content=text,
@@ -316,7 +327,6 @@ def create_structured_sections_with_parents(
             parent_id = f"P{section_counter:03d}"
             table_tokens = count_tokens(block.content)
 
-
             parent_meta = build_chunk_metadata(doc_meta, chunk_id=section_counter)
             parent_meta.update({
                 "parent_id": parent_id,
@@ -326,6 +336,7 @@ def create_structured_sections_with_parents(
                 "token_count": table_tokens,
                 "is_parent": True,
             })
+            # ParentChunk retains the complete, undivided table for full context
             parent_chunks.append(
                 ParentChunk(
                     parent_id=parent_id,
@@ -340,8 +351,8 @@ def create_structured_sections_with_parents(
                 )
             )
 
-
-            if table_tokens <= max_tokens:
+            # Child section(s) fit within child_target (~400 tokens)
+            if table_tokens <= child_target:
                 sections.append(
                     StructuredSection(
                         content=block.content,
@@ -353,11 +364,12 @@ def create_structured_sections_with_parents(
                     )
                 )
             else:
+                # Oversized tables are split row-by-row while repeating column headers
                 table_parts = split_oversized_table(
                     block.content,
                     heading=block.heading,
                     page_number=block.page_number,
-                    max_tokens=target_tokens,
+                    max_tokens=child_target,
                     parent_id=parent_id,
                 )
                 sections.extend(table_parts)
@@ -374,7 +386,8 @@ def create_structured_sections_with_parents(
 
         block_tokens = count_tokens(block.content)
 
-        if current_tokens >= target_tokens and (current_tokens + block_tokens > max_tokens):
+        # Flush parent accumulator only when reaching parent budget (target 1,200, max 1,600)
+        if current_tokens >= parent_target and (current_tokens + block_tokens > parent_max):
             flush()
             current_heading = block.heading
             current_page = block.page_number
@@ -390,10 +403,18 @@ def create_structured_sections(
     blocks: list[StructuralBlock],
     target_tokens: int = 400,
     max_tokens: int = 600,
+    parent_target: int = 1200,
+    parent_max: int = 1600,
 ) -> list[StructuredSection]:
     """Compatibility wrapper returning StructuredSection list without requiring doc_meta."""
     dummy_meta = DocumentMetadata(document_id=0, document_version_id=0, version_number=0, file_name="", clearance_level="")
-    secs, _ = create_structured_sections_with_parents(blocks, dummy_meta, target_tokens, max_tokens)
+    secs, _ = create_structured_sections_with_parents(
+        blocks,
+        dummy_meta,
+        parent_target=parent_target,
+        parent_max=parent_max,
+        child_target=target_tokens,
+    )
     return secs
 
 
@@ -403,10 +424,16 @@ create_semantic_sections = create_structured_sections
 
 def split_oversized_sections(
     sections: list[StructuredSection],
-    max_tokens: int = 600,
+    max_tokens: int = 400,
     overlap_tokens: int = 50,
 ) -> list[StructuredSection]:
+    """Splits parent sections into ~400-token child chunks with overlap.
 
+    - Table chunks are already split with headers retained, so they pass through directly.
+    - Text sections <= max_tokens (400) remain intact as single child chunks.
+    - Large parent sections (~1,200 tokens) are split into ~3-4 child chunks of ~400 tokens
+      with 50-token overlap, each retaining the parent_id pointing to the parent.
+    """
     if overlap_tokens >= max_tokens:
         overlap_tokens = max(0, max_tokens // 4)
     try:
@@ -435,10 +462,11 @@ def split_oversized_sections(
     final_sections: list[StructuredSection] = []
 
     for sec in sections:
-
-        if sec.tokens <= max_tokens or sec.chunk_type == "table":
+        # Tables were already split with headers in create_structured_sections_with_parents
+        if sec.chunk_type == "table" or sec.tokens <= max_tokens:
             final_sections.append(sec)
         else:
+            # Split parent section into ~400-token child chunks with overlap
             sub_chunks = splitter.split_text(sec.content)
             for sub in sub_chunks:
                 final_sections.append(
@@ -461,32 +489,35 @@ def chunk_document(
     target_tokens: int = 400,
     max_tokens: int = 600,
     overlap_tokens: int = 50,
+    parent_target: int = 1200,
+    parent_max: int = 1600,
 ) -> ChunkingResult:
+    """Chunks a document into parent chunks (~1,200 tokens) and child chunks (~400 tokens).
 
-
-
+    1. Blocks are grouped into parent chunks using `parent_target=1200` and `parent_max=1600`.
+    2. Parent sections are then partitioned into ~400-token child chunks with 50-token overlap.
+    3. Every child chunk retains `parent_chunk_id`, enabling rich contextual retrieval via
+       `fetch_parent_context`.
+    """
     if not markdown_text:
         return ChunkingResult(chunks=[], parents=[])
 
-
     linearized = linearize_document(markdown_text)
-
-
     blocks = detect_structural_blocks(linearized)
 
-
+    # Step 1: Group into larger parent sections (~1,200-1,600 tokens)
     sections, parent_chunks = create_structured_sections_with_parents(
         blocks,
         doc_meta,
-        target_tokens=target_tokens,
-        max_tokens=max_tokens,
+        parent_target=parent_target,
+        parent_max=parent_max,
+        child_target=target_tokens,
     )
 
-
-
+    # Step 2: Split each parent section into ~400-token child chunks (with overlap)
     final_sections = split_oversized_sections(
         sections,
-        max_tokens=max_tokens,
+        max_tokens=target_tokens,
         overlap_tokens=overlap_tokens,
     )
 

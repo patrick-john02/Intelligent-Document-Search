@@ -69,7 +69,7 @@ def build_chunk_metadata(
     }
 
 
-#saves OCR acciracy and scanned PDF FLAGS to doc versions
+#saves OCR accuracy and scanned PDF FLAGS to doc versions
 async def update_extraction_metadata(
         document_version_id: int,
         extraction:ExtractionResult, 

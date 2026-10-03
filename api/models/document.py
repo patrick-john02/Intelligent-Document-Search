@@ -200,8 +200,6 @@ class DocumentParentChunks(Base):
     )
 
 
-
-#todo new table
 class DocumentProcessingJobs(Base):
     __tablename__ = "document_processing_jobs"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -215,10 +213,3 @@ class DocumentProcessingJobs(Base):
         default=JobStatus.PENDING,
         nullable=False
     )
-
-
-
-#TODO: put a chunk mapping here for developer views
-# class LchainPgEmbed(Base):
-#     __table__ = 'langchain_pg_embedding'
-#     id: Mapped[UUID] = mapped_column(UUID)

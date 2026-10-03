@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio 
+import mimetypes
 import io
 from dataclasses import dataclass
 from PIL import Image
@@ -13,7 +14,7 @@ import anydoc
 class ExtractionResult:
     text:str
     is_scanned:bool=False
-    ocr_score:float=1.0
+    ocr_score:float=1.0 #to see how confident the OCR engine is that it recognized the text correctly.
 
 
 #initialize ocr engine    
@@ -101,9 +102,59 @@ def extract_pdf_interleaved(file_bytes: bytes) -> tuple[str, bool, float]:
     except Exception as e:
         print(f"[Extractor] Interleaved PDF extraction error: {str(e)}")
         return "", False, 0.0
+    
+
+#i used the kreuzberg as a primary extractor because of its performance
+async def _extract_text_kreuzberg(file_bytes: bytes, file_name: str)->ExtractionResult | None:
+    
+    try:
+        from kreuzberg import extract_bytes
+        
+        mime_type, _ = mimetypes.guess_type(file_name)
+        mime_type = mime_type or "application/octet-stream"
+        
+        result = await extract_bytes(file_bytes, mime_type=mime_type)
+        if result and getattr(result, "content", None):
+            return ExtractionResult(
+                text=result.content.strip(),
+                is_scanned=False,
+                ocr_score=1.0,
+            )
+        return None
+    
+    except ImportError:
+        return None
+    
+    except Exception as e:
+        print(f"[Extractor] Kreuzberg skipped for '{file_name}':  {str(e)}")
+        return None
+    
+        
+        
+#content and structure validator
+#this will inspect extraction output to decide if it meets quality standards or requires specialized OCR/parser fallback.
+class ExtractionQualityGate:
+    
+    @staticmethod
+    def is_acceptable(result:ExtractionResult | None, file_name: str, file_bytes: bytes)->bool:
+        if result is None or not result.text or len(result.text.strip()) == 0:
+            return False
+        
+        ext = file_name.lower().split(".")[-1] if "." in file_name else ""
+        
+        if ext == "pdf" and len(file_bytes) > 10240 and len(result.text.strip()) < 50:
+            return False
+        
+        
+        if ext == "pdf" and "## Page " not in result.text:
+            return False
+        
+        return True
 
 
-async def extract_text(file_bytes: bytes, file_name: str = "") -> ExtractionResult:
+
+#THE FALLBACK
+async def _extract_text_fallback(file_bytes: bytes, file_name: str = "") -> ExtractionResult:
     ext = file_name.lower().split(".")[-1] if "." in file_name else ""
 
     if ext in ["png", "jpg", "jpeg", "webp", "tiff", "bmp"]:
@@ -131,3 +182,19 @@ async def extract_text(file_bytes: bytes, file_name: str = "") -> ExtractionResu
     fallback_text = await asyncio.to_thread(anydoc.to_markdown_bytes, file_bytes)
     return ExtractionResult(text=fallback_text or "", is_scanned=False, ocr_score=1.0)        
         
+
+
+#router endpoint
+#will try kreuzberg->output throught the extractionqualitygate->pass->if failed routes to fall back engine(fail)
+async def extract_text(file_bytes:bytes, file_name: str = "" )->ExtractionResult:
+    
+    result = await _extract_text_kreuzberg(file_bytes, file_name)
+    
+    if ExtractionQualityGate.is_acceptable(result, file_name, file_bytes):
+        print(f"[EXTRACTOR] '{file_name}' passed quality gate via primary (Kreuzberg)")
+        
+        return result
+    
+    print(f"[EXTRACTOR] '{file_name}' routed to Specialized fallback engine.")
+    return await _extract_text_fallback(file_bytes, file_name)
+    
