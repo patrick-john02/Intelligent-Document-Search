@@ -8,6 +8,7 @@ from langchain_core.prompts import ChatPromptTemplate
 
 
 from tools.analysis.fetch import resolve_document_content
+from rag.dedup import default_duplicate_detector
 from core.configurations import chat_model
 
 class DocumentComparison(BaseModel):
@@ -126,38 +127,57 @@ class CompareDocumentsInput(BaseModel):
         description="The second document's ID (e.g. '2'), title, or full text."
     )
     
-@tool("compare_documents", description="Compare two documents to idnetify similarities, differences, and unique points.", args_schema=CompareDocumentsInput)
-async def compare_document_tool(current_doc:str, doc_compare: str, query: str = "Compare these documents.")->str:
-    
-    results = await compare_documents(query=query, current_doc=current_doc, doc_compare=doc_compare)
-    if not results:
-        return "Unable to perform comparison: One or both documents could not be found have no readable text."
-    
-    output = [f"### Document Comparison Summary\n{results.summary}\n"]
+@tool("compare_documents", description="Compare two documents to identify similarities, differences, and unique points.", args_schema=CompareDocumentsInput)
+async def compare_document_tool(current_doc: str, doc_compare: str, query: str = "Compare these documents.") -> str:
+    title_a, text_a = await resolve_document_content(current_doc)
+    title_b, text_b = await resolve_document_content(doc_compare)
+
+    if not text_a.strip() or not text_b.strip():
+        return "Unable to perform comparison: One or both documents could not be found or have no readable text."
+
+    det_report = default_duplicate_detector.compare_documents(text_a=text_a, text_b=text_b)
+
+    results = await doc_comparison_service.compare(
+        query=query,
+        doc_a_text=text_a,
+        doc_b_text=text_b,
+        doc_a_title=title_a,
+        doct_b_title=title_b,
+    )
+
+    output = [
+        f"### Document Comparison Summary: '{title_a}' vs '{title_b}'\n{results.summary}\n",
+        "### Mathematical & Algorithmic Similarity Metrics:",
+        f"- **MinHash Jaccard Similarity:** {det_report.minhash_jaccard_similarity:.2%}",
+        f"- **Token Sort Ratio:** {det_report.token_sort_ratio:.2%}",
+        f"- **Token Levenshtein Ratio:** {det_report.token_levenshtein_ratio:.2%}",
+        f"- **Deterministic Classification:** {det_report.duplicate_category}\n",
+    ]
+
     if results.similarities:
         output.append("### Key Similarities:")
         output.extend([f"- {item}" for item in results.similarities])
         output.append("")
-        
+
     if results.differences:
-        output.append("### Key Differences")
+        output.append("### Key Differences:")
         output.extend([f"- {item}" for item in results.differences])
         output.append("")
-        
+
     if results.doc_a_unique_points:
-        output.append("### Unique to First Document:")
-        output.extend(f"- {item}" for item in results.doc_a_unique_points)
+        output.append(f"### Unique to {title_a}:")
+        output.extend([f"- {item}" for item in results.doc_a_unique_points])
         output.append("")
-    
+
     if results.doc_b_unique_points:
-        output.append("### Unique to Second Document:")
-        output.extend(f"- {item}" for item in results.doc_b_unique_points)
-        output.append("")    
-    
+        output.append(f"### Unique to {title_b}:")
+        output.extend([f"- {item}" for item in results.doc_b_unique_points])
+        output.append("")
+
     if results.conclusion:
         output.append(f"### Conclusion / Synthesis:\n{results.conclusion}\n")
         output.append(f"*(Confidence: {results.confidence:.2f})*")
-    
+
     return "\n".join(output)
 
       

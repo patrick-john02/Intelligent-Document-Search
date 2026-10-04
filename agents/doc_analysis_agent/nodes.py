@@ -27,19 +27,24 @@ async def fetch_document_node(state:DocAnalysisAgent):
     return updates
 
 
-async def detects_duplicates_node(state:DocAnalysisAgent):
-    doc_ref = str(state.get("document_text")) or state.get("document_id" or "")
+async def detects_duplicates_node(state: DocAnalysisAgent):
+    doc_ref = str(state.get("document_text") or state.get("document_id") or "")
     
     if not doc_ref.strip():
-        return{
-            "analysis_result":{
+        return {
+            "analysis_result": {
                 "error": "Duplicate detection failed: No document provided"
             }
         }
-    result = await detect_dup(document_ref=doc_ref, threshold=0.92)
-    
-    
-        
+    result = await detect_dup(document_ref=doc_ref, threshold=0.85)
+    return {
+        "analysis_result": {
+            "is_duplicate": result.is_duplicate,
+            "checked_document": result.checked_document,
+            "total_matches": result.total_matches,
+            "matches": [m.model_dump() for m in result.matches],
+        }
+    }
 
 
 async def compare_document_node(state: DocAnalysisAgent):
