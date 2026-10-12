@@ -43,8 +43,19 @@ const theme = createTheme({
     },
   },
   typography: {
-    fontFamily: "var(--font-geist-sans), -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+    fontFamily: 'var(--font-inter), "Inter", "Roboto", "Helvetica", "Arial", sans-serif',
+    h1: { fontFamily: 'var(--font-source-serif-4), "Source Serif 4", "Georgia", serif', fontWeight: 700 },
+    h2: { fontFamily: 'var(--font-source-serif-4), "Source Serif 4", "Georgia", serif', fontWeight: 700 },
+    h3: { fontFamily: 'var(--font-source-serif-4), "Source Serif 4", "Georgia", serif', fontWeight: 700 },
+    h4: { fontFamily: 'var(--font-source-serif-4), "Source Serif 4", "Georgia", serif', fontWeight: 700 },
+    h5: { fontFamily: 'var(--font-source-serif-4), "Source Serif 4", "Georgia", serif', fontWeight: 700 },
+    h6: { fontFamily: 'var(--font-source-serif-4), "Source Serif 4", "Georgia", serif', fontWeight: 700 },
+    subtitle1: { fontFamily: 'var(--font-inter), "Inter", sans-serif' },
+    subtitle2: { fontFamily: 'var(--font-inter), "Inter", sans-serif' },
+    body1: { fontFamily: 'var(--font-inter), "Inter", sans-serif' },
+    body2: { fontFamily: 'var(--font-inter), "Inter", sans-serif' },
     button: {
+      fontFamily: 'var(--font-inter), "Inter", sans-serif',
       textTransform: "none",
       fontWeight: 600,
       letterSpacing: "0.01em",
@@ -82,6 +93,8 @@ const theme = createTheme({
           padding: "10px 16px",
           fontSize: "0.9rem",
           boxShadow: "none",
+        },
+        contained: {
           backgroundColor: "#0F172A",
           color: "#FFFFFF",
           "&:hover": {
@@ -91,6 +104,23 @@ const theme = createTheme({
           "&.Mui-disabled": {
             backgroundColor: "#E2E8F0",
             color: "#94A3B8",
+          },
+        },
+        outlined: {
+          borderColor: "#E2E8F0",
+          color: "#0F172A",
+          backgroundColor: "transparent",
+          "&:hover": {
+            borderColor: "#CBD5E1",
+            backgroundColor: "#F8FAFC",
+          },
+        },
+        text: {
+          backgroundColor: "transparent",
+          color: "#0F172A",
+          padding: "4px 8px",
+          "&:hover": {
+            backgroundColor: "transparent",
           },
         },
       },

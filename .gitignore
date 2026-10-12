@@ -101,3 +101,13 @@ Thumbs.db
 *.swo
 *~
 
+api/__pycache__/__init__.cpython-311.pyc
+api/models/__pycache__/__init__.cpython-311.pyc
+api/models/__pycache__/document.cpython-311.pyc
+api/views/__pycache__/document_views.cpython-311.pyc
+core/__pycache__/__init__.cpython-311.pyc
+core/__pycache__/configurations.cpython-311.pyc
+core/__pycache__/database.cpython-311.pyc
+core/__pycache__/dependencies.cpython-311.pyc
+core/__pycache__/dependencies.cpython-311.pyc
+*.pyc

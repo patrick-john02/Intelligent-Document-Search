@@ -17,9 +17,12 @@ import Select from "@mui/material/Select";
 import MenuItem from "@mui/material/MenuItem";
 import ToggleButton from "@mui/material/ToggleButton";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
+import Tooltip from "@mui/material/Tooltip";
 import CssBaseline from "@mui/material/CssBaseline";
 import { alpha } from "@mui/material/styles";
 import Link from "next/link";
+import CloudUploadOutlinedIcon from "@mui/icons-material/CloudUploadOutlined";
+import VerticalSplitOutlinedIcon from "@mui/icons-material/VerticalSplitOutlined";
 
 // Layout & Components
 import SideMenu from "@/components/SideMenu";
@@ -33,7 +36,10 @@ import { ArchiveDocument } from "@/components/documents/types";
 import ArchiveMetricsBar from "@/components/documents/ArchiveMetricsBar";
 import DocumentDossierInspector from "@/components/documents/DocumentDossierInspector";
 import CabinetMapView from "@/components/documents/CabinetMapView";
-import IngestDocumentDialog from "@/components/documents/IngestDocumentDialog";
+import UploadDocumentDialog from "@/components/documents/UploadDocumentDialog";
+import ArchivingAgentModal from "@/components/documents/ArchivingAgentModal";
+import BackgroundArchivingWidget from "@/components/documents/BackgroundArchivingWidget";
+import { useArchivingTask } from "@/components/documents/useArchivingTask";
 
 // Sample Seed Archive Documents
 const INITIAL_DOCUMENTS: ArchiveDocument[] = [
@@ -221,7 +227,31 @@ export default function DocumentArchivePage(props: { disableCustomTheme?: boolea
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedCabinet, setSelectedCabinet] = useState("All");
   const [showInspector, setShowInspector] = useState(true);
-  const [isIngestOpen, setIsIngestOpen] = useState(false);
+  const [isUploadOpen, setIsUploadOpen] = useState(false);
+
+  // Background Archiving Agent Hook
+  const handleArchivingComplete = (newDocs: ArchiveDocument[]) => {
+    setDocuments((prev) => [...newDocs, ...prev]);
+    if (newDocs.length > 0) {
+      setSelectedDoc(newDocs[0]);
+      setShowInspector(true);
+    }
+  };
+
+  const {
+    isActive: isAgentActive,
+    isMinimized: isAgentMinimized,
+    progress: agentProgress,
+    stepIndex: agentStepIndex,
+    currentStep: agentCurrentStep,
+    steps: agentSteps,
+    queuedFiles: agentQueuedFiles,
+    isFinished: isAgentFinished,
+    startArchiving,
+    minimize: minimizeAgent,
+    maximize: maximizeAgent,
+    dismiss: dismissAgent,
+  } = useArchivingTask(handleArchivingComplete);
 
   // Filtering
   const filteredDocuments = documents.filter((doc) => {
@@ -239,11 +269,6 @@ export default function DocumentArchivePage(props: { disableCustomTheme?: boolea
 
     return matchesSearch && matchesCategory && matchesCabinet;
   });
-
-  const handleIngestSuccess = (newDoc: ArchiveDocument) => {
-    setDocuments([newDoc, ...documents]);
-    setSelectedDoc(newDoc);
-  };
 
   return (
     <AppTheme {...props}>
@@ -306,14 +331,15 @@ export default function DocumentArchivePage(props: { disableCustomTheme?: boolea
             </Box>
 
             <Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
-              {/* Ingest Document Button */}
+              {/* Upload Document Button */}
               <Button
                 variant="contained"
                 color="primary"
                 size="small"
-                onClick={() => setIsIngestOpen(true)}
+                startIcon={<CloudUploadOutlinedIcon sx={{ fontSize: 18 }} />}
+                onClick={() => setIsUploadOpen(true)}
                 sx={{
-                  borderRadius: 1,
+                  borderRadius: 1.5,
                   textTransform: "none",
                   fontWeight: 700,
                   boxShadow: "none",
@@ -321,24 +347,28 @@ export default function DocumentArchivePage(props: { disableCustomTheme?: boolea
                   py: 0.75,
                 }}
               >
-                + Ingest New Document
+                Upload
               </Button>
 
-              <Button
-                size="small"
-                variant={showInspector ? "contained" : "outlined"}
-                color={showInspector ? "primary" : "inherit"}
-                onClick={() => setShowInspector(!showInspector)}
-                sx={{
-                  borderRadius: 1,
-                  fontSize: "0.78rem",
-                  textTransform: "none",
-                  fontWeight: 600,
-                  boxShadow: "none",
-                }}
-              >
-                {showInspector ? "Hide Dossier" : "Show Dossier"}
-              </Button>
+              {/* Dossier Panel Toggle Workaround */}
+              <Tooltip title={showInspector ? "Collapse Dossier Panel" : "Open Dossier Panel"}>
+                <Button
+                  size="small"
+                  variant={showInspector ? "contained" : "outlined"}
+                  color={showInspector ? "primary" : "inherit"}
+                  startIcon={<VerticalSplitOutlinedIcon sx={{ fontSize: 16 }} />}
+                  onClick={() => setShowInspector(!showInspector)}
+                  sx={{
+                    borderRadius: 1.5,
+                    fontSize: "0.78rem",
+                    textTransform: "none",
+                    fontWeight: 600,
+                    boxShadow: "none",
+                  }}
+                >
+                  {showInspector ? "Hide Dossier" : "Show Dossier"}
+                </Button>
+              </Tooltip>
             </Stack>
           </Box>
 
@@ -549,7 +579,10 @@ export default function DocumentArchivePage(props: { disableCustomTheme?: boolea
                                 <Button
                                   size="small"
                                   variant="outlined"
-                                  onClick={() => setSelectedDoc(doc)}
+                                  onClick={() => {
+                                    setSelectedDoc(doc);
+                                    setShowInspector(true);
+                                  }}
                                   sx={{
                                     fontSize: "0.74rem",
                                     textTransform: "none",
@@ -610,7 +643,10 @@ export default function DocumentArchivePage(props: { disableCustomTheme?: boolea
                 <CabinetMapView
                   documents={filteredDocuments}
                   selectedDocId={selectedDoc?.id}
-                  onSelectDoc={setSelectedDoc}
+                  onSelectDoc={(doc) => {
+                    setSelectedDoc(doc);
+                    setShowInspector(true);
+                  }}
                 />
               )}
             </Box>
@@ -625,13 +661,37 @@ export default function DocumentArchivePage(props: { disableCustomTheme?: boolea
           </Box>
         </Box>
 
-        {/* Ingest Document Modal with Duplicate Pre-Check */}
-        <IngestDocumentDialog
-          open={isIngestOpen}
-          onClose={() => setIsIngestOpen(false)}
-          onIngestSuccess={handleIngestSuccess}
-          existingDocuments={documents}
+        {/* Upload Document Dialog (Single or Bulk, Cabinet Assignment) */}
+        <UploadDocumentDialog
+          open={isUploadOpen}
+          onClose={() => setIsUploadOpen(false)}
+          onStartArchiving={startArchiving}
         />
+
+        {/* Archiving Agent Pipeline Modal (Full-Screen Stepper with Minimize) */}
+        <ArchivingAgentModal
+          open={isAgentActive && !isAgentMinimized}
+          progress={agentProgress}
+          stepIndex={agentStepIndex}
+          currentStep={agentCurrentStep}
+          steps={agentSteps}
+          queuedFiles={agentQueuedFiles}
+          isFinished={isAgentFinished}
+          onMinimize={minimizeAgent}
+          onDismiss={dismissAgent}
+        />
+
+        {/* Minimized Background Archiving Agent Dock (Floating bottom-right) */}
+        {isAgentActive && isAgentMinimized && (
+          <BackgroundArchivingWidget
+            progress={agentProgress}
+            currentStep={agentCurrentStep}
+            queuedFiles={agentQueuedFiles}
+            isFinished={isAgentFinished}
+            onMaximize={maximizeAgent}
+            onDismiss={dismissAgent}
+          />
+        )}
       </Box>
     </AppTheme>
   );

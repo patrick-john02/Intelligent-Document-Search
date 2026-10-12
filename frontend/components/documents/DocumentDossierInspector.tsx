@@ -7,9 +7,12 @@ import Typography from "@mui/material/Typography";
 import Stack from "@mui/material/Stack";
 import Chip from "@mui/material/Chip";
 import Button from "@mui/material/Button";
+import IconButton from "@mui/material/IconButton";
+import Tooltip from "@mui/material/Tooltip";
 import Divider from "@mui/material/Divider";
 import Avatar from "@mui/material/Avatar";
 import CircularProgress from "@mui/material/CircularProgress";
+import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 import Link from "next/link";
 import { ArchiveDocument } from "./types";
 
@@ -112,20 +115,21 @@ export default function DocumentDossierInspector({
         </Box>
 
         {onClose && (
-          <Button
-            size="small"
-            onClick={onClose}
-            sx={{
-              minWidth: "auto",
-              p: "2px 8px",
-              fontSize: "0.75rem",
-              borderRadius: 1,
-              textTransform: "none",
-              color: "text.secondary",
-            }}
-          >
-            Close
-          </Button>
+          <Tooltip title="Collapse Dossier (Esc)">
+            <IconButton
+              size="small"
+              onClick={onClose}
+              sx={{
+                border: "1px solid",
+                borderColor: "divider",
+                borderRadius: 1.5,
+                color: "text.secondary",
+                "&:hover": { bgcolor: "action.hover", color: "text.primary" },
+              }}
+            >
+              <CloseRoundedIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
         )}
       </Box>
 

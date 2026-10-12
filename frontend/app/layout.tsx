@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter, Source_Serif_4 } from "next/font/google";
 import { AppRouterCacheProvider } from "@mui/material-nextjs/v15-appRouter";
 import { ThemeProvider } from "@mui/material/styles";
 import CssBaseline from "@mui/material/CssBaseline";
@@ -7,18 +7,21 @@ import { AuthProvider } from "@/context/AuthContext";
 import theme from "../theme";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const inter = Inter({
   subsets: ["latin"],
+  variable: "--font-inter",
+  display: "swap",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const sourceSerif4 = Source_Serif_4({
   subsets: ["latin"],
+  variable: "--font-source-serif-4",
+  display: "swap",
+  weight: ["400", "600", "700"],
 });
 
 export const metadata: Metadata = {
-  title: "Document Archiving & Semantic Retrieval System",
+  title: "ArchivAI - Intelligent Document Archiving & Retrieval System",
   description: "AI-Powered Document Archiving and Semantic Retrieval System",
 };
 
@@ -30,7 +33,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${inter.variable} ${sourceSerif4.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-white text-slate-900 selection:bg-slate-900 selection:text-white">
         <AppRouterCacheProvider options={{ key: "css" }}>
