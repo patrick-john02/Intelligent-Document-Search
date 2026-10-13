@@ -1,101 +1,53 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import TextField from "@mui/material/TextField";
 import InputAdornment from "@mui/material/InputAdornment";
+import IconButton from "@mui/material/IconButton";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import Paper from "@mui/material/Paper";
-import Switch from "@mui/material/Switch";
-import FormControlLabel from "@mui/material/FormControlLabel";
 import Divider from "@mui/material/Divider";
 import FormControl from "@mui/material/FormControl";
 import InputLabel from "@mui/material/InputLabel";
 import Select, { SelectChangeEvent } from "@mui/material/Select";
 import MenuItem from "@mui/material/MenuItem";
+import ToggleButton from "@mui/material/ToggleButton";
+import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import CssBaseline from "@mui/material/CssBaseline";
 import { alpha } from "@mui/material/styles";
 
-// Layout & Navigation
+// Icons
+import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
+import ClearRoundedIcon from "@mui/icons-material/ClearRounded";
+import AutoAwesomeRoundedIcon from "@mui/icons-material/AutoAwesomeRounded";
+import TextFieldsRoundedIcon from "@mui/icons-material/TextFieldsRounded";
+import RestartAltRoundedIcon from "@mui/icons-material/RestartAltRounded";
+
+// Layout & Components
 import SideMenu from "@/components/SideMenu";
 import DashboardNavbar from "@/components/DashboardNavbar";
 import AppTheme from "@/shared-theme/AppTheme";
 import { useAuth } from "@/context/AuthContext";
 import { getDefaultRole } from "@/components/dashboard/types";
 import SmartSearchSkeleton from "@/components/search/SmartSearchSkeleton";
-import SmartSearchResultCard, {
-  SmartSearchResultItem,
-} from "@/components/search/SmartSearchResultCard";
+import SmartSearchResultCard from "@/components/search/SmartSearchResultCard";
+import DocumentPreviewDialog from "@/components/search/DocumentPreviewDialog";
+import DocumentAiDrawer from "@/components/documents/DocumentAiDrawer";
+import { SAMPLE_SEARCH_DOCUMENTS } from "@/components/search/seedData";
+import { SearchResultItem, SearchMode, SortOption } from "@/components/search/types";
+import { api } from "@/lib/api";
 
-// Sample Seed Directives for the Intelligent Archive
-const SAMPLE_SEARCH_RESULTS: SmartSearchResultItem[] = [
-  {
-    id: 1,
-    title: "LGU Real Property Assessment Advisory Guidelines and Valuation Standards",
-    orderNo: "BLGF-DO-2024-018",
-    seriesYear: 2024,
-    category: "Assessment Regulations",
-    clearance: "Public",
-    relevanceScore: 0.984,
-    shelfLocation: "Cabinet A • Shelf 2",
-    excerptSnippet:
-      "...Section 4.1 Delinquent Assessment Penalties: Municipal treasurers shall enforce the revised 2% monthly surcharges on unremitted real property taxes, with a statutory maximum ceiling of 72 months from the date of final notice...",
-    fileSize: "4.8 MB",
-    pageCount: 28,
-  },
-  {
-    id: 2,
-    title: "Treasury Circular on Local Revenue Collections and Automation Protocols",
-    orderNo: "TC-2024-009",
-    seriesYear: 2024,
-    category: "Treasury Advisories",
-    clearance: "Public",
-    relevanceScore: 0.927,
-    shelfLocation: "Cabinet B • Shelf 1",
-    excerptSnippet:
-      "...All municipal and provincial collection offices within Region II are directed to integrate electronic treasury receipting systems with the Central Archival and Ingestion node by Q4 2024 to ensure automated compliance auditing...",
-    fileSize: "2.3 MB",
-    pageCount: 16,
-  },
-  {
-    id: 3,
-    title: "Legal Opinion on Municipal Franchise Tax Exemption for Public Utilities",
-    orderNo: "LO-R2-2023-042",
-    seriesYear: 2023,
-    category: "Legal Opinions",
-    clearance: "Internal",
-    relevanceScore: 0.885,
-    shelfLocation: "Cabinet C • Shelf 4",
-    excerptSnippet:
-      "...Pursuant to the Local Government Code of 1991, local government units retain the authority to levy franchise tax on businesses enjoying a legislative franchise, unless an explicit statutory exemption is provided by national charter...",
-    fileSize: "1.7 MB",
-    pageCount: 9,
-  },
-  {
-    id: 4,
-    title: "Standard Operating Procedure for Physical Document Ingestion and OCR Scanning",
-    orderNo: "SOP-DOC-2024-001",
-    seriesYear: 2024,
-    category: "Standard Procedures",
-    clearance: "Internal",
-    relevanceScore: 0.812,
-    shelfLocation: "Cabinet A • Shelf 1",
-    excerptSnippet:
-      "...Upon physical intake at the records division, documents must receive a barcode tracking tag indicating Cabinet and Shelf coordinates before high-speed multi-page digitizing and vector embedding generation...",
-    fileSize: "3.1 MB",
-    pageCount: 22,
-  },
-];
-
-// Aesthetic curated query suggestions
+// Curated query suggestions
 const POPULAR_QUERIES = [
-  "Delinquent property tax penalties",
-  "Treasury electronic receipting",
-  "Municipal franchise tax exemptions",
-  "Physical intake and OCR scanning",
+  "Property tax penalties",
+  "Treasury electronic receipts",
+  "Franchise tax exemption",
+  "Document intake & scanning",
+  "Financial audit schedule",
 ];
 
 const CATEGORY_OPTIONS = [
@@ -104,13 +56,15 @@ const CATEGORY_OPTIONS = [
   { value: "Treasury Advisories", label: "Treasury Advisories" },
   { value: "Legal Opinions", label: "Legal Opinions" },
   { value: "Standard Procedures", label: "Standard Procedures" },
+  { value: "Memorandums", label: "Memorandums" },
 ];
 
-const CABINET_OPTIONS = [
-  { value: "All", label: "All Cabinets" },
+const LOCATION_OPTIONS = [
+  { value: "All", label: "All Locations" },
   { value: "Cabinet A", label: "Cabinet A" },
   { value: "Cabinet B", label: "Cabinet B" },
   { value: "Cabinet C", label: "Cabinet C" },
+  { value: "Cabinet D", label: "Cabinet D" },
 ];
 
 export default function SmartSearchPage(props: { disableCustomTheme?: boolean }) {
@@ -118,59 +72,203 @@ export default function SmartSearchPage(props: { disableCustomTheme?: boolean })
   const effectiveRole = getDefaultRole(user);
 
   // Search & Filter States
-  const [searchQuery, setSearchQuery] = useState("delinquent property assessment penalties");
-  const [isSemanticMode, setIsSemanticMode] = useState<boolean>(true);
-  const [selectedCategory, setSelectedCategory] = useState<string>("All");
-  const [selectedCabinet, setSelectedCabinet] = useState<string>("All");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [submittedQuery, setSubmittedQuery] = useState("");
+  const [searchMode, setSearchMode] = useState<SearchMode>("smart");
+  const [selectedCategory, setSelectedCategory] = useState("All");
+  const [selectedLocation, setSelectedLocation] = useState("All");
+  const [sortBy, setSortBy] = useState<SortOption>("relevance");
 
-  // Skeleton / Loading State
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  // Loading & Preview States
+  const [isLoading, setIsLoading] = useState(false);
+  const [previewItem, setPreviewItem] = useState<SearchResultItem | null>(null);
+
+  // In-Place AI Document Assistant Drawer
+  const [isAiDrawerOpen, setIsAiDrawerOpen] = useState(false);
+  const [aiTargetDoc, setAiTargetDoc] = useState<SearchResultItem | null>(null);
+
+  const handleOpenAiDrawer = (item: SearchResultItem) => {
+    setAiTargetDoc(item);
+    setIsAiDrawerOpen(true);
+  };
+
+  // Perform search (client filtering with backend integration fallback)
+  const executeSearch = (queryText: string) => {
+    setIsLoading(true);
+    setSubmittedQuery(queryText);
+
+    // Attempt to query backend if authenticated; otherwise fallback cleanly
+    api
+      .get(`/documents/search?q=${encodeURIComponent(queryText)}`)
+      .catch(() => null)
+      .finally(() => {
+        // Subtle loading feedback
+        setTimeout(() => {
+          setIsLoading(false);
+        }, 300);
+      });
+  };
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!searchQuery.trim()) return;
-
-    setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
-    }, 700);
+    executeSearch(searchQuery);
   };
 
   const handleClearSearch = () => {
     setSearchQuery("");
+    setSubmittedQuery("");
   };
 
   const handleApplySuggestion = (query: string) => {
     setSearchQuery(query);
-    setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
-    }, 550);
+    executeSearch(query);
+  };
+
+  const handleModeChange = (
+    _event: React.MouseEvent<HTMLElement>,
+    newMode: SearchMode | null
+  ) => {
+    if (newMode !== null) {
+      setSearchMode(newMode);
+    }
   };
 
   const handleCategoryChange = (event: SelectChangeEvent) => {
     setSelectedCategory(event.target.value);
   };
 
-  const handleCabinetChange = (event: SelectChangeEvent) => {
-    setSelectedCabinet(event.target.value);
+  const handleLocationChange = (event: SelectChangeEvent) => {
+    setSelectedLocation(event.target.value);
+  };
+
+  const handleSortChange = (event: SelectChangeEvent) => {
+    setSortBy(event.target.value as SortOption);
   };
 
   const handleResetFilters = () => {
     setSelectedCategory("All");
-    setSelectedCabinet("All");
+    setSelectedLocation("All");
+    setSortBy("relevance");
+    setSearchQuery("");
+    setSubmittedQuery("");
   };
 
-  const hasActiveFilters = selectedCategory !== "All" || selectedCabinet !== "All";
+  const hasActiveFilters =
+    selectedCategory !== "All" ||
+    selectedLocation !== "All" ||
+    sortBy !== "relevance" ||
+    Boolean(submittedQuery.trim());
 
-  // Filter items based on category and cabinet
-  const filteredResults = SAMPLE_SEARCH_RESULTS.filter((item) => {
-    const matchesCategory =
-      selectedCategory === "All" || item.category === selectedCategory;
-    const matchesCabinet =
-      selectedCabinet === "All" || item.shelfLocation.includes(selectedCabinet);
-    return matchesCategory && matchesCabinet;
-  });
+  // Filter and rank search results
+  const filteredResults = useMemo(() => {
+    const rawQuery = (submittedQuery || searchQuery).trim().toLowerCase();
+    const queryTokens = rawQuery
+      .split(/\s+/)
+      .filter((token) => token.length > 0);
+
+    return SAMPLE_SEARCH_DOCUMENTS.map((item) => {
+      // Base match item
+      let score = item.relevanceScore || 0.7;
+
+      if (queryTokens.length > 0) {
+        if (searchMode === "keyword") {
+          // Exact keyword matching across searchable fields
+          const titleMatches = queryTokens.filter((token) =>
+            item.title.toLowerCase().includes(token)
+          ).length;
+          const orderMatches = queryTokens.filter((token) =>
+            item.orderNo.toLowerCase().includes(token)
+          ).length;
+          const snippetMatches = queryTokens.filter((token) =>
+            item.excerptSnippet.toLowerCase().includes(token)
+          ).length;
+          const categoryMatches = queryTokens.filter((token) =>
+            item.category.toLowerCase().includes(token)
+          ).length;
+          const tagMatches = (item.tags || []).filter((tag) =>
+            queryTokens.some((token) => tag.toLowerCase().includes(token))
+          ).length;
+
+          const totalHits =
+            titleMatches * 4 +
+            orderMatches * 5 +
+            categoryMatches * 2 +
+            tagMatches * 2 +
+            snippetMatches;
+
+          // If no keywords matched in keyword mode, score = 0
+          score = totalHits > 0 ? Math.min(0.99, 0.6 + totalHits * 0.08) : 0;
+        } else {
+          // Smart Search: Topic and conceptual relevance scoring
+          const fullContent = `${item.title} ${item.excerptSnippet} ${
+            item.summary || ""
+          } ${item.tags?.join(" ") || ""}`.toLowerCase();
+
+          const matchedTokenCount = queryTokens.filter((token) =>
+            fullContent.includes(token)
+          ).length;
+
+          if (matchedTokenCount > 0) {
+            score = Math.min(
+              0.99,
+              0.75 + (matchedTokenCount / queryTokens.length) * 0.24
+            );
+          } else {
+            // General query fallback with slight decay
+            score = Math.max(0.65, (item.relevanceScore || 0.7) - 0.15);
+          }
+        }
+      }
+
+      return {
+        ...item,
+        relevanceScore: score,
+      };
+    })
+      .filter((item) => {
+        // Filter out items with 0 score if in keyword mode and query exists
+        if (
+          searchMode === "keyword" &&
+          queryTokens.length > 0 &&
+          (item.relevanceScore || 0) <= 0
+        ) {
+          return false;
+        }
+
+        // Filter by Category
+        const matchesCategory =
+          selectedCategory === "All" || item.category === selectedCategory;
+
+        // Filter by Location
+        const matchesLocation =
+          selectedLocation === "All" ||
+          item.shelfLocation.includes(selectedLocation);
+
+        return matchesCategory && matchesLocation;
+      })
+      .sort((a, b) => {
+        if (sortBy === "relevance") {
+          return (b.relevanceScore || 0) - (a.relevanceScore || 0);
+        }
+        if (sortBy === "newest") {
+          return Number(b.seriesYear) - Number(a.seriesYear);
+        }
+        if (sortBy === "oldest") {
+          return Number(a.seriesYear) - Number(b.seriesYear);
+        }
+        if (sortBy === "title") {
+          return a.title.localeCompare(b.title);
+        }
+        return 0;
+      });
+  }, [
+    submittedQuery,
+    searchQuery,
+    searchMode,
+    selectedCategory,
+    selectedLocation,
+    sortBy,
+  ]);
 
   return (
     <AppTheme {...props}>
@@ -178,7 +276,7 @@ export default function SmartSearchPage(props: { disableCustomTheme?: boolean })
       <Box sx={{ display: "flex", minHeight: "100vh", width: "100%" }}>
         <SideMenu currentRole={effectiveRole} />
 
-        {/* Main Workspace - Maximized Space */}
+        {/* Main Content Area */}
         <Box
           component="main"
           sx={(theme) => ({
@@ -193,12 +291,12 @@ export default function SmartSearchPage(props: { disableCustomTheme?: boolean })
             pt: { xs: 8, md: 1.5 },
           })}
         >
-          {/* Unified Navbar */}
+          {/* Top Navbar */}
           <Box sx={{ flexShrink: 0, mb: 0.5 }}>
             <DashboardNavbar currentRole={effectiveRole} />
           </Box>
 
-          {/* Title Bar */}
+          {/* Page Title */}
           <Box
             sx={{
               display: "flex",
@@ -207,119 +305,139 @@ export default function SmartSearchPage(props: { disableCustomTheme?: boolean })
               py: 1.5,
               borderBottom: "1px solid",
               borderColor: "divider",
-              flexWrap: "wrap",
-              gap: 1.5,
-              mb: 2,
+              mb: 2.5,
             }}
           >
             <Box>
-              <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-                <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                  Smart Search
-                </Typography>
-                <Chip
-                  label={isSemanticMode ? "Semantic Search" : "Exact Metadata Match"}
-                  size="small"
-                  color={isSemanticMode ? "primary" : "default"}
-                  variant="outlined"
-                  sx={{ fontWeight: 700, fontSize: "0.68rem", height: 20, borderRadius: 1 }}
-                />
-              </Box>
-              {/* <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                Search official archival records by conceptual topic, policy queries, or exact directive numbers.
-              </Typography> */}
+              <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                Document Search
+              </Typography>
+              <Typography variant="body2" sx={{ color: "text.secondary", fontSize: "0.85rem" }}>
+                Search official directives, guidelines, and records by keyword or topic.
+              </Typography>
             </Box>
           </Box>
 
-          {/* Full Width Workspace Container */}
-          <Box sx={{ width: "100%" }}>
-
-            {/* 2. Unified Search & Filter Command Bar */}
-            <Paper
-              elevation={0}
-              variant="outlined"
-              sx={{
-                p: { xs: 2, sm: 2.5 },
-                borderRadius: 1,
-                mb: 2.5,
-                bgcolor: "background.paper",
-                width: "100%",
-              }}
-            >
-              {/* Primary Search Input Row */}
-              <form onSubmit={handleSearchSubmit}>
-                <Box sx={{ display: "flex", gap: 1.5, mb: 1.5, flexWrap: { xs: "wrap", sm: "nowrap" } }}>
-                  <TextField
-                    fullWidth
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder={
-                      isSemanticMode
-                        ? "Describe a subject, rule, or concept (e.g. 'penalty surcharges on late land tax declaration')..."
-                        : "Enter exact Directive No. (e.g. BLGF-DO-2024-018) or keyword..."
-                    }
-                    slotProps={{
-                      input: {
-                        endAdornment: searchQuery ? (
-                          <InputAdornment position="end">
-                            <Button
-                              size="small"
-                              onClick={handleClearSearch}
-                              sx={{
-                                minWidth: "auto",
-                                p: "2px 8px",
-                                fontSize: "0.75rem",
-                                borderRadius: 1,
-                                textTransform: "none",
-                              }}
-                            >
-                              Clear
-                            </Button>
-                          </InputAdornment>
-                        ) : null,
-                      },
-                    }}
-                    sx={{
-                      "& .MuiOutlinedInput-root": {
-                        borderRadius: 1,
-                        fontSize: "0.95rem",
-                      },
-                    }}
-                  />
-
-                  <Button
-                    type="submit"
-                    variant="contained"
-                    color="primary"
-                    size="large"
-                    sx={{
-                      px: 4,
-                      borderRadius: 1,
-                      fontWeight: 700,
-                      textTransform: "none",
-                      boxShadow: "none",
-                      minWidth: { xs: "100%", sm: "150px" },
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    Search Archive
-                  </Button>
-                </Box>
-              </form>
-
-              {/* Aesthetic Query Suggestions (Single-line micro-pills) */}
+          {/* Clean Main Search Command Box */}
+          <Paper
+            elevation={0}
+            variant="outlined"
+            sx={{
+              p: { xs: 2, sm: 2.5 },
+              borderRadius: 1.5,
+              mb: 2.5,
+              bgcolor: "background.paper",
+            }}
+          >
+            {/* Search Input Row */}
+            <form onSubmit={handleSearchSubmit}>
               <Box
                 sx={{
                   display: "flex",
-                  alignItems: "center",
-                  gap: 1,
-                  flexWrap: "wrap",
+                  gap: 1.5,
                   mb: 2,
-                  pt: 0.5,
+                  flexWrap: { xs: "wrap", sm: "nowrap" },
                 }}
               >
-                <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 700 }}>
-                  Suggestions:
+                <TextField
+                  fullWidth
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder={
+                    searchMode === "smart"
+                      ? "Search by topic or subject (e.g. property tax surcharges)..."
+                      : "Search by exact keywords or order number (e.g. BLGF-DO-2024-018)..."
+                  }
+                  slotProps={{
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <SearchRoundedIcon sx={{ color: "text.secondary", fontSize: 22 }} />
+                        </InputAdornment>
+                      ),
+                      endAdornment: searchQuery ? (
+                        <InputAdornment position="end">
+                          <IconButton
+                            size="small"
+                            onClick={handleClearSearch}
+                            sx={{ p: 0.5 }}
+                          >
+                            <ClearRoundedIcon sx={{ fontSize: 18 }} />
+                          </IconButton>
+                        </InputAdornment>
+                      ) : null,
+                    },
+                  }}
+                  sx={{
+                    "& .MuiOutlinedInput-root": {
+                      borderRadius: 1,
+                      fontSize: "0.95rem",
+                    },
+                  }}
+                />
+
+                <Button
+                  type="submit"
+                  variant="contained"
+                  color="primary"
+                  size="large"
+                  sx={{
+                    px: 3.5,
+                    borderRadius: 1,
+                    fontWeight: 700,
+                    textTransform: "none",
+                    boxShadow: "none",
+                    minWidth: { xs: "100%", sm: "140px" },
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  Search
+                </Button>
+              </Box>
+            </form>
+
+            {/* Clean Mode Selector & Query Suggestions */}
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                flexWrap: "wrap",
+                gap: 1.5,
+                mb: 2,
+              }}
+            >
+              {/* Clean Search Mode Selector */}
+              <ToggleButtonGroup
+                value={searchMode}
+                exclusive
+                onChange={handleModeChange}
+                size="small"
+                sx={{
+                  "& .MuiToggleButton-root": {
+                    borderRadius: 1,
+                    textTransform: "none",
+                    fontWeight: 600,
+                    fontSize: "0.8rem",
+                    px: 1.75,
+                    py: 0.5,
+                  },
+                }}
+              >
+                <ToggleButton value="smart">
+                  <AutoAwesomeRoundedIcon sx={{ fontSize: 16, mr: 0.75 }} />
+                  Smart Search
+                </ToggleButton>
+                <ToggleButton value="keyword">
+                  <TextFieldsRoundedIcon sx={{ fontSize: 16, mr: 0.75 }} />
+                  Keyword Search
+                </ToggleButton>
+              </ToggleButtonGroup>
+
+              {/* Suggestions Chips */}
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
+                <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 600 }}>
+                  Popular:
                 </Typography>
                 {POPULAR_QUERIES.map((query) => (
                   <Chip
@@ -328,14 +446,13 @@ export default function SmartSearchPage(props: { disableCustomTheme?: boolean })
                     size="small"
                     onClick={() => handleApplySuggestion(query)}
                     sx={{
-                      fontSize: "0.72rem",
-                      height: 22,
+                      fontSize: "0.75rem",
+                      height: 24,
                       borderRadius: 1,
                       bgcolor: "action.hover",
                       color: "text.secondary",
                       border: "none",
                       cursor: "pointer",
-                      fontWeight: 500,
                       "&:hover": {
                         bgcolor: "action.selected",
                         color: "primary.main",
@@ -344,183 +461,179 @@ export default function SmartSearchPage(props: { disableCustomTheme?: boolean })
                   />
                 ))}
               </Box>
+            </Box>
 
-              <Divider sx={{ mb: 2 }} />
+            <Divider sx={{ mb: 2 }} />
 
-              {/* Aesthetic Filter & Control Toolbar: Dropdowns on Left, Switches on Right */}
-              <Box
-                sx={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  flexWrap: "wrap",
-                  gap: 2,
-                }}
-              >
-                {/* Left Controls: Category & Cabinet Dropdowns */}
-                <Stack direction="row" spacing={2} sx={{ alignItems: "center", flexWrap: "wrap", gap: 1.5 }}>
-                  {/* Category Dropdown */}
-                  <FormControl size="small" sx={{ minWidth: { xs: 160, sm: 200 } }}>
-                    <InputLabel id="category-select-label" sx={{ fontSize: "0.82rem" }}>
-                      Category
-                    </InputLabel>
-                    <Select
-                      labelId="category-select-label"
-                      id="category-select"
-                      value={selectedCategory}
-                      label="Category"
-                      onChange={handleCategoryChange}
-                      sx={{
-                        borderRadius: 1,
-                        fontSize: "0.82rem",
-                        height: 36,
-                      }}
-                    >
-                      {CATEGORY_OPTIONS.map((opt) => (
-                        <MenuItem key={opt.value} value={opt.value} sx={{ fontSize: "0.82rem" }}>
-                          {opt.label}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+            {/* Clean Filters Row */}
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                flexWrap: "wrap",
+                gap: 2,
+              }}
+            >
+              <Stack direction="row" spacing={2} sx={{ alignItems: "center", flexWrap: "wrap", gap: 1.5 }}>
+                {/* Category Dropdown */}
+                <FormControl size="small" sx={{ minWidth: { xs: 150, sm: 190 } }}>
+                  <InputLabel id="category-select-label" sx={{ fontSize: "0.82rem" }}>
+                    Category
+                  </InputLabel>
+                  <Select
+                    labelId="category-select-label"
+                    value={selectedCategory}
+                    label="Category"
+                    onChange={handleCategoryChange}
+                    sx={{ borderRadius: 1, fontSize: "0.82rem", height: 36 }}
+                  >
+                    {CATEGORY_OPTIONS.map((opt) => (
+                      <MenuItem key={opt.value} value={opt.value} sx={{ fontSize: "0.82rem" }}>
+                        {opt.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
 
-                  {/* Physical Cabinet Dropdown */}
-                  <FormControl size="small" sx={{ minWidth: { xs: 140, sm: 170 } }}>
-                    <InputLabel id="cabinet-select-label" sx={{ fontSize: "0.82rem" }}>
-                      Physical Cabinet
-                    </InputLabel>
-                    <Select
-                      labelId="cabinet-select-label"
-                      id="cabinet-select"
-                      value={selectedCabinet}
-                      label="Physical Cabinet"
-                      onChange={handleCabinetChange}
-                      sx={{
-                        borderRadius: 1,
-                        fontSize: "0.82rem",
-                        height: 36,
-                      }}
-                    >
-                      {CABINET_OPTIONS.map((opt) => (
-                        <MenuItem key={opt.value} value={opt.value} sx={{ fontSize: "0.82rem" }}>
-                          {opt.label}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                {/* Location Dropdown */}
+                <FormControl size="small" sx={{ minWidth: { xs: 140, sm: 160 } }}>
+                  <InputLabel id="location-select-label" sx={{ fontSize: "0.82rem" }}>
+                    Location
+                  </InputLabel>
+                  <Select
+                    labelId="location-select-label"
+                    value={selectedLocation}
+                    label="Location"
+                    onChange={handleLocationChange}
+                    sx={{ borderRadius: 1, fontSize: "0.82rem", height: 36 }}
+                  >
+                    {LOCATION_OPTIONS.map((opt) => (
+                      <MenuItem key={opt.value} value={opt.value} sx={{ fontSize: "0.82rem" }}>
+                        {opt.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
 
-                  {/* Reset Filters Link */}
-                  {hasActiveFilters && (
-                    <Button
-                      size="small"
-                      onClick={handleResetFilters}
-                      sx={{
-                        fontSize: "0.78rem",
-                        textTransform: "none",
-                        color: "text.secondary",
-                        minWidth: "auto",
-                        p: "4px 8px",
-                      }}
-                    >
-                      Reset Filters
-                    </Button>
-                  )}
-                </Stack>
+                {/* Sort By Dropdown */}
+                <FormControl size="small" sx={{ minWidth: { xs: 140, sm: 160 } }}>
+                  <InputLabel id="sort-select-label" sx={{ fontSize: "0.82rem" }}>
+                    Sort by
+                  </InputLabel>
+                  <Select
+                    labelId="sort-select-label"
+                    value={sortBy}
+                    label="Sort by"
+                    onChange={handleSortChange}
+                    sx={{ borderRadius: 1, fontSize: "0.82rem", height: 36 }}
+                  >
+                    <MenuItem value="relevance" sx={{ fontSize: "0.82rem" }}>
+                      Most Relevant
+                    </MenuItem>
+                    <MenuItem value="newest" sx={{ fontSize: "0.82rem" }}>
+                      Newest First
+                    </MenuItem>
+                    <MenuItem value="oldest" sx={{ fontSize: "0.82rem" }}>
+                      Oldest First
+                    </MenuItem>
+                    <MenuItem value="title" sx={{ fontSize: "0.82rem" }}>
+                      Title (A-Z)
+                    </MenuItem>
+                  </Select>
+                </FormControl>
 
-                {/* Right Controls: Mode Switch & Skeleton Preview Switch */}
-                <Stack direction="row" spacing={2.5} sx={{ alignItems: "center", flexWrap: "wrap" }}>
-                  {/* Semantic AI Search Mode Switch */}
-                  <FormControlLabel
-                    control={
-                      <Switch
-                        size="small"
-                        checked={isSemanticMode}
-                        onChange={(e) => setIsSemanticMode(e.target.checked)}
-                        color="primary"
-                        sx={{
-                          "& .MuiSwitch-thumb": { borderRadius: 1 },
-                          "& .MuiSwitch-track": { borderRadius: 1 },
-                        }}
-                      />
-                    }
-                    label={
-                      <Box sx={{ display: "flex", flexDirection: "column" }}>
-                        <Typography variant="body2" sx={{ fontSize: "0.82rem", fontWeight: 700, lineHeight: 1.2 }}>
-                          Semantic AI Search
-                        </Typography>
-                        <Typography variant="caption" sx={{ fontSize: "0.7rem", color: "text.secondary" }}>
-                          {isSemanticMode ? "Conceptual Vector Matching" : "Exact Text Keyword"}
-                        </Typography>
-                      </Box>
-                    }
-                    sx={{ mr: 0 }}
-                  />
-
-                  <Divider orientation="vertical" flexItem sx={{ height: 28, my: "auto", display: { xs: "none", sm: "block" } }} />
-
-                  
-                </Stack>
-              </Box>
-            </Paper>
-
-            {/* 3. Results Section (Maximized Space, sm corners) */}
-            {isLoading ? (
-              /* SKELETON DESIGN LAYOUT */
-              <SmartSearchSkeleton count={3} />
-            ) : (
-              /* RENDERED RESULTS LIST */
-              <Stack spacing={2} sx={{ width: "100%" }}>
-                {/* Results Metrics Bar */}
-                <Box
-                  sx={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    px: 0.5,
-                    py: 0.5,
-                    flexWrap: "wrap",
-                    gap: 1,
-                  }}
-                >
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-                    <Typography variant="body2" sx={{ fontWeight: 700, color: "text.primary" }}>
-                      Showing {filteredResults.length} Relevant Directives
-                    </Typography>
-                  </Box>
-                </Box>
-
-                {/* Render Result Cards */}
-                {filteredResults.length > 0 ? (
-                  filteredResults.map((item) => (
-                    <SmartSearchResultCard
-                      key={item.id}
-                      item={item}
-                      searchQuery={searchQuery}
-                    />
-                  ))
-                ) : (
-                  /* Empty State */
-                  <Paper
-                    variant="outlined"
+                {/* Reset Filters Button */}
+                {hasActiveFilters && (
+                  <Button
+                    size="small"
+                    onClick={handleResetFilters}
+                    startIcon={<RestartAltRoundedIcon sx={{ fontSize: 16 }} />}
                     sx={{
-                      p: 4,
-                      textAlign: "center",
-                      borderRadius: 1,
-                      borderColor: "divider",
-                      width: "100%",
+                      fontSize: "0.8rem",
+                      textTransform: "none",
+                      color: "text.secondary",
+                      minWidth: "auto",
                     }}
                   >
-                    <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-                      No matching directives found
-                    </Typography>
-                    <Typography variant="body2" sx={{ color: "text.secondary", maxWidth: 500, mx: "auto", mt: 0.5 }}>
-                      No documents match your active category or cabinet filters. Try resetting the filters or modifying your query.
-                    </Typography>
-                  </Paper>
+                    Reset
+                  </Button>
                 )}
               </Stack>
-            )}
-          </Box>
+
+              {/* Result Count Indicator */}
+              <Typography variant="body2" sx={{ fontWeight: 600, color: "text.secondary" }}>
+                {filteredResults.length} {filteredResults.length === 1 ? "document" : "documents"} found
+              </Typography>
+            </Box>
+          </Paper>
+
+          {/* Results Area */}
+          {isLoading ? (
+            <SmartSearchSkeleton count={3} />
+          ) : (
+            <Stack spacing={2} sx={{ width: "100%" }}>
+              {filteredResults.length > 0 ? (
+                filteredResults.map((item) => (
+                  <SmartSearchResultCard
+                    key={item.id}
+                    item={item}
+                    searchQuery={submittedQuery || searchQuery}
+                    isSmartMode={searchMode === "smart"}
+                    onPreview={(doc) => setPreviewItem(doc)}
+                    onAskAi={(doc) => handleOpenAiDrawer(doc)}
+                  />
+                ))
+              ) : (
+                /* Clean Empty State */
+                <Paper
+                  variant="outlined"
+                  sx={{
+                    p: 5,
+                    textAlign: "center",
+                    borderRadius: 1.5,
+                    borderColor: "divider",
+                    bgcolor: "background.paper",
+                  }}
+                >
+                  <SearchRoundedIcon sx={{ fontSize: 44, color: "text.secondary", mb: 1.5, opacity: 0.6 }} />
+                  <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5 }}>
+                    No documents found
+                  </Typography>
+                  <Typography
+                    variant="body2"
+                    sx={{ color: "text.secondary", maxWidth: 440, mx: "auto", mb: 2 }}
+                  >
+                    We couldn't find any documents matching your search or filters. Try adjusting your keywords or clearing active filters.
+                  </Typography>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={handleResetFilters}
+                    sx={{ borderRadius: 1, textTransform: "none" }}
+                  >
+                    Clear Search & Filters
+                  </Button>
+                </Paper>
+              )}
+            </Stack>
+          )}
+
+          {/* Quick Document Preview Dialog */}
+          <DocumentPreviewDialog
+            open={Boolean(previewItem)}
+            item={previewItem}
+            searchQuery={submittedQuery || searchQuery}
+            onClose={() => setPreviewItem(null)}
+            onAskAi={(doc) => handleOpenAiDrawer(doc)}
+          />
+
+          {/* AI Document Assistant Drawer (In-Place Analysis without navigation) */}
+          <DocumentAiDrawer
+            open={isAiDrawerOpen}
+            onClose={() => setIsAiDrawerOpen(false)}
+            document={aiTargetDoc}
+          />
         </Box>
       </Box>
     </AppTheme>

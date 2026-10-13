@@ -9,20 +9,26 @@ import InputAdornment from "@mui/material/InputAdornment";
 import Button from "@mui/material/Button";
 import Paper from "@mui/material/Paper";
 import Chip from "@mui/material/Chip";
-import Avatar from "@mui/material/Avatar";
+import IconButton from "@mui/material/IconButton";
 import Divider from "@mui/material/Divider";
-import FormControl from "@mui/material/FormControl";
-import InputLabel from "@mui/material/InputLabel";
-import Select from "@mui/material/Select";
-import MenuItem from "@mui/material/MenuItem";
 import ToggleButton from "@mui/material/ToggleButton";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Tooltip from "@mui/material/Tooltip";
 import CssBaseline from "@mui/material/CssBaseline";
 import { alpha } from "@mui/material/styles";
 import Link from "next/link";
+
+// Icons
 import CloudUploadOutlinedIcon from "@mui/icons-material/CloudUploadOutlined";
-import VerticalSplitOutlinedIcon from "@mui/icons-material/VerticalSplitOutlined";
+import ViewSidebarOutlinedIcon from "@mui/icons-material/ViewSidebarOutlined";
+import ViewSidebarRoundedIcon from "@mui/icons-material/ViewSidebarRounded";
+import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
+import ClearRoundedIcon from "@mui/icons-material/ClearRounded";
+import PictureAsPdfRoundedIcon from "@mui/icons-material/PictureAsPdfRounded";
+import AutoAwesomeRoundedIcon from "@mui/icons-material/AutoAwesomeRounded";
+import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
+import FormatListBulletedRoundedIcon from "@mui/icons-material/FormatListBulletedRounded";
+import MapOutlinedIcon from "@mui/icons-material/MapOutlined";
 
 // Layout & Components
 import SideMenu from "@/components/SideMenu";
@@ -33,19 +39,20 @@ import { getDefaultRole } from "@/components/dashboard/types";
 
 // Archive Subcomponents
 import { ArchiveDocument } from "@/components/documents/types";
-import ArchiveMetricsBar from "@/components/documents/ArchiveMetricsBar";
+import FileExplorerSidebar from "@/components/documents/FileExplorerSidebar";
 import DocumentDossierInspector from "@/components/documents/DocumentDossierInspector";
+import DocumentAiDrawer from "@/components/documents/DocumentAiDrawer";
 import CabinetMapView from "@/components/documents/CabinetMapView";
 import UploadDocumentDialog from "@/components/documents/UploadDocumentDialog";
 import ArchivingAgentModal from "@/components/documents/ArchivingAgentModal";
 import BackgroundArchivingWidget from "@/components/documents/BackgroundArchivingWidget";
 import { useArchivingTask } from "@/components/documents/useArchivingTask";
 
-// Sample Seed Archive Documents
+// Seed Archive Documents
 const INITIAL_DOCUMENTS: ArchiveDocument[] = [
   {
     id: "doc-1",
-    title: "LGU Real Property Assessment Advisory Guidelines and Valuation Standards",
+    title: "Real Property Assessment Advisory Guidelines and Valuation Standards",
     orderNo: "BLGF-DO-2024-018",
     seriesYear: 2024,
     category: "Assessment Regulations",
@@ -65,16 +72,11 @@ const INITIAL_DOCUMENTS: ArchiveDocument[] = [
       { name: "Assessment Valuation", score: 0.95 },
     ],
     summary:
-      "Prescribes the operational rules for local government units regarding property valuations, schedule of market values, and statutory delinquent penalties.",
+      "Operational guidelines for local government units regarding property valuations, schedule of market values, and statutory delinquent penalties.",
     uploadedBy: {
       name: "Maria Santos",
       division: "Administrative Records",
       position: "Senior Records Officer",
-    },
-    executiveBrief: {
-      statutoryMandate: "Prescribes uniform valuation schedule and market assessment standards for provincial LGUs under BLGF Department Order 2024-018.",
-      targetEntities: "Provincial & City Assessors, Municipal Valuation Officers, Local Boards of Assessment.",
-      archivalDisposition: "Series 2024 active regulation • Filed in Cabinet A • Shelf 2 (Binder 04).",
     },
   },
   {
@@ -99,16 +101,11 @@ const INITIAL_DOCUMENTS: ArchiveDocument[] = [
       { name: "Electronic Receipting", score: 0.91 },
     ],
     summary:
-      "Directs provincial and municipal treasury collection units to interface electronic receipts with the central regional archival node.",
+      "Directs provincial and municipal treasury collection units to interface electronic receipts with the central regional archival repository.",
     uploadedBy: {
       name: "Engr. Juan Dela Cruz",
       division: "Treasury Operations",
       position: "Revenue Assessment Specialist",
-    },
-    executiveBrief: {
-      statutoryMandate: "Mandates transition of manual local treasury receipting to the regional electronic collection node under Circular TC-2024-009.",
-      targetEntities: "Municipal Treasurers, Revenue Collection Clerks, Regional Accounting Section.",
-      archivalDisposition: "Series 2024 active circular • Filed in Cabinet B • Shelf 1 (Binder 12).",
     },
   },
   {
@@ -139,15 +136,10 @@ const INITIAL_DOCUMENTS: ArchiveDocument[] = [
       division: "Legal Affairs Unit",
       position: "Legal Counsel",
     },
-    executiveBrief: {
-      statutoryMandate: "Affirms statutory authority of LGUs to levy local franchise taxes on power and telecom utilities pursuant to LGC Section 137.",
-      targetEntities: "City & Municipal Legal Officers, Sangguniang Panlalawigan, Local Treasury Enforcers.",
-      archivalDisposition: "Series 2023 legal opinion • Filed in Cabinet C • Shelf 4 (Binder 08).",
-    },
   },
   {
     id: "doc-4",
-    title: "Standard Operating Procedure for Physical Document Ingestion and OCR Scanning",
+    title: "Standard Operating Procedure for Physical Document Ingestion and Scanning",
     orderNo: "SOP-DOC-2024-001",
     seriesYear: 2024,
     category: "Standard Procedures",
@@ -164,24 +156,19 @@ const INITIAL_DOCUMENTS: ArchiveDocument[] = [
     status: "Indexed",
     tags: [
       { name: "Archival SOP", score: 0.96 },
-      { name: "OCR Quality Control", score: 0.93 },
+      { name: "Document Intake", score: 0.93 },
     ],
     summary:
-      "Guidelines for scanning physical paper records into the digital archive, barcode labeling, and automated vector indexing.",
+      "Procedures for receiving physical paper records, barcode tagging, high-resolution scanning, and indexing into the digital repository.",
     uploadedBy: {
       name: "Roberto Morales",
       division: "Custodial Archives",
       position: "Records Archivist",
     },
-    executiveBrief: {
-      statutoryMandate: "Standardizes 300 DPI multi-page digitization protocols, dual-pass quality verification, and shelf barcode indexing.",
-      targetEntities: "Archival Custodians, Digitization Technicians, Central Records Officers.",
-      archivalDisposition: "Series 2024 operational standard • Filed in Cabinet A • Shelf 1 (Binder 01).",
-    },
   },
   {
     id: "doc-5",
-    title: "Regional Memorandum on Q3 Financial Audits and Inter-Agency Ingestion",
+    title: "Regional Memorandum on Financial Audits and Inter-Agency Ingestion",
     orderNo: "RM-2024-011",
     seriesYear: 2024,
     category: "Memorandums",
@@ -201,16 +188,11 @@ const INITIAL_DOCUMENTS: ArchiveDocument[] = [
       { name: "Compliance", score: 0.91 },
     ],
     summary:
-      "Schedule of mandatory regional compliance audits covering revenue collections and archival integrity across Region II.",
+      "Schedule of mandatory regional compliance audits covering revenue collections and document integrity across local offices.",
     uploadedBy: {
       name: "Director Alicia Tan",
       division: "Office of the Regional Director",
       position: "Regional Director",
-    },
-    executiveBrief: {
-      statutoryMandate: "Institutes mandatory Q3 cash collection reconciliation and audit compliance verification across all provincial districts.",
-      targetEntities: "Regional Audit Teams, District Finance Supervisors, Internal Control Custodians.",
-      archivalDisposition: "Series 2024 confidential memorandum • Filed in Cabinet D • Shelf 3 (Binder 19).",
     },
   },
 ];
@@ -226,8 +208,20 @@ export default function DocumentArchivePage(props: { disableCustomTheme?: boolea
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedCabinet, setSelectedCabinet] = useState("All");
-  const [showInspector, setShowInspector] = useState(true);
-  const [isUploadOpen, setIsUploadOpen] = useState(false);
+
+  // Layout Panels: Sidebar defaults to OPEN, Dossier defaults to CLOSED
+  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
+  const [showInspector, setShowInspector] = useState<boolean>(false);
+  const [isUploadOpen, setIsUploadOpen] = useState<boolean>(false);
+
+  // In-Place AI Document Assistant Drawer
+  const [isAiDrawerOpen, setIsAiDrawerOpen] = useState<boolean>(false);
+  const [aiTargetDoc, setAiTargetDoc] = useState<ArchiveDocument | null>(null);
+
+  const handleOpenAiDrawer = (doc: ArchiveDocument) => {
+    setAiTargetDoc(doc);
+    setIsAiDrawerOpen(true);
+  };
 
   // Background Archiving Agent Hook
   const handleArchivingComplete = (newDocs: ArchiveDocument[]) => {
@@ -255,11 +249,12 @@ export default function DocumentArchivePage(props: { disableCustomTheme?: boolea
 
   // Filtering
   const filteredDocuments = documents.filter((doc) => {
+    const query = searchQuery.trim().toLowerCase();
     const matchesSearch =
-      !searchQuery.trim() ||
-      doc.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      doc.orderNo.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      doc.shelfLocation.toLowerCase().includes(searchQuery.toLowerCase());
+      !query ||
+      doc.title.toLowerCase().includes(query) ||
+      doc.orderNo.toLowerCase().includes(query) ||
+      doc.shelfLocation.toLowerCase().includes(query);
 
     const matchesCategory =
       selectedCategory === "All" || doc.category === selectedCategory;
@@ -269,6 +264,13 @@ export default function DocumentArchivePage(props: { disableCustomTheme?: boolea
 
     return matchesSearch && matchesCategory && matchesCabinet;
   });
+
+  const activeFilterLabel =
+    selectedCategory !== "All"
+      ? selectedCategory
+      : selectedCabinet !== "All"
+      ? selectedCabinet
+      : "All Files";
 
   return (
     <AppTheme {...props}>
@@ -293,12 +295,12 @@ export default function DocumentArchivePage(props: { disableCustomTheme?: boolea
             pt: { xs: 8, md: 1.5 },
           })}
         >
-          {/* Unified Navbar */}
+          {/* Top Unified Navbar */}
           <Box sx={{ flexShrink: 0, mb: 0.5 }}>
             <DashboardNavbar currentRole={effectiveRole} />
           </Box>
 
-          {/* Title & Action Controls */}
+          {/* Clean Title & Action Header */}
           <Box
             sx={{
               display: "flex",
@@ -313,139 +315,40 @@ export default function DocumentArchivePage(props: { disableCustomTheme?: boolea
             }}
           >
             <Box>
-              <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-                <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                  Document Archive
-                </Typography>
-                <Chip
-                  label="Official Records Repository"
-                  size="small"
-                  color="primary"
-                  variant="outlined"
-                  sx={{ height: 20, fontSize: "0.68rem", fontWeight: 700, borderRadius: 1 }}
-                />
-              </Box>
-              <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                Official registry of cataloged directives, physical records, and digitized archives.
+              <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                Documents & Files
+              </Typography>
+              <Typography variant="body2" sx={{ color: "text.secondary", fontSize: "0.85rem" }}>
+                Browse official records by digital folders and categories.
               </Typography>
             </Box>
 
-            <Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
-              {/* Upload Document Button */}
-              <Button
-                variant="contained"
-                color="primary"
-                size="small"
-                startIcon={<CloudUploadOutlinedIcon sx={{ fontSize: 18 }} />}
-                onClick={() => setIsUploadOpen(true)}
-                sx={{
-                  borderRadius: 1.5,
-                  textTransform: "none",
-                  fontWeight: 700,
-                  boxShadow: "none",
-                  px: 2,
-                  py: 0.75,
-                }}
-              >
-                Upload
-              </Button>
-
-              {/* Dossier Panel Toggle Workaround */}
-              <Tooltip title={showInspector ? "Collapse Dossier Panel" : "Open Dossier Panel"}>
+            <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+              {/* Toggle Sidebar Button */}
+              <Tooltip title={isSidebarOpen ? "Hide File Directory" : "Show File Directory"}>
                 <Button
                   size="small"
-                  variant={showInspector ? "contained" : "outlined"}
-                  color={showInspector ? "primary" : "inherit"}
-                  startIcon={<VerticalSplitOutlinedIcon sx={{ fontSize: 16 }} />}
-                  onClick={() => setShowInspector(!showInspector)}
+                  variant="outlined"
+                  onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                  startIcon={
+                    isSidebarOpen ? (
+                      <ViewSidebarRoundedIcon sx={{ fontSize: 17 }} />
+                    ) : (
+                      <ViewSidebarOutlinedIcon sx={{ fontSize: 17 }} />
+                    )
+                  }
                   sx={{
-                    borderRadius: 1.5,
-                    fontSize: "0.78rem",
+                    borderRadius: 1,
+                    fontSize: "0.8rem",
                     textTransform: "none",
                     fontWeight: 600,
-                    boxShadow: "none",
                   }}
                 >
-                  {showInspector ? "Hide Dossier" : "Show Dossier"}
+                  {isSidebarOpen ? "Directory" : "Directory"}
                 </Button>
               </Tooltip>
-            </Stack>
-          </Box>
 
-          {/* Metrics Bar */}
-          <Box sx={{ my: 1.5, flexShrink: 0 }}>
-            <ArchiveMetricsBar />
-          </Box>
-
-          {/* Search & Filter Toolbar */}
-          <Paper
-            variant="outlined"
-            sx={{
-              p: 1.5,
-              borderRadius: 1,
-              bgcolor: "background.paper",
-              borderColor: "divider",
-              mb: 1.5,
-              flexShrink: 0,
-            }}
-          >
-            <Box
-              sx={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                flexWrap: "wrap",
-                gap: 1.5,
-              }}
-            >
-              {/* Left Filters */}
-              <Stack direction="row" spacing={1.5} sx={{ alignItems: "center", flexWrap: "wrap", flexGrow: 1, gap: 1 }}>
-                <TextField
-                  size="small"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Filter by title, order no, or shelf location..."
-                  sx={{
-                    width: { xs: "100%", sm: "320px" },
-                    "& .MuiOutlinedInput-root": { borderRadius: 1, fontSize: "0.85rem" },
-                  }}
-                />
-
-                <FormControl size="small" sx={{ minWidth: 160 }}>
-                  <InputLabel sx={{ fontSize: "0.82rem" }}>Category</InputLabel>
-                  <Select
-                    value={selectedCategory}
-                    label="Category"
-                    onChange={(e) => setSelectedCategory(e.target.value)}
-                    sx={{ borderRadius: 1, fontSize: "0.82rem", height: 36 }}
-                  >
-                    <MenuItem value="All">All Categories</MenuItem>
-                    <MenuItem value="Assessment Regulations">Assessment Regulations</MenuItem>
-                    <MenuItem value="Treasury Advisories">Treasury Advisories</MenuItem>
-                    <MenuItem value="Legal Opinions">Legal Opinions</MenuItem>
-                    <MenuItem value="Standard Procedures">Standard Procedures</MenuItem>
-                    <MenuItem value="Memorandums">Memorandums</MenuItem>
-                  </Select>
-                </FormControl>
-
-                <FormControl size="small" sx={{ minWidth: 140 }}>
-                  <InputLabel sx={{ fontSize: "0.82rem" }}>Cabinet</InputLabel>
-                  <Select
-                    value={selectedCabinet}
-                    label="Cabinet"
-                    onChange={(e) => setSelectedCabinet(e.target.value)}
-                    sx={{ borderRadius: 1, fontSize: "0.82rem", height: 36 }}
-                  >
-                    <MenuItem value="All">All Cabinets</MenuItem>
-                    <MenuItem value="Cabinet A">Cabinet A</MenuItem>
-                    <MenuItem value="Cabinet B">Cabinet B</MenuItem>
-                    <MenuItem value="Cabinet C">Cabinet C</MenuItem>
-                    <MenuItem value="Cabinet D">Cabinet D</MenuItem>
-                  </Select>
-                </FormControl>
-              </Stack>
-
-              {/* View Mode Switcher */}
+              {/* View Mode Toggle: List vs Cabinet */}
               <ToggleButtonGroup
                 value={viewMode}
                 exclusive
@@ -456,30 +359,67 @@ export default function DocumentArchivePage(props: { disableCustomTheme?: boolea
                     borderRadius: 1,
                     textTransform: "none",
                     fontWeight: 600,
-                    fontSize: "0.78rem",
+                    fontSize: "0.8rem",
                     py: 0.5,
-                    px: 1.5,
+                    px: 1.25,
                   },
                 }}
               >
-                <ToggleButton value="ledger">Ledger List</ToggleButton>
-                <ToggleButton value="cabinet">Physical Cabinet Map</ToggleButton>
+                <ToggleButton value="ledger">
+                  <FormatListBulletedRoundedIcon sx={{ fontSize: 16, mr: 0.5 }} />
+                  List
+                </ToggleButton>
+                <ToggleButton value="cabinet">
+                  <MapOutlinedIcon sx={{ fontSize: 16, mr: 0.5 }} />
+                  Cabinet Map
+                </ToggleButton>
               </ToggleButtonGroup>
-            </Box>
-          </Paper>
 
-          {/* Main Content Area (Split-View with Inspector) */}
+              {/* Upload Document Button */}
+              <Button
+                variant="contained"
+                color="primary"
+                size="small"
+                startIcon={<CloudUploadOutlinedIcon sx={{ fontSize: 18 }} />}
+                onClick={() => setIsUploadOpen(true)}
+                sx={{
+                  borderRadius: 1,
+                  textTransform: "none",
+                  fontWeight: 700,
+                  boxShadow: "none",
+                  px: 2,
+                  py: 0.65,
+                }}
+              >
+                Upload
+              </Button>
+            </Stack>
+          </Box>
+
+          {/* Clean 3-Pane Workspace Container */}
           <Box
             sx={{
               display: "flex",
               gap: 2,
               flex: 1,
               minHeight: 0,
+              mt: 2,
               overflow: "hidden",
               width: "100%",
             }}
           >
-            {/* Left Workspace: Ledger or Cabinet Map */}
+            {/* 1. Left Collapsible File Explorer Sidebar */}
+            <FileExplorerSidebar
+              documents={documents}
+              selectedCategory={selectedCategory}
+              selectedCabinet={selectedCabinet}
+              onSelectCategory={(cat) => setSelectedCategory(cat)}
+              onSelectCabinet={(cab) => setSelectedCabinet(cab)}
+              isOpen={isSidebarOpen}
+              onToggleOpen={() => setIsSidebarOpen(false)}
+            />
+
+            {/* 2. Center Document List Workspace */}
             <Box
               sx={{
                 flex: 1,
@@ -490,128 +430,243 @@ export default function DocumentArchivePage(props: { disableCustomTheme?: boolea
                 overflow: "hidden",
               }}
             >
+              {/* Directory Breadcrumb & Quick Filter Header */}
+              <Paper
+                variant="outlined"
+                sx={{
+                  p: 1.5,
+                  borderRadius: 1.5,
+                  bgcolor: "background.paper",
+                  borderColor: "divider",
+                  mb: 1.5,
+                  flexShrink: 0,
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  gap: 1.5,
+                }}
+              >
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  <Typography variant="body2" sx={{ fontWeight: 700, color: "text.primary" }}>
+                    {activeFilterLabel}
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                    ({filteredDocuments.length} {filteredDocuments.length === 1 ? "file" : "files"})
+                  </Typography>
+
+                  {(selectedCategory !== "All" || selectedCabinet !== "All" || searchQuery) && (
+                    <Button
+                      size="small"
+                      onClick={() => {
+                        setSelectedCategory("All");
+                        setSelectedCabinet("All");
+                        setSearchQuery("");
+                      }}
+                      sx={{
+                        fontSize: "0.75rem",
+                        textTransform: "none",
+                        p: "2px 8px",
+                        minWidth: "auto",
+                        color: "text.secondary",
+                      }}
+                    >
+                      Clear Filter
+                    </Button>
+                  )}
+                </Box>
+
+                {/* Search in Current Directory */}
+                <TextField
+                  size="small"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Filter files by name or order code..."
+                  slotProps={{
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <SearchRoundedIcon sx={{ fontSize: 18, color: "text.secondary" }} />
+                        </InputAdornment>
+                      ),
+                      endAdornment: searchQuery ? (
+                        <InputAdornment position="end">
+                          <IconButton size="small" onClick={() => setSearchQuery("")} sx={{ p: 0.25 }}>
+                            <ClearRoundedIcon sx={{ fontSize: 16 }} />
+                          </IconButton>
+                        </InputAdornment>
+                      ) : null,
+                    },
+                  }}
+                  sx={{
+                    width: { xs: "100%", sm: "280px" },
+                    "& .MuiOutlinedInput-root": { borderRadius: 1, fontSize: "0.82rem", height: 34 },
+                  }}
+                />
+              </Paper>
+
+              {/* View Mode: Clean List View vs Cabinet Map */}
               {viewMode === "ledger" ? (
-                /* LEDGER LIST VIEW */
+                /* CLEAN DOCUMENT LIST */
                 <Box sx={{ flex: 1, minHeight: 0, overflowY: "auto", pr: 0.5 }}>
-                  <Stack spacing={1}>
+                  <Stack spacing={1.25}>
                     {filteredDocuments.length > 0 ? (
                       filteredDocuments.map((doc) => {
-                        const isSelected = selectedDoc?.id === doc.id;
+                        const isSelected = selectedDoc?.id === doc.id && showInspector;
+
                         return (
                           <Paper
                             key={doc.id}
                             variant="outlined"
+                            onClick={() => {
+                              setSelectedDoc(doc);
+                              setShowInspector(true);
+                            }}
                             sx={{
-                              p: 1.75,
-                              borderRadius: 1,
+                              p: 2,
+                              borderRadius: 1.5,
                               bgcolor: isSelected ? "action.selected" : "background.paper",
                               borderColor: isSelected ? "primary.main" : "divider",
-                              borderLeft: isSelected ? "3px solid" : "1px solid",
-                              borderLeftColor: isSelected ? "primary.main" : "divider",
+                              cursor: "pointer",
                               transition: "all 0.15s ease",
-                              "&:hover": { borderColor: "primary.main" },
+                              "&:hover": {
+                                borderColor: "primary.main",
+                                boxShadow: (theme) =>
+                                  theme.palette.mode === "dark"
+                                    ? "0 2px 12px rgba(0,0,0,0.25)"
+                                    : "0 2px 10px rgba(0,0,0,0.04)",
+                              },
                             }}
                           >
-                            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 1, mb: 0.5 }}>
-                              <Box sx={{ flex: 1 }}>
-                                <Typography variant="subtitle2" sx={{ fontWeight: 700, fontSize: "0.9rem", color: "text.primary", mb: 0.25 }}>
-                                  {doc.title}
-                                </Typography>
-                                <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 600 }}>
-                                  Order No: {doc.orderNo} ({doc.seriesYear}) • Category: {doc.category}
-                                </Typography>
+                            <Box
+                              sx={{
+                                display: "flex",
+                                alignItems: "flex-start",
+                                justifyContent: "space-between",
+                                gap: 2,
+                                flexWrap: { xs: "wrap", sm: "nowrap" },
+                              }}
+                            >
+                              {/* Left: Document Icon + Title + Single Clean Metadata Line */}
+                              <Box sx={{ display: "flex", gap: 1.75, alignItems: "flex-start", flex: 1, minWidth: 0 }}>
+                                <Box
+                                  sx={{
+                                    p: 1,
+                                    borderRadius: 1,
+                                    bgcolor: (theme) =>
+                                      theme.palette.mode === "dark"
+                                        ? "rgba(255, 255, 255, 0.05)"
+                                        : "rgba(0, 0, 0, 0.04)",
+                                    color: "primary.main",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    flexShrink: 0,
+                                    mt: 0.25,
+                                  }}
+                                >
+                                  <PictureAsPdfRoundedIcon sx={{ fontSize: 22 }} />
+                                </Box>
+
+                                <Box sx={{ minWidth: 0, flex: 1 }}>
+                                  <Typography
+                                    variant="subtitle2"
+                                    sx={{
+                                      fontWeight: 700,
+                                      fontSize: "0.92rem",
+                                      color: "text.primary",
+                                      lineHeight: 1.3,
+                                      mb: 0.5,
+                                    }}
+                                  >
+                                    {doc.title}
+                                  </Typography>
+
+                                  {/* Clean, Non-Technical Single Metadata Line */}
+                                  <Typography
+                                    variant="caption"
+                                    sx={{
+                                      color: "text.secondary",
+                                      fontSize: "0.78rem",
+                                      display: "flex",
+                                      alignItems: "center",
+                                      flexWrap: "wrap",
+                                      gap: 0.75,
+                                    }}
+                                  >
+                                    <Box component="span" sx={{ fontWeight: 600, color: "text.primary" }}>
+                                      {doc.orderNo}
+                                    </Box>
+                                    <Box component="span">•</Box>
+                                    <Box component="span">Series {doc.seriesYear}</Box>
+                                    <Box component="span">•</Box>
+                                    <Box component="span">{doc.shelfLocation}</Box>
+                                    <Box component="span">•</Box>
+                                    <Box component="span">{doc.fileSize}</Box>
+                                  </Typography>
+                                </Box>
                               </Box>
 
-                              <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+                              {/* Right: Clearance Chip + Clean Quick Actions */}
+                              <Stack
+                                direction="row"
+                                spacing={1}
+                                sx={{
+                                  alignItems: "center",
+                                  flexShrink: 0,
+                                  mt: { xs: 1, sm: 0 },
+                                }}
+                              >
                                 <Chip
                                   label={doc.clearance}
                                   size="small"
-                                  color={doc.clearance === "Public" ? "success" : "info"}
-                                  sx={{ height: 20, fontSize: "0.68rem", fontWeight: 700, borderRadius: 1 }}
-                                />
-                                <Chip
-                                  label={`${doc.ocrAccuracy}% Clarity`}
-                                  size="small"
-                                  variant="outlined"
-                                  color="success"
-                                  sx={{ height: 20, fontSize: "0.68rem", fontWeight: 700, borderRadius: 1 }}
-                                />
-                              </Box>
-                            </Box>
-
-                            {/* Uploaded By Staff Row */}
-                            {doc.uploadedBy && (
-                              <Box sx={{ display: "flex", alignItems: "center", gap: 1, mt: 0.75 }}>
-                                <Avatar
+                                  color={doc.clearance === "Public" ? "success" : "default"}
                                   sx={{
-                                    width: 22,
                                     height: 22,
-                                    fontSize: "0.65rem",
-                                    fontWeight: 700,
-                                    bgcolor: "primary.main",
-                                    color: "primary.contrastText",
+                                    fontSize: "0.68rem",
+                                    fontWeight: 600,
+                                    borderRadius: 1,
                                   }}
-                                >
-                                  {doc.uploadedBy.name
-                                    .split(" ")
-                                    .map((n) => n[0])
-                                    .slice(0, 2)
-                                    .join("")}
-                                </Avatar>
-                                <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.74rem" }}>
-                                  Uploaded by{" "}
-                                  <Box component="span" sx={{ fontWeight: 600, color: "text.primary" }}>
-                                    {doc.uploadedBy.name}
-                                  </Box>{" "}
-                                  ({doc.uploadedBy.division})
-                                </Typography>
-                              </Box>
-                            )}
+                                />
 
-                            <Divider sx={{ my: 1 }} />
-
-                            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 1 }}>
-                              <Typography variant="caption" sx={{ fontWeight: 700, color: "primary.main" }}>
-                                Location: {doc.shelfLocation} • Size: {doc.fileSize}
-                              </Typography>
-
-                              <Stack direction="row" spacing={1}>
                                 <Button
                                   size="small"
-                                  variant="outlined"
-                                  onClick={() => {
+                                  variant={isSelected ? "contained" : "outlined"}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
                                     setSelectedDoc(doc);
                                     setShowInspector(true);
                                   }}
+                                  startIcon={<InfoOutlinedIcon sx={{ fontSize: 15 }} />}
                                   sx={{
-                                    fontSize: "0.74rem",
-                                    textTransform: "none",
-                                    py: "2px",
-                                    px: "10px",
                                     borderRadius: 1,
+                                    fontSize: "0.78rem",
+                                    textTransform: "none",
                                     fontWeight: 600,
-                                  }}
-                                >
-                                  Inspect Dossier
-                                </Button>
-
-                                <Button
-                                  component={Link}
-                                  href={`/chat?q=${encodeURIComponent(`Tell me about ${doc.title} (${doc.orderNo})`)}`}
-                                  size="small"
-                                  variant="contained"
-                                  color="primary"
-                                  sx={{
-                                    fontSize: "0.74rem",
-                                    textTransform: "none",
-                                    py: "2px",
-                                    px: "10px",
-                                    borderRadius: 1,
-                                    fontWeight: 700,
+                                    px: 1.25,
                                     boxShadow: "none",
                                   }}
                                 >
-                                  Ask AI Chat
+                                  Details
+                                </Button>
+
+                                <Button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleOpenAiDrawer(doc);
+                                  }}
+                                  size="small"
+                                  variant="outlined"
+                                  startIcon={<AutoAwesomeRoundedIcon sx={{ fontSize: 15 }} />}
+                                  sx={{
+                                    borderRadius: 1,
+                                    fontSize: "0.78rem",
+                                    textTransform: "none",
+                                    fontWeight: 600,
+                                    px: 1.25,
+                                  }}
+                                >
+                                  Ask AI
                                 </Button>
                               </Stack>
                             </Box>
@@ -619,21 +674,35 @@ export default function DocumentArchivePage(props: { disableCustomTheme?: boolea
                         );
                       })
                     ) : (
+                      /* Clean Empty State */
                       <Paper
                         variant="outlined"
                         sx={{
-                          p: 4,
+                          p: 5,
                           textAlign: "center",
-                          borderRadius: 1,
+                          borderRadius: 1.5,
                           borderColor: "divider",
+                          bgcolor: "background.paper",
                         }}
                       >
-                        <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-                          No archived records found
+                        <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 0.5 }}>
+                          No documents found
                         </Typography>
-                        <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                          Try clearing search terms or changing your category/cabinet filters.
+                        <Typography variant="body2" sx={{ color: "text.secondary", maxWidth: 400, mx: "auto", mb: 2 }}>
+                          No records match your selected folder or search terms. Try selecting another folder or clearing filters.
                         </Typography>
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          onClick={() => {
+                            setSelectedCategory("All");
+                            setSelectedCabinet("All");
+                            setSearchQuery("");
+                          }}
+                          sx={{ borderRadius: 1, textTransform: "none" }}
+                        >
+                          Show All Documents
+                        </Button>
                       </Paper>
                     )}
                   </Stack>
@@ -651,24 +720,32 @@ export default function DocumentArchivePage(props: { disableCustomTheme?: boolea
               )}
             </Box>
 
-            {/* Right Workspace: Active Document Dossier Inspector */}
+            {/* 3. Right Dossier Inspector (Default = CLOSED, opens on click) */}
             {showInspector && (
               <DocumentDossierInspector
                 document={selectedDoc}
                 onClose={() => setShowInspector(false)}
+                onAskAi={(doc) => handleOpenAiDrawer(doc)}
               />
             )}
           </Box>
         </Box>
 
-        {/* Upload Document Dialog (Single or Bulk, Cabinet Assignment) */}
+        {/* AI Document Assistant Drawer (In-Place Analysis without navigation) */}
+        <DocumentAiDrawer
+          open={isAiDrawerOpen}
+          onClose={() => setIsAiDrawerOpen(false)}
+          document={aiTargetDoc}
+        />
+
+        {/* Upload Document Dialog */}
         <UploadDocumentDialog
           open={isUploadOpen}
           onClose={() => setIsUploadOpen(false)}
           onStartArchiving={startArchiving}
         />
 
-        {/* Archiving Agent Pipeline Modal (Full-Screen Stepper with Minimize) */}
+        {/* Archiving Agent Pipeline Modal */}
         <ArchivingAgentModal
           open={isAgentActive && !isAgentMinimized}
           progress={agentProgress}
@@ -681,7 +758,7 @@ export default function DocumentArchivePage(props: { disableCustomTheme?: boolea
           onDismiss={dismissAgent}
         />
 
-        {/* Minimized Background Archiving Agent Dock (Floating bottom-right) */}
+        {/* Minimized Background Archiving Agent Dock */}
         {isAgentActive && isAgentMinimized && (
           <BackgroundArchivingWidget
             progress={agentProgress}
