@@ -12,6 +12,8 @@ import Tooltip from "@mui/material/Tooltip";
 import Divider from "@mui/material/Divider";
 import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 import PictureAsPdfRoundedIcon from "@mui/icons-material/PictureAsPdfRounded";
+import TableChartRoundedIcon from "@mui/icons-material/TableChartRounded";
+import ArticleRoundedIcon from "@mui/icons-material/ArticleRounded";
 import AutoAwesomeRoundedIcon from "@mui/icons-material/AutoAwesomeRounded";
 import Link from "next/link";
 import { ArchiveDocument } from "./types";
@@ -248,6 +250,27 @@ export default function DocumentDossierInspector({
         </Typography>
         <Stack spacing={0.75} sx={{ color: "text.secondary" }}>
           <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+            <Typography variant="caption">Format:</Typography>
+            <Typography
+              variant="caption"
+              sx={{
+                fontWeight: 700,
+                color:
+                  document.fileType === "xlsx"
+                    ? "#10B981"
+                    : document.fileType === "docx"
+                    ? "#3B82F6"
+                    : "#EF4444",
+              }}
+            >
+              {document.fileType === "xlsx"
+                ? "Excel Spreadsheet (.xlsx)"
+                : document.fileType === "docx"
+                ? "Word Document (.docx)"
+                : "PDF Document (.pdf)"}
+            </Typography>
+          </Box>
+          <Box sx={{ display: "flex", justifyContent: "space-between" }}>
             <Typography variant="caption">Pages & Size:</Typography>
             <Typography variant="caption" sx={{ fontWeight: 600, color: "text.primary" }}>
               {document.pageCount} pages • {document.fileSize}
@@ -259,6 +282,23 @@ export default function DocumentDossierInspector({
               {document.ingestedDate}
             </Typography>
           </Box>
+          {document.fileName && (
+            <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+              <Typography variant="caption">File Name:</Typography>
+              <Typography
+                variant="caption"
+                noWrap
+                sx={{
+                  fontWeight: 600,
+                  color: "text.primary",
+                  maxWidth: 180,
+                  textAlign: "right",
+                }}
+              >
+                {document.fileName}
+              </Typography>
+            </Box>
+          )}
         </Stack>
       </Box>
 
@@ -271,7 +311,15 @@ export default function DocumentDossierInspector({
           color="primary"
           fullWidth
           size="small"
-          startIcon={<PictureAsPdfRoundedIcon sx={{ fontSize: 18 }} />}
+          startIcon={
+            document.fileType === "xlsx" ? (
+              <TableChartRoundedIcon sx={{ fontSize: 18 }} />
+            ) : document.fileType === "docx" ? (
+              <ArticleRoundedIcon sx={{ fontSize: 18 }} />
+            ) : (
+              <PictureAsPdfRoundedIcon sx={{ fontSize: 18 }} />
+            )
+          }
           sx={{
             borderRadius: 1,
             textTransform: "none",
@@ -296,7 +344,7 @@ export default function DocumentDossierInspector({
             py: 0.75,
           }}
         >
-          Ask AI Assistant
+          Ask Mayumi (AI Assistant)
         </Button>
       </Stack>
     </Paper>

@@ -265,7 +265,7 @@ export default function SmartSearchResultCard({
                 </Button>
               )}
 
-              {/* Ask AI */}
+              {/* Ask Mayumi */}
               <Button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -283,7 +283,7 @@ export default function SmartSearchResultCard({
                   boxShadow: "none",
                 }}
               >
-                Ask AI
+                Ask Mayumi
               </Button>
             </Stack>
           </Box>

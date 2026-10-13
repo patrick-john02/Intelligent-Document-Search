@@ -14,6 +14,7 @@ import Divider from "@mui/material/Divider";
 import Tooltip from "@mui/material/Tooltip";
 import CircularProgress from "@mui/material/CircularProgress";
 import InputAdornment from "@mui/material/InputAdornment";
+import Avatar from "@mui/material/Avatar";
 
 // Icons
 import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
@@ -83,7 +84,7 @@ export default function DocumentAiDrawer({
       id: "initial-msg",
       sender: "assistant",
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      text: `Hello! I have loaded and indexed **${document.title}** (${document.orderNo}).\n\n**Executive Summary:**\n${initialSummary}\n\n**Filing Location:** ${document.shelfLocation}\n**Access Clearance:** ${document.clearance}\n\nHow can I help you analyze this document today?`,
+      text: `Kumusta! I am **Mayumi**, your User Assistance Agent. I have loaded and indexed **${document.title}** (${document.orderNo}).\n\n**Executive Summary:**\n${initialSummary}\n\n**Filing Location:** ${document.shelfLocation}\n**Access Clearance:** ${document.clearance}\n\nHow can I assist you with this document today?`,
     };
 
     setMessages([initialMessage]);
@@ -192,37 +193,51 @@ export default function DocumentAiDrawer({
               : "rgba(0, 0, 0, 0.01)",
         }}
       >
-        <Box sx={{ pr: 2 }}>
-          <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 0.5 }}>
-            <AutoAwesomeRoundedIcon sx={{ fontSize: 18, color: "primary.main" }} />
-            <Typography variant="subtitle2" sx={{ fontWeight: 700, fontSize: "0.92rem" }}>
-              AI Document Assistant
-            </Typography>
-            <Chip
-              label="Live Analysis"
-              size="small"
-              color="primary"
-              variant="outlined"
-              sx={{ height: 18, fontSize: "0.65rem", fontWeight: 700, borderRadius: 1 }}
-            />
-          </Stack>
-          <Typography
-            variant="body2"
+        <Box sx={{ pr: 2, display: "flex", gap: 1.5, alignItems: "center" }}>
+          <Avatar
+            src="/mayumi.png"
+            alt="Mayumi"
             sx={{
-              fontWeight: 600,
-              fontSize: "0.82rem",
-              color: "text.primary",
-              lineHeight: 1.3,
+              width: 44,
+              height: 44,
+              border: "2px solid",
+              borderColor: "primary.main",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.12)",
+              flexShrink: 0,
             }}
-          >
-            {document.title}
-          </Typography>
-          <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.74rem" }}>
-            {document.orderNo} • {document.shelfLocation}
-          </Typography>
+          />
+          <Box sx={{ minWidth: 0 }}>
+            <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 0.25 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 800, fontSize: "0.95rem" }}>
+                Mayumi
+              </Typography>
+              <Chip
+                label="User Assistance Agent"
+                size="small"
+                color="primary"
+                variant="outlined"
+                sx={{ height: 18, fontSize: "0.65rem", fontWeight: 700, borderRadius: 1 }}
+              />
+            </Stack>
+            <Typography
+              variant="body2"
+              noWrap
+              sx={{
+                fontWeight: 600,
+                fontSize: "0.8rem",
+                color: "text.primary",
+                lineHeight: 1.25,
+              }}
+            >
+              {document.title}
+            </Typography>
+            <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.72rem" }}>
+              {document.orderNo} • {document.shelfLocation}
+            </Typography>
+          </Box>
         </Box>
 
-        <Tooltip title="Close Assistant">
+        <Tooltip title="Close Mayumi">
           <IconButton size="small" onClick={onClose} sx={{ mt: 0.25 }}>
             <CloseRoundedIcon fontSize="small" />
           </IconButton>
@@ -302,8 +317,15 @@ export default function DocumentAiDrawer({
                   px: 0.5,
                 }}
               >
+                {!isUser && (
+                  <Avatar
+                    src="/mayumi.png"
+                    alt="Mayumi"
+                    sx={{ width: 16, height: 16 }}
+                  />
+                )}
                 <Typography variant="caption" sx={{ fontWeight: 700, fontSize: "0.7rem", color: "text.secondary" }}>
-                  {isUser ? "You" : "Document Assistant"}
+                  {isUser ? "You" : "Mayumi"}
                 </Typography>
                 <Typography variant="caption" sx={{ fontSize: "0.68rem", color: "text.disabled" }}>
                   {msg.timestamp}
@@ -372,7 +394,7 @@ export default function DocumentAiDrawer({
           <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, px: 1, py: 0.5 }}>
             <CircularProgress size={16} />
             <Typography variant="caption" sx={{ color: "text.secondary", fontStyle: "italic" }}>
-              Analyzing document clauses...
+              Mayumi is analyzing document clauses...
             </Typography>
           </Box>
         )}
@@ -397,7 +419,7 @@ export default function DocumentAiDrawer({
         <TextField
           fullWidth
           size="small"
-          placeholder="Ask a question about this document..."
+          placeholder="Ask Mayumi a question about this document..."
           value={inputText}
           onChange={(e) => setInputText(e.target.value)}
           disabled={isTyping}
@@ -425,7 +447,7 @@ export default function DocumentAiDrawer({
           }}
         />
         <Typography variant="caption" sx={{ color: "text.disabled", display: "block", mt: 0.75, textAlign: "center", fontSize: "0.68rem" }}>
-          Answers are synthesized directly from verified archival records for employee reference.
+          Mayumi synthesizes answers directly from verified archival records for employee reference.
         </Typography>
       </Box>
     </Drawer>

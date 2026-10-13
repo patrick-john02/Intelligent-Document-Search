@@ -19,7 +19,7 @@ import Paper from "@mui/material/Paper";
 import Alert from "@mui/material/Alert";
 import Chip from "@mui/material/Chip";
 import { useAuth } from "@/context/AuthContext";
-import { ArchiveDocument } from "./types";
+import { ArchiveDocument, DocumentFileType } from "./types";
 
 interface IngestDocumentDialogProps {
   open: boolean;
@@ -88,6 +88,10 @@ export default function IngestDocumentDialog({
       ? `${user.first_name || ""} ${user.last_name || ""}`.trim() || "Maria Santos"
       : "Maria Santos";
 
+    const ext = fileName.split(".").pop()?.toLowerCase();
+    const resolvedFileType: DocumentFileType =
+      ext === "xlsx" || ext === "xls" ? "xlsx" : ext === "docx" || ext === "doc" ? "docx" : "pdf";
+
     const newDoc: ArchiveDocument = {
       id: `doc-${Date.now()}`,
       title,
@@ -102,6 +106,8 @@ export default function IngestDocumentDialog({
       ocrAccuracy: 98.8,
       fileSize: "3.4 MB",
       pageCount: 14,
+      fileType: resolvedFileType,
+      fileName: fileName || undefined,
       version: "v1.0",
       ingestedDate: new Date().toISOString().split("T")[0],
       status: "Indexed",

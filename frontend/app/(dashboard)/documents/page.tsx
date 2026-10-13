@@ -14,6 +14,9 @@ import Divider from "@mui/material/Divider";
 import ToggleButton from "@mui/material/ToggleButton";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Tooltip from "@mui/material/Tooltip";
+import FormControl from "@mui/material/FormControl";
+import Select from "@mui/material/Select";
+import MenuItem from "@mui/material/MenuItem";
 import CssBaseline from "@mui/material/CssBaseline";
 import { alpha } from "@mui/material/styles";
 import Link from "next/link";
@@ -25,6 +28,9 @@ import ViewSidebarRoundedIcon from "@mui/icons-material/ViewSidebarRounded";
 import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
 import ClearRoundedIcon from "@mui/icons-material/ClearRounded";
 import PictureAsPdfRoundedIcon from "@mui/icons-material/PictureAsPdfRounded";
+import TableChartRoundedIcon from "@mui/icons-material/TableChartRounded";
+import ArticleRoundedIcon from "@mui/icons-material/ArticleRounded";
+import SortRoundedIcon from "@mui/icons-material/SortRounded";
 import AutoAwesomeRoundedIcon from "@mui/icons-material/AutoAwesomeRounded";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import FormatListBulletedRoundedIcon from "@mui/icons-material/FormatListBulletedRounded";
@@ -38,7 +44,7 @@ import { useAuth } from "@/context/AuthContext";
 import { getDefaultRole } from "@/components/dashboard/types";
 
 // Archive Subcomponents
-import { ArchiveDocument } from "@/components/documents/types";
+import { ArchiveDocument, DocumentFileType, DocumentSortOption } from "@/components/documents/types";
 import FileExplorerSidebar from "@/components/documents/FileExplorerSidebar";
 import DocumentDossierInspector from "@/components/documents/DocumentDossierInspector";
 import DocumentAiDrawer from "@/components/documents/DocumentAiDrawer";
@@ -47,8 +53,53 @@ import UploadDocumentDialog from "@/components/documents/UploadDocumentDialog";
 import ArchivingAgentModal from "@/components/documents/ArchivingAgentModal";
 import BackgroundArchivingWidget from "@/components/documents/BackgroundArchivingWidget";
 import { useArchivingTask } from "@/components/documents/useArchivingTask";
+import DocumentDateRangeFilter from "@/components/documents/DocumentDateRangeFilter";
+import dayjs, { Dayjs } from "dayjs";
+
+// Helpers for sorting and format presentation
+function parseSizeInBytes(sizeStr: string): number {
+  const match = sizeStr.match(/([\d.]+)\s*(MB|KB|GB|Bytes)/i);
+  if (!match) return 0;
+  const num = parseFloat(match[1]);
+  const unit = match[2].toUpperCase();
+  if (unit === "GB") return num * 1024 * 1024 * 1024;
+  if (unit === "MB") return num * 1024 * 1024;
+  if (unit === "KB") return num * 1024;
+  return num;
+}
+
+export function getFileTypeBadge(fileType: DocumentFileType) {
+  switch (fileType) {
+    case "xlsx":
+      return {
+        label: "Excel",
+        extension: ".xlsx",
+        color: "#10B981",
+        bgColor: "rgba(16, 185, 129, 0.1)",
+        icon: <TableChartRoundedIcon sx={{ fontSize: 20, color: "#10B981" }} />,
+      };
+    case "docx":
+      return {
+        label: "Word",
+        extension: ".docx",
+        color: "#3B82F6",
+        bgColor: "rgba(59, 130, 246, 0.1)",
+        icon: <ArticleRoundedIcon sx={{ fontSize: 20, color: "#3B82F6" }} />,
+      };
+    case "pdf":
+    default:
+      return {
+        label: "PDF",
+        extension: ".pdf",
+        color: "#EF4444",
+        bgColor: "rgba(239, 68, 68, 0.1)",
+        icon: <PictureAsPdfRoundedIcon sx={{ fontSize: 20, color: "#EF4444" }} />,
+      };
+  }
+}
 
 // Seed Archive Documents
+// Seed Archive Documents with diverse file formats (.pdf, .xlsx, .docx)
 const INITIAL_DOCUMENTS: ArchiveDocument[] = [
   {
     id: "doc-1",
@@ -64,8 +115,10 @@ const INITIAL_DOCUMENTS: ArchiveDocument[] = [
     ocrAccuracy: 99.1,
     fileSize: "4.8 MB",
     pageCount: 28,
+    fileType: "pdf",
+    fileName: "BLGF-DO-2024-018-Assessment-Guidelines.pdf",
     version: "v1.0",
-    ingestedDate: "2024-08-28",
+    ingestedDate: "2024-09-02",
     status: "Indexed",
     tags: [
       { name: "Real Property Tax", score: 0.98 },
@@ -81,7 +134,7 @@ const INITIAL_DOCUMENTS: ArchiveDocument[] = [
   },
   {
     id: "doc-2",
-    title: "Treasury Circular on Local Revenue Collections and Automation Protocols",
+    title: "Treasury Circular on Local Revenue Collections and Automation Matrix",
     orderNo: "TC-2024-009",
     seriesYear: 2024,
     category: "Treasury Advisories",
@@ -90,18 +143,20 @@ const INITIAL_DOCUMENTS: ArchiveDocument[] = [
     shelf: "Shelf 1",
     folder: "Binder 12",
     shelfLocation: "Cabinet B • Shelf 1 • Binder 12",
-    ocrAccuracy: 96.4,
+    ocrAccuracy: 98.4,
     fileSize: "2.3 MB",
     pageCount: 16,
+    fileType: "xlsx",
+    fileName: "TC-2024-009-Collection-Ledger.xlsx",
     version: "v1.0",
-    ingestedDate: "2024-08-24",
+    ingestedDate: "2024-08-28",
     status: "Indexed",
     tags: [
       { name: "Treasury Automation", score: 0.94 },
       { name: "Electronic Receipting", score: 0.91 },
     ],
     summary:
-      "Directs provincial and municipal treasury collection units to interface electronic receipts with the central regional archival repository.",
+      "Tabular register directing municipal treasury collection units to interface electronic receipts with the central regional archival repository.",
     uploadedBy: {
       name: "Engr. Juan Dela Cruz",
       division: "Treasury Operations",
@@ -122,15 +177,17 @@ const INITIAL_DOCUMENTS: ArchiveDocument[] = [
     ocrAccuracy: 98.7,
     fileSize: "1.7 MB",
     pageCount: 9,
+    fileType: "docx",
+    fileName: "LO-R2-2023-042-Tax-Exemption-Opinion.docx",
     version: "v1.0",
-    ingestedDate: "2023-11-19",
+    ingestedDate: "2024-08-24",
     status: "Indexed",
     tags: [
       { name: "Franchise Tax", score: 0.97 },
       { name: "Public Utilities", score: 0.89 },
     ],
     summary:
-      "Formal legal opinion clarifying local authority to levy municipal franchise taxes on telecommunications and power utility infrastructure.",
+      "Formal legal brief clarifying local authority to levy municipal franchise taxes on telecommunications and power utility infrastructure.",
     uploadedBy: {
       name: "Atty. Karen Reyes",
       division: "Legal Affairs Unit",
@@ -151,6 +208,8 @@ const INITIAL_DOCUMENTS: ArchiveDocument[] = [
     ocrAccuracy: 97.9,
     fileSize: "3.1 MB",
     pageCount: 22,
+    fileType: "pdf",
+    fileName: "SOP-DOC-2024-001-Ingestion-Procedures.pdf",
     version: "v1.0",
     ingestedDate: "2024-08-15",
     status: "Indexed",
@@ -180,6 +239,8 @@ const INITIAL_DOCUMENTS: ArchiveDocument[] = [
     ocrAccuracy: 95.8,
     fileSize: "5.6 MB",
     pageCount: 34,
+    fileType: "pdf",
+    fileName: "RM-2024-011-Financial-Audit-Memo.pdf",
     version: "v1.0",
     ingestedDate: "2024-08-10",
     status: "Indexed",
@@ -195,6 +256,192 @@ const INITIAL_DOCUMENTS: ArchiveDocument[] = [
       position: "Regional Director",
     },
   },
+  {
+    id: "doc-6",
+    title: "Annual Local Treasury Financial Allocation and Revenue Breakdown Schedule",
+    orderNo: "REV-SCH-2024-005",
+    seriesYear: 2024,
+    category: "Treasury Advisories",
+    clearance: "Public",
+    cabinet: "Cabinet B",
+    shelf: "Shelf 3",
+    folder: "Binder 07",
+    shelfLocation: "Cabinet B • Shelf 3 • Binder 07",
+    ocrAccuracy: 99.4,
+    fileSize: "6.2 MB",
+    pageCount: 12,
+    fileType: "xlsx",
+    fileName: "REV-SCH-2024-Valuation-Schedule.xlsx",
+    version: "v1.1",
+    ingestedDate: "2024-07-30",
+    status: "Indexed",
+    tags: [
+      { name: "Financial Ledger", score: 0.98 },
+      { name: "Local Allocation", score: 0.93 },
+    ],
+    summary:
+      "Detailed spreadsheet ledger mapping local revenue projections against regional disbursement allocations for FY 2024.",
+    uploadedBy: {
+      name: "Engr. Juan Dela Cruz",
+      division: "Treasury Operations",
+      position: "Revenue Assessment Specialist",
+    },
+  },
+  {
+    id: "doc-7",
+    title: "Administrative Guideline on Digital Archival Records Retention and Security",
+    orderNo: "AG-DIR-2024-033",
+    seriesYear: 2024,
+    category: "Standard Procedures",
+    clearance: "Restricted",
+    cabinet: "Cabinet C",
+    shelf: "Shelf 2",
+    folder: "Binder 15",
+    shelfLocation: "Cabinet C • Shelf 2 • Binder 15",
+    ocrAccuracy: 98.2,
+    fileSize: "2.1 MB",
+    pageCount: 18,
+    fileType: "docx",
+    fileName: "AG-DIR-2024-033-Retention-Guidelines.docx",
+    version: "v1.0",
+    ingestedDate: "2024-07-15",
+    status: "Indexed",
+    tags: [
+      { name: "Records Retention", score: 0.97 },
+      { name: "Compliance Policy", score: 0.94 },
+    ],
+    summary:
+      "Word document draft specifying statutory minimum retention periods, disposition schedules, and access protocols for physical and digitized files.",
+    uploadedBy: {
+      name: "Maria Santos",
+      division: "Administrative Records",
+      position: "Senior Records Officer",
+    },
+  },
+  {
+    id: "doc-8",
+    title: "Schedule of Real Property Market Values and Assessment Rates Matrix",
+    orderNo: "SMV-MAT-2024-004",
+    seriesYear: 2024,
+    category: "Assessment Regulations",
+    clearance: "Public",
+    cabinet: "Cabinet A",
+    shelf: "Shelf 3",
+    folder: "Binder 02",
+    shelfLocation: "Cabinet A • Shelf 3 • Binder 02",
+    ocrAccuracy: 99.6,
+    fileSize: "3.7 MB",
+    pageCount: 8,
+    fileType: "xlsx",
+    fileName: "SMV-MAT-2024-Market-Values.xlsx",
+    version: "v1.2",
+    ingestedDate: "2024-08-30",
+    status: "Indexed",
+    tags: [
+      { name: "Assessment Valuation", score: 0.99 },
+      { name: "Schedule of Market Values", score: 0.96 },
+    ],
+    summary:
+      "Spreadsheet matrix compiling statutory assessment levels, unit value schedules, and assessment brackets across municipal zones.",
+    uploadedBy: {
+      name: "Engr. Juan Dela Cruz",
+      division: "Treasury Operations",
+      position: "Revenue Assessment Specialist",
+    },
+  },
+  {
+    id: "doc-9",
+    title: "Legal Counsel Resolution on Boundary Tax Jurisdiction and Revenue Apportionment",
+    orderNo: "RES-LO-2024-008",
+    seriesYear: 2024,
+    category: "Legal Opinions",
+    clearance: "Internal",
+    cabinet: "Cabinet C",
+    shelf: "Shelf 1",
+    folder: "Binder 05",
+    shelfLocation: "Cabinet C • Shelf 1 • Binder 05",
+    ocrAccuracy: 98.9,
+    fileSize: "2.8 MB",
+    pageCount: 14,
+    fileType: "pdf",
+    fileName: "RES-LO-2024-Boundary-Jurisdiction.pdf",
+    version: "v1.0",
+    ingestedDate: "2024-08-18",
+    status: "Indexed",
+    tags: [
+      { name: "Jurisdiction", score: 0.97 },
+      { name: "Revenue Apportionment", score: 0.92 },
+    ],
+    summary:
+      "Certified PDF legal resolution clarifying tax collection prerogatives and boundary apportionments between neighboring municipal jurisdictions.",
+    uploadedBy: {
+      name: "Atty. Karen Reyes",
+      division: "Legal Affairs Unit",
+      position: "Legal Counsel",
+    },
+  },
+  {
+    id: "doc-10",
+    title: "Executive Memorandum on Electronic Records Archival Compliance Framework",
+    orderNo: "MEMO-DIR-2024-019",
+    seriesYear: 2024,
+    category: "Memorandums",
+    clearance: "Internal",
+    cabinet: "Cabinet D",
+    shelf: "Shelf 2",
+    folder: "Binder 11",
+    shelfLocation: "Cabinet D • Shelf 2 • Binder 11",
+    ocrAccuracy: 97.4,
+    fileSize: "1.9 MB",
+    pageCount: 11,
+    fileType: "docx",
+    fileName: "MEMO-DIR-2024-Compliance-Framework.docx",
+    version: "v1.0",
+    ingestedDate: "2024-08-05",
+    status: "Indexed",
+    tags: [
+      { name: "Compliance Framework", score: 0.96 },
+      { name: "Archival Mandate", score: 0.93 },
+    ],
+    summary:
+      "Executive memorandum providing operational directives for inter-office electronic records indexing, security classifications, and preservation.",
+    uploadedBy: {
+      name: "Director Alicia Tan",
+      division: "Office of the Regional Director",
+      position: "Regional Director",
+    },
+  },
+  {
+    id: "doc-11",
+    title: "Treasury Advisory Directive on Real-Time Electronic Remittances and Ledger Balancing",
+    orderNo: "TC-DIR-2024-015",
+    seriesYear: 2024,
+    category: "Treasury Advisories",
+    clearance: "Public",
+    cabinet: "Cabinet B",
+    shelf: "Shelf 2",
+    folder: "Binder 09",
+    shelfLocation: "Cabinet B • Shelf 2 • Binder 09",
+    ocrAccuracy: 99.2,
+    fileSize: "3.4 MB",
+    pageCount: 18,
+    fileType: "pdf",
+    fileName: "TC-DIR-2024-Electronic-Remittance.pdf",
+    version: "v1.0",
+    ingestedDate: "2024-07-25",
+    status: "Indexed",
+    tags: [
+      { name: "Electronic Remittance", score: 0.98 },
+      { name: "Treasury Controls", score: 0.92 },
+    ],
+    summary:
+      "Advisory document establishing real-time verification and remittance procedures for local revenue collections and central ledger synchronization.",
+    uploadedBy: {
+      name: "Engr. Juan Dela Cruz",
+      division: "Treasury Operations",
+      position: "Revenue Assessment Specialist",
+    },
+  },
 ];
 
 export default function DocumentArchivePage(props: { disableCustomTheme?: boolean }) {
@@ -208,6 +455,12 @@ export default function DocumentArchivePage(props: { disableCustomTheme?: boolea
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedCabinet, setSelectedCabinet] = useState("All");
+  const [selectedFileType, setSelectedFileType] = useState<string>("All");
+  const [sortBy, setSortBy] = useState<DocumentSortOption>("date-desc");
+
+  // Date Range Filter (From - To)
+  const [fromDate, setFromDate] = useState<Dayjs | null>(null);
+  const [toDate, setToDate] = useState<Dayjs | null>(null);
 
   // Layout Panels: Sidebar defaults to OPEN, Dossier defaults to CLOSED
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
@@ -247,30 +500,97 @@ export default function DocumentArchivePage(props: { disableCustomTheme?: boolea
     dismiss: dismissAgent,
   } = useArchivingTask(handleArchivingComplete);
 
-  // Filtering
-  const filteredDocuments = documents.filter((doc) => {
+  // Filtering & Sorting (Default: Newest Date First)
+  const filteredDocuments = React.useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
-    const matchesSearch =
-      !query ||
-      doc.title.toLowerCase().includes(query) ||
-      doc.orderNo.toLowerCase().includes(query) ||
-      doc.shelfLocation.toLowerCase().includes(query);
 
-    const matchesCategory =
-      selectedCategory === "All" || doc.category === selectedCategory;
+    const matches = documents.filter((doc) => {
+      const matchesSearch =
+        !query ||
+        doc.title.toLowerCase().includes(query) ||
+        doc.orderNo.toLowerCase().includes(query) ||
+        doc.shelfLocation.toLowerCase().includes(query);
 
-    const matchesCabinet =
-      selectedCabinet === "All" || doc.cabinet === selectedCabinet;
+      const matchesCategory =
+        selectedCategory === "All" || doc.category === selectedCategory;
 
-    return matchesSearch && matchesCategory && matchesCabinet;
-  });
+      const matchesCabinet =
+        selectedCabinet === "All" || doc.cabinet === selectedCabinet;
 
-  const activeFilterLabel =
-    selectedCategory !== "All"
+      const matchesFileType =
+        selectedFileType === "All" || doc.fileType === selectedFileType;
+
+      const docDate = dayjs(doc.ingestedDate);
+      const matchesFromDate =
+        !fromDate || docDate.isAfter(fromDate.startOf("day").subtract(1, "second"));
+      const matchesToDate =
+        !toDate || docDate.isBefore(toDate.endOf("day").add(1, "second"));
+
+      return (
+        matchesSearch &&
+        matchesCategory &&
+        matchesCabinet &&
+        matchesFileType &&
+        matchesFromDate &&
+        matchesToDate
+      );
+    });
+
+    return [...matches].sort((a, b) => {
+      switch (sortBy) {
+        case "date-desc":
+          return new Date(b.ingestedDate).getTime() - new Date(a.ingestedDate).getTime();
+        case "date-asc":
+          return new Date(a.ingestedDate).getTime() - new Date(b.ingestedDate).getTime();
+        case "title-asc":
+          return a.title.localeCompare(b.title);
+        case "title-desc":
+          return b.title.localeCompare(a.title);
+        case "order-asc":
+          return a.orderNo.localeCompare(b.orderNo);
+        case "size-desc":
+          return parseSizeInBytes(b.fileSize) - parseSizeInBytes(a.fileSize);
+        case "type":
+          return a.fileType.localeCompare(b.fileType);
+        default:
+          return new Date(b.ingestedDate).getTime() - new Date(a.ingestedDate).getTime();
+      }
+    });
+  }, [documents, searchQuery, selectedCategory, selectedCabinet, selectedFileType, fromDate, toDate, sortBy]);
+
+  const dateRangeLabel =
+    fromDate && toDate
+      ? `${fromDate.format("MMM D")} – ${toDate.format("MMM D")}`
+      : fromDate
+      ? `From ${fromDate.format("MMM D")}`
+      : toDate
+      ? `Until ${toDate.format("MMM D")}`
+      : null;
+
+  const basePathLabel =
+    selectedCategory !== "All" && selectedFileType !== "All"
+      ? `${selectedCategory} / ${
+          selectedFileType === "pdf"
+            ? "PDF Documents (.pdf)"
+            : selectedFileType === "xlsx"
+            ? "Excel Sheets (.xlsx)"
+            : "Word Documents (.docx)"
+        }`
+      : selectedCategory !== "All"
       ? selectedCategory
+      : selectedFileType !== "All"
+      ? selectedFileType === "pdf"
+        ? "PDF Documents (.pdf)"
+        : selectedFileType === "xlsx"
+        ? "Excel Sheets (.xlsx)"
+        : "Word Documents (.docx)"
       : selectedCabinet !== "All"
       ? selectedCabinet
       : "All Files";
+
+  const activeFilterLabel = dateRangeLabel
+    ? `${basePathLabel} (${dateRangeLabel})`
+    : basePathLabel;
 
   return (
     <AppTheme {...props}>
@@ -413,8 +733,10 @@ export default function DocumentArchivePage(props: { disableCustomTheme?: boolea
               documents={documents}
               selectedCategory={selectedCategory}
               selectedCabinet={selectedCabinet}
+              selectedFileType={selectedFileType}
               onSelectCategory={(cat) => setSelectedCategory(cat)}
               onSelectCabinet={(cab) => setSelectedCabinet(cab)}
+              onSelectFileType={(type) => setSelectedFileType(type)}
               isOpen={isSidebarOpen}
               onToggleOpen={() => setIsSidebarOpen(false)}
             />
@@ -430,7 +752,7 @@ export default function DocumentArchivePage(props: { disableCustomTheme?: boolea
                 overflow: "hidden",
               }}
             >
-              {/* Directory Breadcrumb & Quick Filter Header */}
+              {/* Directory Breadcrumb, Sort Selector & Quick Filter Header */}
               <Paper
                 variant="outlined"
                 sx={{
@@ -455,13 +777,21 @@ export default function DocumentArchivePage(props: { disableCustomTheme?: boolea
                     ({filteredDocuments.length} {filteredDocuments.length === 1 ? "file" : "files"})
                   </Typography>
 
-                  {(selectedCategory !== "All" || selectedCabinet !== "All" || searchQuery) && (
+                  {(selectedCategory !== "All" ||
+                    selectedCabinet !== "All" ||
+                    selectedFileType !== "All" ||
+                    searchQuery ||
+                    fromDate !== null ||
+                    toDate !== null) && (
                     <Button
                       size="small"
                       onClick={() => {
                         setSelectedCategory("All");
                         setSelectedCabinet("All");
+                        setSelectedFileType("All");
                         setSearchQuery("");
+                        setFromDate(null);
+                        setToDate(null);
                       }}
                       sx={{
                         fontSize: "0.75rem",
@@ -476,33 +806,101 @@ export default function DocumentArchivePage(props: { disableCustomTheme?: boolea
                   )}
                 </Box>
 
-                {/* Search in Current Directory */}
-                <TextField
-                  size="small"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Filter files by name or order code..."
-                  slotProps={{
-                    input: {
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <SearchRoundedIcon sx={{ fontSize: 18, color: "text.secondary" }} />
-                        </InputAdornment>
-                      ),
-                      endAdornment: searchQuery ? (
-                        <InputAdornment position="end">
-                          <IconButton size="small" onClick={() => setSearchQuery("")} sx={{ p: 0.25 }}>
-                            <ClearRoundedIcon sx={{ fontSize: 16 }} />
-                          </IconButton>
-                        </InputAdornment>
-                      ) : null,
-                    },
-                  }}
+                <Stack
+                  direction={{ xs: "column", lg: "row" }}
+                  spacing={1}
                   sx={{
-                    width: { xs: "100%", sm: "280px" },
-                    "& .MuiOutlinedInput-root": { borderRadius: 1, fontSize: "0.82rem", height: 34 },
+                    alignItems: { xs: "stretch", lg: "center" },
+                    width: { xs: "100%", lg: "auto" },
+                    flexWrap: "wrap",
                   }}
-                />
+                >
+                  {/* Clean Date Filter (From - To) */}
+                  <DocumentDateRangeFilter
+                    fromDate={fromDate}
+                    toDate={toDate}
+                    onFromDateChange={setFromDate}
+                    onToDateChange={setToDate}
+                    onClear={() => {
+                      setFromDate(null);
+                      setToDate(null);
+                    }}
+                  />
+
+                  {/* Clean Sort Selector */}
+                  <FormControl size="small" sx={{ minWidth: 165, width: { xs: "100%", sm: "auto" } }}>
+                    <Select
+                      value={sortBy}
+                      onChange={(e) => setSortBy(e.target.value as DocumentSortOption)}
+                      displayEmpty
+                      startAdornment={
+                        <InputAdornment position="start">
+                          <SortRoundedIcon sx={{ fontSize: 18, color: "text.secondary" }} />
+                        </InputAdornment>
+                      }
+                      sx={{
+                        borderRadius: 1,
+                        fontSize: "0.82rem",
+                        height: 34,
+                        bgcolor: "background.paper",
+                        "& .MuiSelect-select": {
+                          py: 0.5,
+                          fontWeight: 600,
+                        },
+                      }}
+                    >
+                      <MenuItem value="date-desc" sx={{ fontSize: "0.82rem" }}>
+                        Date (Newest First)
+                      </MenuItem>
+                      <MenuItem value="date-asc" sx={{ fontSize: "0.82rem" }}>
+                        Date (Oldest First)
+                      </MenuItem>
+                      <MenuItem value="title-asc" sx={{ fontSize: "0.82rem" }}>
+                        Title (A–Z)
+                      </MenuItem>
+                      <MenuItem value="title-desc" sx={{ fontSize: "0.82rem" }}>
+                        Title (Z–A)
+                      </MenuItem>
+                      <MenuItem value="order-asc" sx={{ fontSize: "0.82rem" }}>
+                        Order No. (A–Z)
+                      </MenuItem>
+                      <MenuItem value="size-desc" sx={{ fontSize: "0.82rem" }}>
+                        File Size (Largest)
+                      </MenuItem>
+                      <MenuItem value="type" sx={{ fontSize: "0.82rem" }}>
+                        File Format (.pdf, .xlsx, .docx)
+                      </MenuItem>
+                    </Select>
+                  </FormControl>
+
+                  {/* Search in Current Directory */}
+                  <TextField
+                    size="small"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Filter files by name or order code..."
+                    slotProps={{
+                      input: {
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <SearchRoundedIcon sx={{ fontSize: 18, color: "text.secondary" }} />
+                          </InputAdornment>
+                        ),
+                        endAdornment: searchQuery ? (
+                          <InputAdornment position="end">
+                            <IconButton size="small" onClick={() => setSearchQuery("")} sx={{ p: 0.25 }}>
+                              <ClearRoundedIcon sx={{ fontSize: 16 }} />
+                            </IconButton>
+                          </InputAdornment>
+                        ) : null,
+                      },
+                    }}
+                    sx={{
+                      width: { xs: "100%", sm: "220px" },
+                      "& .MuiOutlinedInput-root": { borderRadius: 1, fontSize: "0.82rem", height: 34 },
+                    }}
+                  />
+                </Stack>
               </Paper>
 
               {/* View Mode: Clean List View vs Cabinet Map */}
@@ -513,6 +911,7 @@ export default function DocumentArchivePage(props: { disableCustomTheme?: boolea
                     {filteredDocuments.length > 0 ? (
                       filteredDocuments.map((doc) => {
                         const isSelected = selectedDoc?.id === doc.id && showInspector;
+                        const typeBadge = getFileTypeBadge(doc.fileType);
 
                         return (
                           <Paper
@@ -553,11 +952,8 @@ export default function DocumentArchivePage(props: { disableCustomTheme?: boolea
                                   sx={{
                                     p: 1,
                                     borderRadius: 1,
-                                    bgcolor: (theme) =>
-                                      theme.palette.mode === "dark"
-                                        ? "rgba(255, 255, 255, 0.05)"
-                                        : "rgba(0, 0, 0, 0.04)",
-                                    color: "primary.main",
+                                    bgcolor: typeBadge.bgColor,
+                                    border: `1px solid ${alpha(typeBadge.color, 0.25)}`,
                                     display: "flex",
                                     alignItems: "center",
                                     justifyContent: "center",
@@ -565,7 +961,7 @@ export default function DocumentArchivePage(props: { disableCustomTheme?: boolea
                                     mt: 0.25,
                                   }}
                                 >
-                                  <PictureAsPdfRoundedIcon sx={{ fontSize: 22 }} />
+                                  {typeBadge.icon}
                                 </Box>
 
                                 <Box sx={{ minWidth: 0, flex: 1 }}>
@@ -601,6 +997,19 @@ export default function DocumentArchivePage(props: { disableCustomTheme?: boolea
                                     <Box component="span">Series {doc.seriesYear}</Box>
                                     <Box component="span">•</Box>
                                     <Box component="span">{doc.shelfLocation}</Box>
+                                    <Box component="span">•</Box>
+                                    <Box
+                                      component="span"
+                                      sx={{
+                                        fontWeight: 700,
+                                        color: typeBadge.color,
+                                        fontSize: "0.74rem",
+                                      }}
+                                    >
+                                      {typeBadge.label} ({typeBadge.extension})
+                                    </Box>
+                                    <Box component="span">•</Box>
+                                    <Box component="span">{doc.ingestedDate}</Box>
                                     <Box component="span">•</Box>
                                     <Box component="span">{doc.fileSize}</Box>
                                   </Typography>
@@ -666,7 +1075,7 @@ export default function DocumentArchivePage(props: { disableCustomTheme?: boolea
                                     px: 1.25,
                                   }}
                                 >
-                                  Ask AI
+                                  Ask Mayumi
                                 </Button>
                               </Stack>
                             </Box>
@@ -697,7 +1106,10 @@ export default function DocumentArchivePage(props: { disableCustomTheme?: boolea
                           onClick={() => {
                             setSelectedCategory("All");
                             setSelectedCabinet("All");
+                            setSelectedFileType("All");
                             setSearchQuery("");
+                            setFromDate(null);
+                            setToDate(null);
                           }}
                           sx={{ borderRadius: 1, textTransform: "none" }}
                         >

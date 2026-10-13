@@ -186,7 +186,7 @@ export default function DocumentPreviewDialog({
           size="small"
           sx={{ borderRadius: 1, textTransform: "none" }}
         >
-          Ask AI About Document
+          Ask Mayumi About Document
         </Button>
 
         <Stack direction="row" spacing={1}>

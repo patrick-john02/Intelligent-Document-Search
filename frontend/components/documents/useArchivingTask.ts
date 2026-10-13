@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
-import { ArchiveDocument } from "./types";
+import { ArchiveDocument, DocumentFileType } from "./types";
 
 export interface QueuedFile {
   id: string;
@@ -51,6 +51,9 @@ function generateDiscoveredMetadata(fileName: string, index: number, cabinetConf
 
   const year = new Date().getFullYear();
   const orderNum = `BLGF-ARC-${year}-${String(100 + Math.floor(Math.random() * 900))}`;
+  const ext = fileName.split(".").pop()?.toLowerCase();
+  const fileType: DocumentFileType =
+    ext === "xlsx" || ext === "xls" ? "xlsx" : ext === "docx" || ext === "doc" ? "docx" : "pdf";
 
   return {
     id: `doc-${Date.now()}-${index}`,
@@ -66,6 +69,8 @@ function generateDiscoveredMetadata(fileName: string, index: number, cabinetConf
     ocrAccuracy: +(97.5 + Math.random() * 2).toFixed(1),
     fileSize: "3.2 MB",
     pageCount: Math.floor(Math.random() * 18) + 6,
+    fileType,
+    fileName,
     version: "v1.0",
     ingestedDate: new Date().toISOString().split("T")[0],
     status: "Indexed",
