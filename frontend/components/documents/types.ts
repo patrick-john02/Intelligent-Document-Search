@@ -1,15 +1,19 @@
 export type DocumentFileType = "pdf" | "xlsx" | "docx";
 
+export type DocumentClearance = "Public" | "Internal" | "Restricted" | "Confidential";
+export type DocumentClearanceFilterOption = "All" | DocumentClearance;
+
 export interface ArchiveDocument {
   id: string | number;
   title: string;
   orderNo: string;
   seriesYear: number | string;
   category: string;
-  clearance: "Public" | "Internal" | "Restricted" | "Confidential";
+  clearance: DocumentClearance;
   cabinet: string;
   shelf: string;
   folder: string;
+  folderId?: string;
   shelfLocation: string;
   ocrAccuracy: number; // e.g. 98.4
   fileSize: string;
@@ -32,6 +36,11 @@ export interface ArchiveDocument {
     targetEntities: string;
     archivalDisposition: string;
   };
+  // Soft Delete Lifecycle
+  isDeleted?: boolean;
+  deletedAt?: string;
+  deletedBy?: string;
+  deletionReason?: string;
 }
 
 export type DocumentSortOption =
@@ -42,3 +51,16 @@ export type DocumentSortOption =
   | "order-asc"
   | "size-desc"
   | "type";
+
+export interface ArchiveFolder {
+  id: string;
+  name: string;
+  parentId: string | null;
+  color?: string;
+  iconBg?: string;
+  createdAt?: string;
+  // Soft Delete Lifecycle
+  isDeleted?: boolean;
+  deletedAt?: string;
+  deletedBy?: string;
+}

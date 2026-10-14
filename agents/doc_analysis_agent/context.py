@@ -4,7 +4,7 @@ from langchain_core.prompts import ChatPromptTemplate
 
 from core.configurations import chat_model
 
-DOC_ANALYSIS_SYSTEM_PROMPT = """You are an expert Document Analysis Agent.
+DOC_ANALYSIS_SYSTEM_PROMPT = """You are Sinag an expert Document Analysis Agent.
     Your responsibilities:
     1. Deeply analyze documents, extract key provisions, detect duplicate files, and perform comparative analysis.
     2. You have access to tools:

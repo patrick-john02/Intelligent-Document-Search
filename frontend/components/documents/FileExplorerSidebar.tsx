@@ -27,10 +27,13 @@ import PictureAsPdfRoundedIcon from "@mui/icons-material/PictureAsPdfRounded";
 import TableChartRoundedIcon from "@mui/icons-material/TableChartRounded";
 import ArticleRoundedIcon from "@mui/icons-material/ArticleRounded";
 
-import { ArchiveDocument, DocumentFileType } from "./types";
+import { ArchiveDocument, DocumentFileType, ArchiveFolder } from "./types";
 
 interface FileExplorerSidebarProps {
   documents: ArchiveDocument[];
+  folders?: ArchiveFolder[];
+  currentFolderId?: string | null;
+  onSelectFolder?: (folderId: string | null) => void;
   selectedCategory: string;
   selectedCabinet: string;
   selectedFileType: string;
@@ -85,8 +88,134 @@ const FORMAT_CONFIG: {
 
 const CABINETS = ["Cabinet A", "Cabinet B", "Cabinet C", "Cabinet D"];
 
+function FolderTreeItem({
+  folder,
+  allFolders,
+  documents,
+  currentFolderId,
+  onSelectFolder,
+  level = 0,
+}: {
+  folder: ArchiveFolder;
+  allFolders: ArchiveFolder[];
+  documents: ArchiveDocument[];
+  currentFolderId?: string | null;
+  onSelectFolder?: (folderId: string | null) => void;
+  level?: number;
+}) {
+  const childFolders = allFolders.filter((f) => f.parentId === folder.id);
+  const directFiles = documents.filter((d) => d.folderId === folder.id);
+  const isSelected = currentFolderId === folder.id;
+  const hasChildren = childFolders.length > 0;
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <Box sx={{ mb: 0.25 }}>
+      <ListItemButton
+        selected={isSelected}
+        onClick={() => {
+          onSelectFolder?.(folder.id);
+        }}
+        sx={{
+          borderRadius: 1,
+          py: 0.5,
+          pl: 1 + level * 1.5,
+          my: 0.15,
+          "&.Mui-selected": {
+            bgcolor: "action.selected",
+            color: "primary.main",
+          },
+        }}
+      >
+        {hasChildren ? (
+          <Box
+            component="span"
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsOpen(!isOpen);
+            }}
+            sx={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+              mr: 0.5,
+              color: "text.secondary",
+              "&:hover": { color: "text.primary" },
+            }}
+          >
+            {isOpen ? (
+              <ExpandMoreRoundedIcon sx={{ fontSize: 16 }} />
+            ) : (
+              <ChevronRightRoundedIcon sx={{ fontSize: 16 }} />
+            )}
+          </Box>
+        ) : (
+          <Box sx={{ width: 16, mr: 0.5 }} />
+        )}
+
+        <ListItemIcon sx={{ minWidth: 24, color: folder.color || "#EAB308" }}>
+          {isOpen || isSelected ? (
+            <FolderOpenRoundedIcon sx={{ fontSize: 18, color: folder.color || "#EAB308" }} />
+          ) : (
+            <FolderRoundedIcon sx={{ fontSize: 18, color: folder.color || "#EAB308" }} />
+          )}
+        </ListItemIcon>
+
+        <ListItemText
+          primary={
+            <Typography
+              noWrap
+              sx={{
+                fontSize: "0.78rem",
+                fontWeight: isSelected ? 700 : 500,
+                color: isSelected ? "primary.main" : "text.primary",
+              }}
+            >
+              {folder.name}
+            </Typography>
+          }
+        />
+
+        <Typography
+          variant="caption"
+          sx={{
+            fontSize: "0.68rem",
+            color: isSelected ? "primary.main" : "text.secondary",
+            fontWeight: isSelected ? 700 : 500,
+            ml: 0.5,
+          }}
+        >
+          {directFiles.length}
+        </Typography>
+      </ListItemButton>
+
+      {hasChildren && (
+        <Collapse in={isOpen} timeout="auto" unmountOnExit>
+          <Box sx={{ borderLeft: "1.5px dashed", borderColor: "divider", ml: 1.5 + level * 1.5, pl: 0.5 }}>
+            {childFolders.map((child) => (
+              <FolderTreeItem
+                key={child.id}
+                folder={child}
+                allFolders={allFolders}
+                documents={documents}
+                currentFolderId={currentFolderId}
+                onSelectFolder={onSelectFolder}
+                level={level + 1}
+              />
+            ))}
+          </Box>
+        </Collapse>
+      )}
+    </Box>
+  );
+}
+
 export default function FileExplorerSidebar({
   documents,
+  folders,
+  currentFolderId,
+  onSelectFolder,
   selectedCategory,
   selectedCabinet,
   selectedFileType,
@@ -96,16 +225,26 @@ export default function FileExplorerSidebar({
   isOpen,
   onToggleOpen,
 }: FileExplorerSidebarProps) {
-  // Folder tree expansion state (default: all open like Google Drive)
-  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>(() => {
-    const initial: Record<string, boolean> = {};
-    CATEGORIES.forEach((cat) => {
-      initial[cat] = true;
-    });
-    return initial;
-  });
+  // FOLDERS & FILE TYPES section expansion (default: closed)
+  const [foldersOpen, setFoldersOpen] = useState(false);
+
+  // Folder tree expansion state (default: all closed)
+  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
 
   const [cabinetsOpen, setCabinetsOpen] = useState(false);
+
+  // Dynamic categories list from documents
+  const categoriesList = useMemo(() => {
+    const fromDocs = Array.from(new Set(documents.map((d) => d.category))).filter(Boolean);
+    return fromDocs.length > 0 ? fromDocs : CATEGORIES;
+  }, [documents]);
+
+  // Auto-open folders section if a category is currently active
+  React.useEffect(() => {
+    if (selectedCategory !== "All") {
+      setFoldersOpen(true);
+    }
+  }, [selectedCategory]);
 
   // Compute category file counts and nested document type counts
   const categoryTree = useMemo(() => {
@@ -117,7 +256,7 @@ export default function FileExplorerSidebar({
       }
     > = {};
 
-    CATEGORIES.forEach((cat) => {
+    categoriesList.forEach((cat) => {
       data[cat] = {
         total: 0,
         types: { pdf: 0, xlsx: 0, docx: 0 },
@@ -138,7 +277,7 @@ export default function FileExplorerSidebar({
     });
 
     return data;
-  }, [documents]);
+  }, [documents, categoriesList]);
 
   // Compute cabinet counts
   const cabinetCounts = useMemo(() => {
@@ -213,8 +352,9 @@ export default function FileExplorerSidebar({
         <List component="nav" dense disablePadding>
           {/* Root Level: All Documents */}
           <ListItemButton
-            selected={isAllSelected}
+            selected={isAllSelected && !currentFolderId}
             onClick={() => {
+              onSelectFolder?.(null);
               onSelectCategory("All");
               onSelectCabinet("All");
               onSelectFileType("All");
@@ -229,12 +369,12 @@ export default function FileExplorerSidebar({
               },
             }}
           >
-            <ListItemIcon sx={{ minWidth: 30, color: isAllSelected ? "primary.main" : "text.secondary" }}>
+            <ListItemIcon sx={{ minWidth: 30, color: isAllSelected && !currentFolderId ? "primary.main" : "text.secondary" }}>
               <InsertDriveFileRoundedIcon sx={{ fontSize: 18 }} />
             </ListItemIcon>
             <ListItemText
               primary={
-                <Typography sx={{ fontSize: "0.82rem", fontWeight: isAllSelected ? 700 : 500 }}>
+                <Typography sx={{ fontSize: "0.82rem", fontWeight: isAllSelected && !currentFolderId ? 700 : 500 }}>
                   All Documents
                 </Typography>
               }
@@ -247,212 +387,234 @@ export default function FileExplorerSidebar({
                 fontSize: "0.68rem",
                 fontWeight: 600,
                 borderRadius: 1,
-                bgcolor: isAllSelected ? "primary.main" : "action.hover",
-                color: isAllSelected ? "primary.contrastText" : "text.secondary",
+                bgcolor: isAllSelected && !currentFolderId ? "primary.main" : "action.hover",
+                color: isAllSelected && !currentFolderId ? "primary.contrastText" : "text.secondary",
               }}
             />
           </ListItemButton>
 
           <Divider sx={{ my: 1 }} />
 
-          {/* Section Header */}
-          <Box sx={{ px: 1, py: 0.5 }}>
-            <Typography sx={{ fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.06em", color: "text.secondary" }}>
-              FOLDERS & FILE TYPES
-            </Typography>
-          </Box>
+          {/* Collapsible Section Header (Default: Closed) */}
+          <ListItemButton
+            onClick={() => setFoldersOpen(!foldersOpen)}
+            sx={{
+              borderRadius: 1,
+              py: 0.5,
+              color: "text.secondary",
+            }}
+          >
+            <ListItemIcon sx={{ minWidth: 24, color: "inherit" }}>
+              {foldersOpen ? (
+                <ExpandMoreRoundedIcon sx={{ fontSize: 18 }} />
+              ) : (
+                <ChevronRightRoundedIcon sx={{ fontSize: 18 }} />
+              )}
+            </ListItemIcon>
+            <ListItemText
+              primary={
+                <Typography sx={{ fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.06em", color: "inherit" }}>
+                  FOLDERS & FILE TYPES
+                </Typography>
+              }
+            />
+          </ListItemButton>
 
-          {/* Category Folders with Nested File Type Subfolders */}
-          {CATEGORIES.map((cat) => {
-            const catData = categoryTree[cat] || { total: 0, types: { pdf: 0, xlsx: 0, docx: 0 } };
-            const isCatExpanded = !!expandedCategories[cat];
-            const isCatSelected = selectedCategory === cat && selectedFileType === "All";
-            const isAnySubfolderInCatSelected = selectedCategory === cat && selectedFileType !== "All";
+          <Collapse in={foldersOpen} timeout="auto" unmountOnExit>
+            <Box sx={{ pl: 0.5 }}>
+              {folders && folders.length > 0 ? (
+                folders
+                  .filter((f) => f.parentId === null)
+                  .map((rootFolder) => (
+                    <FolderTreeItem
+                      key={rootFolder.id}
+                      folder={rootFolder}
+                      allFolders={folders}
+                      documents={documents}
+                      currentFolderId={currentFolderId}
+                      onSelectFolder={onSelectFolder}
+                      level={0}
+                    />
+                  ))
+              ) : (
+                categoriesList.map((cat) => {
+                  const catData = categoryTree[cat] || { total: 0, types: { pdf: 0, xlsx: 0, docx: 0 } };
+                  const isCatExpanded = !!expandedCategories[cat];
+                  const isCatSelected = selectedCategory === cat && selectedFileType === "All";
+                  const isAnySubfolderInCatSelected = selectedCategory === cat && selectedFileType !== "All";
 
-            return (
-              <Box key={cat} sx={{ mb: 0.5 }}>
-                {/* Parent Category Folder Row */}
-                <ListItemButton
-                  selected={isCatSelected}
-                  onClick={() => {
-                    if (isCatSelected) {
-                      toggleCategoryExpand(cat);
-                    } else {
-                      onSelectCategory(cat);
-                      onSelectFileType("All");
-                      onSelectCabinet("All");
-                      setExpandedCategories((prev) => ({ ...prev, [cat]: true }));
-                    }
-                  }}
-                  sx={{
-                    borderRadius: 1,
-                    py: 0.6,
-                    my: 0.2,
-                    "&.Mui-selected": {
-                      bgcolor: "action.selected",
-                      color: "primary.main",
-                    },
-                  }}
-                >
-                  {/* Chevron Toggle */}
-                  <Box
-                    component="span"
-                    onClick={(e) => toggleCategoryExpand(cat, e)}
-                    sx={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      cursor: "pointer",
-                      mr: 0.5,
-                      color: "text.secondary",
-                      "&:hover": { color: "text.primary" },
-                    }}
-                  >
-                    {isCatExpanded ? (
-                      <ExpandMoreRoundedIcon sx={{ fontSize: 18 }} />
-                    ) : (
-                      <ChevronRightRoundedIcon sx={{ fontSize: 18 }} />
-                    )}
-                  </Box>
-
-                  {/* Folder Icon */}
-                  <ListItemIcon sx={{ minWidth: 26, color: isCatSelected || isAnySubfolderInCatSelected ? "primary.main" : "#EAB308" }}>
-                    {isCatExpanded || isCatSelected ? (
-                      <FolderOpenRoundedIcon sx={{ fontSize: 18 }} />
-                    ) : (
-                      <FolderRoundedIcon sx={{ fontSize: 18 }} />
-                    )}
-                  </ListItemIcon>
-
-                  {/* Folder Name */}
-                  <ListItemText
-                    primary={
-                      <Typography
-                        noWrap
+                  return (
+                    <Box key={cat} sx={{ mb: 0.5 }}>
+                      <ListItemButton
+                        selected={isCatSelected}
+                        onClick={() => {
+                          if (isCatSelected) {
+                            toggleCategoryExpand(cat);
+                          } else {
+                            onSelectCategory(cat);
+                            onSelectFileType("All");
+                            onSelectCabinet("All");
+                            setExpandedCategories((prev) => ({ ...prev, [cat]: true }));
+                          }
+                        }}
                         sx={{
-                          fontSize: "0.8rem",
-                          fontWeight: isCatSelected ? 700 : isAnySubfolderInCatSelected ? 600 : 500,
-                          color: isCatSelected ? "primary.main" : "text.primary",
+                          borderRadius: 1,
+                          py: 0.6,
+                          my: 0.2,
+                          "&.Mui-selected": {
+                            bgcolor: "action.selected",
+                            color: "primary.main",
+                          },
                         }}
                       >
-                        {cat}
-                      </Typography>
-                    }
-                  />
-
-                  {/* Total Category Files Count */}
-                  <Typography
-                    variant="caption"
-                    sx={{
-                      fontSize: "0.7rem",
-                      color: isCatSelected ? "primary.main" : "text.secondary",
-                      fontWeight: isCatSelected ? 700 : 500,
-                      ml: 0.5,
-                    }}
-                  >
-                    {catData.total}
-                  </Typography>
-                </ListItemButton>
-
-                {/* Nested Document Type Subfolders Inside This Category */}
-                <Collapse in={isCatExpanded} timeout="auto" unmountOnExit>
-                  <Box
-                    sx={{
-                      pl: 2.5,
-                      ml: 1.75,
-                      borderLeft: "1.5px dashed",
-                      borderColor: "divider",
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 0.25,
-                      py: 0.25,
-                    }}
-                  >
-                    {FORMAT_CONFIG.map((fmt) => {
-                      const count = catData.types[fmt.type] || 0;
-                      if (count === 0) return null;
-
-                      const isSubfolderSelected =
-                        selectedCategory === cat && selectedFileType === fmt.type;
-
-                      return (
-                        <ListItemButton
-                          key={fmt.type}
-                          selected={isSubfolderSelected}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (isSubfolderSelected) {
-                              onSelectFileType("All");
-                            } else {
-                              onSelectCategory(cat);
-                              onSelectFileType(fmt.type);
-                              onSelectCabinet("All");
-                            }
-                          }}
+                        <Box
+                          component="span"
+                          onClick={(e) => toggleCategoryExpand(cat, e)}
                           sx={{
-                            borderRadius: 1,
-                            py: 0.45,
-                            px: 1,
-                            "&.Mui-selected": {
-                              bgcolor: fmt.bgColor,
-                              border: `1px solid ${alpha(fmt.color, 0.25)}`,
-                              color: fmt.color,
-                              "&:hover": {
-                                bgcolor: fmt.bgColor,
-                              },
-                            },
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            cursor: "pointer",
+                            mr: 0.5,
+                            color: "text.secondary",
+                            "&:hover": { color: "text.primary" },
                           }}
                         >
-                          <ListItemIcon sx={{ minWidth: 22 }}>
-                            {fmt.icon(fmt.color)}
-                          </ListItemIcon>
+                          {isCatExpanded ? (
+                            <ExpandMoreRoundedIcon sx={{ fontSize: 18 }} />
+                          ) : (
+                            <ChevronRightRoundedIcon sx={{ fontSize: 18 }} />
+                          )}
+                        </Box>
 
-                          <ListItemText
-                            primary={
-                              <Typography
-                                noWrap
+                        <ListItemIcon sx={{ minWidth: 26, color: isCatSelected || isAnySubfolderInCatSelected ? "primary.main" : "#EAB308" }}>
+                          {isCatExpanded || isCatSelected ? (
+                            <FolderOpenRoundedIcon sx={{ fontSize: 18 }} />
+                          ) : (
+                            <FolderRoundedIcon sx={{ fontSize: 18 }} />
+                          )}
+                        </ListItemIcon>
+
+                        <ListItemText
+                          primary={
+                            <Typography
+                              noWrap
+                              sx={{
+                                fontSize: "0.8rem",
+                                fontWeight: isCatSelected ? 700 : isAnySubfolderInCatSelected ? 600 : 500,
+                                color: isCatSelected ? "primary.main" : "text.primary",
+                              }}
+                            >
+                              {cat}
+                            </Typography>
+                          }
+                        />
+
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            fontSize: "0.7rem",
+                            color: isCatSelected ? "primary.main" : "text.secondary",
+                            fontWeight: isCatSelected ? 700 : 500,
+                            ml: 0.5,
+                          }}
+                        >
+                          {catData.total}
+                        </Typography>
+                      </ListItemButton>
+
+                      <Collapse in={isCatExpanded} timeout="auto" unmountOnExit>
+                        <Box
+                          sx={{
+                            pl: 2.5,
+                            ml: 1.75,
+                            borderLeft: "1.5px dashed",
+                            borderColor: "divider",
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 0.25,
+                            py: 0.25,
+                          }}
+                        >
+                          {FORMAT_CONFIG.map((fmt) => {
+                            const count = catData.types[fmt.type] || 0;
+                            if (count === 0) return null;
+
+                            const isSubfolderSelected =
+                              selectedCategory === cat && selectedFileType === fmt.type;
+
+                            return (
+                              <ListItemButton
+                                key={fmt.type}
+                                selected={isSubfolderSelected}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (isSubfolderSelected) {
+                                    onSelectFileType("All");
+                                  } else {
+                                    onSelectCategory(cat);
+                                    onSelectFileType(fmt.type);
+                                    onSelectCabinet("All");
+                                  }
+                                }}
                                 sx={{
-                                  fontSize: "0.76rem",
-                                  fontWeight: isSubfolderSelected ? 700 : 500,
-                                  color: isSubfolderSelected ? fmt.color : "text.secondary",
+                                  borderRadius: 1,
+                                  py: 0.45,
+                                  px: 1,
+                                  "&.Mui-selected": {
+                                    bgcolor: fmt.bgColor,
+                                    border: `1px solid ${alpha(fmt.color, 0.25)}`,
+                                    color: fmt.color,
+                                    "&:hover": {
+                                      bgcolor: fmt.bgColor,
+                                    },
+                                  },
                                 }}
                               >
-                                {fmt.shortLabel}
-                              </Typography>
-                            }
-                          />
+                                <ListItemIcon sx={{ minWidth: 22 }}>
+                                  {fmt.icon(fmt.color)}
+                                </ListItemIcon>
 
-                          <Typography
-                            variant="caption"
-                            sx={{
-                              fontSize: "0.68rem",
-                              fontWeight: isSubfolderSelected ? 700 : 500,
-                              color: isSubfolderSelected ? fmt.color : "text.secondary",
-                              bgcolor: isSubfolderSelected ? "transparent" : "action.hover",
-                              px: 0.6,
-                              py: 0.1,
-                              borderRadius: 0.75,
-                            }}
-                          >
-                            {count}
-                          </Typography>
-                        </ListItemButton>
-                      );
-                    })}
+                                <ListItemText
+                                  primary={
+                                    <Typography
+                                      noWrap
+                                      sx={{
+                                        fontSize: "0.76rem",
+                                        fontWeight: isSubfolderSelected ? 700 : 500,
+                                        color: isSubfolderSelected ? fmt.color : "text.secondary",
+                                      }}
+                                    >
+                                      {fmt.shortLabel}
+                                    </Typography>
+                                  }
+                                />
 
-                    {catData.total === 0 && (
-                      <Typography
-                        variant="caption"
-                        sx={{ color: "text.disabled", fontSize: "0.72rem", py: 0.5, pl: 1 }}
-                      >
-                        No files in folder
-                      </Typography>
-                    )}
-                  </Box>
-                </Collapse>
-              </Box>
-            );
-          })}
+                                <Typography
+                                  variant="caption"
+                                  sx={{
+                                    fontSize: "0.68rem",
+                                    fontWeight: isSubfolderSelected ? 700 : 500,
+                                    color: isSubfolderSelected ? fmt.color : "text.secondary",
+                                    bgcolor: isSubfolderSelected ? "transparent" : "action.hover",
+                                    px: 0.6,
+                                    py: 0.1,
+                                    borderRadius: 0.75,
+                                  }}
+                                >
+                                  {count}
+                                </Typography>
+                              </ListItemButton>
+                            );
+                          })}
+                        </Box>
+                      </Collapse>
+                    </Box>
+                  );
+                })
+              )}
+            </Box>
+          </Collapse>
 
           <Divider sx={{ my: 1 }} />
 

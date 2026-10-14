@@ -128,18 +128,19 @@ export const SYSTEM_AGENTS: AgentProfile[] = [
   {
     id: "mayumi",
     name: "Mayumi",
-    title: "User Assistance Agent",
-    role: "assistance",
-    meaning: "Gentle, Refined, and Approachable",
+    title: "Document Management Agent",
+    role: "specialized",
+    meaning: "Gentle, Refined, and Diligent Custodian",
     description:
-      "Provides friendly, courteous, and contextual guidance directly to employees on the frontend, explaining directives without overwhelming jargon.",
+      "Coordinates intelligent document management, archival filing, compliance verification, records retention, and contextual search assistance across municipal archives.",
     tasks: [
-      "Interactive in-place document Q&A",
-      "Friendly executive briefings for employees",
-      "Plain-language explanation of complex policies",
-      "Quick prompt suggestions and guidance",
+      "Archival record classification and metadata indexing",
+      "Statutory compliance and retention policy verification",
+      "Physical shelf location tracking and custodial verification",
+      "In-place document analysis, clause extraction, and executive summaries",
+      "Folder organization and multi-format document management",
     ],
-    tools: ["In-Place Assistant Drawer", "Summary Generator", "Clause Explainer"],
+    tools: ["Document Management Console", "Clause Explainer", "Retention Checker", "Shelf Registry", "Metadata Validator"],
     avatarSrc: "/mayumi.png",
     accentColor: "#EC4899", // Rose / Pink
   },

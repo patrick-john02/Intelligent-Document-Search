@@ -12,6 +12,8 @@ import AutoAwesomeOutlinedIcon from "@mui/icons-material/AutoAwesomeOutlined";
 import CheckCircleRoundedIcon from "@mui/icons-material/CheckCircleRounded";
 import OpenInFullRoundedIcon from "@mui/icons-material/OpenInFullRounded";
 import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
+import WavesRoundedIcon from "@mui/icons-material/WavesRounded";
+import Avatar from "@mui/material/Avatar";
 import { QueuedFile } from "./useArchivingTask";
 
 interface BackgroundArchivingWidgetProps {
@@ -56,37 +58,37 @@ export default function BackgroundArchivingWidget({
     >
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 1 }}>
         <Stack direction="row" spacing={1.2} sx={{ alignItems: "center" }}>
-          {isFinished ? (
-            <CheckCircleRoundedIcon sx={{ color: "#10B981", fontSize: 20 }} />
-          ) : (
-            <Box sx={{ position: "relative", display: "inline-flex" }}>
+          <Box sx={{ position: "relative", display: "inline-flex" }}>
+            <Avatar
+              src="/alon.png"
+              alt="Alon"
+              sx={{
+                width: 32,
+                height: 32,
+                border: "2px solid",
+                borderColor: isFinished ? "#10B981" : "#06B6D4",
+              }}
+            />
+            {!isFinished && (
               <CircularProgress
                 variant="determinate"
                 value={progress}
-                size={22}
-                thickness={5}
-                sx={{ color: "primary.main" }}
-              />
-              <Box
+                size={38}
+                thickness={3.5}
                 sx={{
+                  color: "#06B6D4",
                   position: "absolute",
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
+                  top: -3,
+                  left: -3,
+                  zIndex: 1,
                 }}
-              >
-                <AutoAwesomeOutlinedIcon sx={{ fontSize: 10, color: "primary.main" }} />
-              </Box>
-            </Box>
-          )}
+              />
+            )}
+          </Box>
 
           <Box>
-            <Typography variant="subtitle2" sx={{ fontWeight: 700, fontSize: "0.84rem", lineHeight: 1.2 }}>
-              {isFinished ? "Archiving Complete" : "Archiving Agent Running"}
+            <Typography variant="subtitle2" sx={{ fontWeight: 800, fontSize: "0.84rem", lineHeight: 1.2 }}>
+              {isFinished ? "Archiving Complete" : "Alon: Archiving Records"}
             </Typography>
             <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.72rem" }}>
               {isFinished
@@ -134,20 +136,27 @@ export default function BackgroundArchivingWidget({
           "&:hover": { bgcolor: "action.selected" },
         }}
       >
-        <Typography
-          variant="caption"
-          sx={{
-            display: "block",
-            fontSize: "0.74rem",
-            fontWeight: 600,
-            color: "text.secondary",
-            textOverflow: "ellipsis",
-            overflow: "hidden",
-            whiteSpace: "nowrap",
-          }}
-        >
-          {isFinished ? "✓ Click to view newly cataloged documents" : `⚡ ${currentStep}`}
-        </Typography>
+        <Stack direction="row" spacing={0.75} sx={{ alignItems: "center" }}>
+          {isFinished ? (
+            <CheckCircleRoundedIcon sx={{ fontSize: 13, color: "success.main", flexShrink: 0 }} />
+          ) : (
+            <WavesRoundedIcon sx={{ fontSize: 13, color: "#06B6D4", flexShrink: 0 }} />
+          )}
+          <Typography
+            variant="caption"
+            sx={{
+              display: "block",
+              fontSize: "0.74rem",
+              fontWeight: 600,
+              color: "text.secondary",
+              textOverflow: "ellipsis",
+              overflow: "hidden",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {isFinished ? "Click to view newly cataloged documents" : currentStep}
+          </Typography>
+        </Stack>
       </Box>
     </Paper>
   );

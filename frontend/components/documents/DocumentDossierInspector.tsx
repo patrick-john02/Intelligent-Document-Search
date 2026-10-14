@@ -22,12 +22,14 @@ interface DocumentDossierInspectorProps {
   document: ArchiveDocument | null;
   onClose?: () => void;
   onAskAi?: (document: ArchiveDocument) => void;
+  onOpenDocument?: (document: ArchiveDocument) => void;
 }
 
 export default function DocumentDossierInspector({
   document,
   onClose,
   onAskAi,
+  onOpenDocument,
 }: DocumentDossierInspectorProps) {
   if (!document) {
     return (
@@ -305,8 +307,7 @@ export default function DocumentDossierInspector({
       {/* 7. Clean Action Buttons */}
       <Stack spacing={1} sx={{ mt: "auto", pt: 1.5, borderTop: "1px solid", borderColor: "divider" }}>
         <Button
-          component={Link}
-          href="/documents"
+          onClick={() => onOpenDocument && onOpenDocument(document)}
           variant="contained"
           color="primary"
           fullWidth
@@ -328,7 +329,7 @@ export default function DocumentDossierInspector({
             py: 0.75,
           }}
         >
-          Open Document
+          Open Document File
         </Button>
 
         <Button
@@ -336,15 +337,21 @@ export default function DocumentDossierInspector({
           variant="outlined"
           fullWidth
           size="small"
-          startIcon={<AutoAwesomeRoundedIcon sx={{ fontSize: 16 }} />}
+          startIcon={<AutoAwesomeRoundedIcon sx={{ fontSize: 16, color: "#EC4899" }} />}
           sx={{
             borderRadius: 1,
             textTransform: "none",
             fontWeight: 600,
             py: 0.75,
+            borderColor: "rgba(236, 72, 153, 0.4)",
+            color: "#DB2777",
+            "&:hover": {
+              borderColor: "#EC4899",
+              bgcolor: "rgba(236, 72, 153, 0.05)",
+            },
           }}
         >
-          Ask Mayumi (AI Assistant)
+          Ask Mayumi (Document Management Agent)
         </Button>
       </Stack>
     </Paper>

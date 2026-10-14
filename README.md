@@ -34,3 +34,7 @@ agents to be created:
 3. semantic search agent(researcher agent)
 4. document analysis agent
 5. report generator agent
+
+
+
+LLM used on development - Qwen3.5:2B and Qwen3.5:4B.

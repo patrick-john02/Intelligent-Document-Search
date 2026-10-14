@@ -21,33 +21,7 @@ export default function CardAlert() {
         bgcolor: "action.hover",
       }}
     >
-      <CardContent sx={{ p: 2, "&:last-child": { pb: 2 } }}>
-        <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 1 }}>
-          <AutoAwesomeRoundedIcon fontSize="small" sx={{ color: "primary.main" }} />
-          <Typography variant="subtitle2" sx={{ fontWeight: 700, fontSize: "0.82rem" }}>
-            AI Research Assistant
-          </Typography>
-        </Stack>
-        <Typography variant="body2" sx={{ mb: 1.75, color: "text.secondary", fontSize: "0.76rem", lineHeight: 1.4 }}>
-          Search guidelines and get verified page citations across all archived directives.
-        </Typography>
-        <Button
-          component={Link}
-          href="/chat"
-          variant="contained"
-          size="small"
-          fullWidth
-          sx={{
-            borderRadius: 1.5,
-            textTransform: "none",
-            fontWeight: 600,
-            fontSize: "0.78rem",
-            boxShadow: "none",
-          }}
-        >
-          Ask Question
-        </Button>
-      </CardContent>
+      
     </Card>
   );
 }
