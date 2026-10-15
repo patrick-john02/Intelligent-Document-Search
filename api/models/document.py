@@ -253,4 +253,4 @@ class DocumentExtractions(Base):
     ocr_score: Mapped[float] = mapped_column(Float, nullable=True)
     created_at:Mapped[datetime] = mapped_column(DateTime)
 
-    document_version: Mapped["DocumentVersion"] = relationship(back_populates="extration")
+    document_version: Mapped["DocumentVersion"] = relationship(back_populates="extraction")

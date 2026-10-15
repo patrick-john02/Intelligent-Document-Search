@@ -1,7 +1,7 @@
 # thresholds, weights, model folder
 from pathlib import Path
 
-MODEL_DIR = Path(__file__).resolve().parent[2] / "model_store" / "classification"
+MODEL_DIR = Path(__file__).resolve().parents[2] / "models_store" / "classification"
 
 AUTO_ASSIGN_THRESHOLD = 0.85 # >= this: assign automatically
 UNKNOWN_THRESHOLD = 0.40 # < this: "unknown"; in between: needs_review
