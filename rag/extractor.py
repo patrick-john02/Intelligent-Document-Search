@@ -1,6 +1,7 @@
 #rag/extractor.py handles extraction & OCR.
 from __future__ import annotations
 
+import re
 import asyncio 
 import mimetypes
 import io
@@ -15,6 +16,7 @@ class ExtractionResult:
     text:str
     is_scanned:bool=False
     ocr_score:float=1.0 #to see how confident the OCR engine is that it recognized the text correctly.
+    extractor: str = "unknown" 
 
 
 #initialize ocr engine    
@@ -52,10 +54,6 @@ def _extract_from_image_bytes(image_bytes:bytes)-> tuple[str, float]:
         return "", 0.0
 
 
-
-
-    
-    
 
 
 #orchestrates digital text + ocr page by page
@@ -198,3 +196,25 @@ async def extract_text(file_bytes:bytes, file_name: str = "" )->ExtractionResult
     print(f"[EXTRACTOR] '{file_name}' routed to Specialized fallback engine.")
     return await _extract_text_fallback(file_bytes, file_name)
     
+
+#added this helper at the botom. it turns the ## Page N markers into per-page records.
+PAGE_HEADER_RE = re.compile(r"^## Page (\d+)( \[Scanned Page\])?\s*$", re.MULTILINE)
+
+
+def split_page(text:str)->list[dict]:
+    matches=list(PAGE_HEADER_RE.finditer(text))
+    if not matches:
+        return [{"page": None, "text":text.strip(), "is_ocr":False}]
+
+    pages:list[dict] = []
+    for i, match in enumerate(matches):
+        start = match.end()
+        end = matches[i+1].start() if i + 1 < len(match) else len(text) 
+        pages.append({
+            "page": int(match.group(1)),
+            "text": text[start:end].strip(),
+            "is_ocr":bool(match.group(2))
+        })
+
+    return pages
+

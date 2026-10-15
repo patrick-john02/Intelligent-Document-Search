@@ -126,11 +126,16 @@ export default function ArchivingAgentModal({
               sx={{
                 width: 44,
                 height: 44,
+                bgcolor: "#FFFFFF",
                 border: "2px solid",
                 borderColor: isFinished ? "success.main" : "#06B6D4",
                 boxShadow: isFinished
                   ? "0 2px 10px rgba(16, 185, 129, 0.25)"
                   : "0 2px 10px rgba(6, 182, 212, 0.25)",
+                "& img": {
+                  objectFit: "contain",
+                  p: 0.2,
+                },
               }}
             />
           </Badge>

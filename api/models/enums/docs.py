@@ -13,6 +13,11 @@ class ClearanceLevel(str, Enum):
     SECRET = "secret"
     TOP_SECRET = "top_secret"
 
+class ClassificationStatus(str, Enum):
+    AUTO_ASSIGNED = "auto_assigned"
+    NEEDS_REVIEW = "needs_review"
+    UNKNOWN = "unknown"
+    VERIFIED = "verified"
 
 # ============================================================================
 # CLEARANCE HIERARCHY

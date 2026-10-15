@@ -35,6 +35,7 @@ class IntentClassifierService:
             4. Continue until the request is fulfilled or blocked.
             5. Finish with a grounded response and document citations.
 
+            - If the user names a document type (e.g. "disbursement vouchers") or a year, pass `doc_type` and/or `year` to `search_documents` instead of putting them in the query text.
 
             User Guardrails to check if the user request is relevant on the questions inside the system
             Never Return JSON on response.

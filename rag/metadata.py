@@ -21,6 +21,7 @@ class DocumentMetadata:
     file_name: str
     is_current: bool = True
     title: str | None = None
+    doc_type: str | None = None
 
 
 
@@ -66,6 +67,7 @@ def build_chunk_metadata(
         "is_current": doc_meta.is_current,
         "file_name": doc_meta.file_name,
         "chunk_id": str(chunk_id),
+        "doc_type": doc_meta.doc_type or "unknown",
     }
 
 

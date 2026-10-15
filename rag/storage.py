@@ -8,14 +8,16 @@ import logging
 from sqlalchemy import delete, text
 from core.dependencies import SessionLocal, deps
 from langchain_core.documents import Document
+from sqlalchemy import select
 
 from api.models.document import (
     DocumentVersion, 
     DocumentChunks, 
     DocumentParentChunks, 
     DocumentProcessingJobs,
+    DocumentExtractions,
 )
-
+from rag.extractor import ExtractionResult, split_page
 from api.models.enums.docs import JobStatus
 from rag.chunker import FileChunk, ParentChunk, ChunkingResult
 
@@ -123,10 +125,8 @@ async def save_chunks_to_database(
 
         version = await db_session.get(DocumentVersion, document_version_id)
         if version:
-            version.status = "indexed"
+            version.status = "chunked"
         await db_session.commit()
-
-
 
 
 async def update_document_status(
@@ -190,3 +190,67 @@ async def save_document_chunks(
 
     await save_chunks_to_vector_store(children, document_version_id=document_version_id)
     await save_chunks_to_database(document_version_id, children, parents)
+
+
+
+async def save_extraction(document_version_id: int, extraction: ExtractionResult)->None:
+    pages=split_page(extraction.text)
+    async with SessionLocal() as db_session:
+        await db_session.execute(
+            delete(DocumentExtractions).where(
+                DocumentExtractions.document_version_id == document_version_id
+            )
+        )
+
+        db_session.add(
+            DocumentExtractions(
+                document_version_id=document_version_id,
+                Extractor=extraction.extractor,
+                full_text=extraction.text,
+                pages=pages,
+                page_count=len(pages),
+                char_count=len(extraction.text),
+                is_scanned=extraction.is_scanned,
+                ocr_score=extraction.ocr_score,
+                created_at=datetime.now()
+            )
+        )
+        await db_session.commit()
+
+
+async def get_extraction(document_version_id: int)->DocumentExtractions | None:
+    async with SessionLocal() as db_session:
+        return await db_session.scalar(
+            select(DocumentExtractions).where(
+                DocumentExtractions.id == document_version_id,
+            )
+        )
+
+#embed staged saved chunks from the DB and push them to PGVector
+async def index_chunks_from_database(document_version_id: int)->int:
+    async with SessionLocal() as db_session:
+        result = await db_session.scalars(
+            select(DocumentChunks).where(
+                DocumentChunks.id == document_version_id,
+            ).order_by(DocumentChunks.chunk_index)
+        )
+        rows =result.all()
+
+    if not rows:
+        raise ValueError(f"Version {document_version_id} has no chunks to index.")
+
+
+    #same shape save_chunks_to_vector_store expects these (contents, metadata, ids)
+    chunks = [
+        SimpleNamespace(
+            content = rows.content,
+            metadata = rows.chunk_metadata or {},
+            document_version_id = rows.document_version_id,
+            chunk_id = (rows.chunk_metadata or {}).get("chunk_id", f"C{row.chunk_index + 1:03d}"),
+        )
+        for row in rows
+    ]
+
+    await save_chunks_to_vector_store(chunks, document_version_id=document_version_id)
+    return len(rows)
+    

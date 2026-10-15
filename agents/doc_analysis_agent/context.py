@@ -25,7 +25,7 @@ DOC_ANALYSIS_SYSTEM_PROMPT = """You are Sinag an expert Document Analysis Agent.
 class DocumentAnalysis(BaseModel):
     document_type: str
     summary: Optional[str] = None
-    topics: List[str]
+    topics: List[str]   
     key_points: List[str]
     entities: List[str]
     is_unclear: bool

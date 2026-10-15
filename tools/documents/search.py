@@ -14,6 +14,7 @@ from api.models.enums.docs import ClearanceLevel, get_subordinate_clearance_leve
 from tools.access.permissions import get_user_clearance_levels
 from core.configurations import app_settings
 from rag.reranker import reranker
+from rag.classification.labels import DOC_TYPES
 
 logger = logging.getLogger(__name__)
 
@@ -21,23 +22,34 @@ logger = logging.getLogger(__name__)
 current_user_context: ContextVar[Optional[Users]] = ContextVar("current_user_context", default=None)
 current_allowed_clearance: ContextVar[Optional[List[str]]] = ContextVar("current_allowed_clearance", default=None)
 
+DOC_TYPE_ALIASES = {
+    "dv": "disbursement_voucher",
+    "obr": "obligation_request",
+    "ors": "obligation_request",
+    "bur": "budget_utilization_request",
+    "pr": "purchase_request",
+    "po": "purchase_order",
+    "jev": "journal_entry_voucher",
+    "or": "official_receipt",
+}
 
-# ============================================================================
-# 1. PRE-RETRIEVAL AUTHORIZATION & VERSION SCOPE RESOLVER
-# Security & version filtering happens strictly BEFORE retrieval results reach
-# the candidate generation stage, RRF, reranker, or agents.
-#
-# Rules enforced in PostgreSQL:
-# 1. clearance_level <= user's clearance (hierarchical: public < internal < confidential < secret < top_secret)
-# 2. is_deleted = false (documents must be active)
-# 3. status = 'indexed' (document version must be successfully indexed)
-# 4. is_current = true (prevents historical version pollution; only disabled if include_historical=True)
-# ============================================================================
+
+def normalize_doc_type(value: Optional[str]) -> Optional[str]:
+    if not value:
+        return None
+    key = value.strip().lower().replace("-", " ").replace(" ", "_")
+    key = DOC_TYPE_ALIASES.get(key, key)
+    if key not in DOC_TYPES:
+        logger.info(f"[Search] Ignoring unknown doc_type filter '{value}'")
+        return None          # unknown type: search without the filter instead of returning nothing
+    return key
 
 async def resolve_authorized_version_ids(
     allowed_clearance_levels: list[str],
     include_historical: bool = False,
     document_ids: Optional[List[int]] = None,
+    doc_type: Optional[str] = None,
+    year: Optional[int] = None,
 ) -> list[int]:
     """
     Resolves the exact set of authorized document_version IDs before any retrieval occurs.
@@ -64,6 +76,14 @@ async def resolve_authorized_version_ids(
         sql += " AND d.id = ANY(:doc_ids)"
         params["doc_ids"] = document_ids
 
+    if doc_type:
+        sql += " AND dv.doc_type = :doc_type"
+        params["doc_type"] = doc_type
+
+    if year:
+        sql += " AND EXTRACT(YEAR FROM d.series_years) = :year"
+        params["year"] = year
+
     try:
         async with SessionLocal() as session:
             result = await session.execute(text(sql), params)
@@ -82,6 +102,7 @@ async def search_lexical_chunks(
     query: str,
     top_k: int = 10,
     authorized_version_ids: Optional[List[int]] = None,
+    
 ) -> list[dict[str, Any]]:
     """
     Performs fast lexical retrieval combining:
@@ -150,6 +171,7 @@ async def search_lexical_chunks(
                 "chunk_type": meta.get("chunk_type", "paragraph"),
                 "parent_chunk_id": r.get("parent_chunk_id") or meta.get("parent_chunk_id"),
                 "lexical_score": float(r["fts_rank"] or 0.0),
+                "doc_type": meta.get("doc_type", "unknown"),
             })
         return formatted
     except Exception as e:
@@ -213,6 +235,8 @@ async def search_documents(
     document_ids: Optional[List[int]] = None,
     expand_parents: bool = False,
     user: Optional[Users] = None,
+    doc_type: Optional[str] = None,
+    year: Optional[int] = None,
 ) -> list[dict[str, Any]]:
     """
     Two-Stage Hybrid Search with Pre-Retrieval Authorization & Version Filtering:
@@ -255,6 +279,8 @@ async def search_documents(
         allowed_clearance_levels=effective_clearances,
         include_historical=include_historical,
         document_ids=document_ids,
+        doc_type=normalize_doc_type(doc_type),
+        year=year,
     )
 
     if not authorized_version_ids:
@@ -298,6 +324,9 @@ async def search_documents(
             "chunk_type": doc.metadata.get("chunk_type", "paragraph"),
             "parent_chunk_id": doc.metadata.get("parent_chunk_id"),
             "vector_score": float(score),
+
+            "doc_type": doc.metadata.get("doc_type", "unknown"),
+
         })
 
     # 4. Reciprocal Rank Fusion (RRF) across Pre-Authorized Dense + Lexical Candidate Sets
@@ -396,6 +425,19 @@ class SearchDocumentsInput(BaseModel):
         default=None,
         description="Optional list of specific document IDs to restrict search to."
     )
+    doc_type: Optional[str] = Field(
+        default=None,
+        description=(
+            "Optional document type filter. One of: disbursement_voucher, obligation_request, "
+            "budget_utilization_request, purchase_request, purchase_order, payroll, "
+            "liquidation_report, official_receipt, journal_entry_voucher, other. "
+            "Use only when the user names a document type."
+        ),
+    )
+    year: Optional[int] = Field(
+        default=None,
+        description="Optional 4-digit year filter (e.g. 2024). Use only when the user names a year.",
+    )
 
 
 class FetchParentContextInput(BaseModel):
@@ -424,6 +466,8 @@ async def search_document_tool(
     include_historical: bool = False,
     expand_parents: bool = True,
     document_ids: Optional[List[int]] = None,
+    doc_type: Optional[str] = None,
+    year: Optional[int] = None,
 ) -> str:
     results = await search_documents(
         query=query,
@@ -431,6 +475,8 @@ async def search_document_tool(
         include_historical=include_historical,
         expand_parents=expand_parents,
         document_ids=document_ids,
+        doc_type=doc_type,
+        year=year,
     )
     if not results:
         return f"No relevant documents found matching query: '{query}'."
@@ -458,7 +504,8 @@ async def search_document_tool(
 
         output.append(
             f"[{idx}] File: {item.get('file_name', 'Unknown')}{page_info}{type_info}{section_info}{parent_info} ({score_type}: {score_val:.4f})\n"
-            f"Document ID: {item.get('document_id')} | Version: v{v_num} ({version_status}) | Clearance: {item.get('clearance_level', 'public')}\n"
+            # f"Document ID: {item.get('document_id')} | Version: v{v_num} ({version_status}) | Clearance: {item.get('clearance_level', 'public')}\n"
+            f"Document ID: {item.get('document_id')} | Doc Type: {item.get('doc_type', 'unknown')} | Version: v{v_num} ({version_status}) | Clearance: {item.get('clearance_level', 'public')}\n"
             f"Content:\n{item.get('content')}\n"
             f"{parent_section_text}"
         )

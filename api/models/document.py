@@ -83,6 +83,9 @@ class DocumentVersion(Base):
     ocr_accuracy_score: Mapped[float | None] = mapped_column(Float, nullable=True, default=None)
     is_scanned_pdf: Mapped[bool | None] = mapped_column(Boolean, nullable=True, default=None)
 
+    doc_type: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)
+    classification_status: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    classification_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     document_id: Mapped[int] = mapped_column(ForeignKey("documents.id"), index=True)
     document: Mapped["DocumentModel"] = relationship(back_populates="versions")
@@ -93,6 +96,25 @@ class DocumentVersion(Base):
     chunks: Mapped[list["DocumentChunks"]] = relationship(back_populates="document_version")
     parent_chunks: Mapped[list["DocumentParentChunks"]] = relationship(back_populates="document_version")
     cms_sources: Mapped[list["ChatMessageSources"]] = relationship(back_populates="document_version")
+
+    extraction: Mapped["DocumentExtractions | None"] = relationship(back_populates="document_version", uselist=False)
+
+class DocumentClassifications(Base):
+    __tablename__ = "document_classifications"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    document_version_id: Mapped[int] = mapped_column(
+        ForeignKey("document_version.id", ondelete="CASCADE"), index=True
+    )
+    source: Mapped[str] = mapped_column(String(30)) # rules | tfidf | embedding | transformer | ensemble | human
+    label: Mapped[str] = mapped_column(String(100))
+    confidence: Mapped[float] = mapped_column(Float)
+    probabilities: Mapped[dict[str, float]] = mapped_column(JSON, default=dict)
+    model_version: Mapped[str] = mapped_column(String(100), default="n/a")
+    status: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    is_final: Mapped[bool] = mapped_column(Boolean, default=False)
+    verified_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime)
+
 
 class DocumentTag(Base):
     __tablename__ = "document_tag"
@@ -213,3 +235,22 @@ class DocumentProcessingJobs(Base):
         default=JobStatus.PENDING,
         nullable=False
     )
+
+
+#checkpoint : raw extracted text so later stages never re-run OCR
+class DocumentExtractions(Base):
+    __tablename__ = "document_extractions"
+    id: Mapped[int]=mapped_column(Integer,primary_key=True,autoincrement=True)
+    document_version_id:Mapped[int] = mapped_column(
+        ForeignKey("document_version.id", ondelete="CASCADE"), unique=True, index=True
+    )
+    extractor: Mapped[str] = mapped_column(String(50))
+    full_text: Mapped[str] = mapped_column(Text)
+    pages: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list)
+    page_count: Mapped[int] = mapped_column(Integer, default=0)
+    char_count: Mapped[int] = mapped_column(Integer, default=0)
+    is_scanned: Mapped[bool] = mapped_column(Boolean, default=False)
+    ocr_score: Mapped[float] = mapped_column(Float, nullable=True)
+    created_at:Mapped[datetime] = mapped_column(DateTime)
+
+    document_version: Mapped["DocumentVersion"] = relationship(back_populates="extration")

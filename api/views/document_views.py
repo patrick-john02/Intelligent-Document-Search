@@ -1,10 +1,14 @@
 from fastapi import (
     UploadFile, File, Depends, HTTPException, APIRouter, status, Form
 )
-from rag.ingestion import process_document_task
+# from rag.ingestion import process_document_task
+from pydantic import BaseModel
+from rag.classification.store import confirm_classification
+from rag.pipeline import reindex_from_checkpoint
 from fastapi_pagination import Page, add_pagination, paginate
 from sqlalchemy import select, desc, func, update, or_
 from fastapi.concurrency import run_in_threadpool
+from rag.pipeline import start_ingestion_pipeline
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import selectinload
@@ -30,7 +34,7 @@ from api.schema.document_schema import (
     DocumentVersionSchema, DocumentUploadResponseSchema,
     
 )
-from rag.ingestion import process_uploaded_file
+# from rag.ingestion import process_uploaded_file
 from core.dependencies import Deps
 
 
@@ -53,6 +57,8 @@ router = APIRouter(prefix='/documents')
 add_pagination(router)
 
 
+class ClassificationConfirm(BaseModel):
+    label: str
 
 STORAGE_DIRECTORY = Path(os.getenv("DOCUMENT_PATH", "./documents"))
 ALLOWED_EXTENSIONS = {
@@ -231,6 +237,20 @@ async def update_document(
 
     return document
 
+#Human review endpoint (Alon can call the same function)
+@router.patch("/versions/{version_id}/classification")
+async def confirm_document_type(
+    version_id: int,
+    payload: ClassificationConfirm,
+    current_user: Users = Depends(get_current_active_user),
+):
+    try:
+        await confirm_classification(version_id, payload.label, current_user.id)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+    reindex_from_checkpoint(version_id)   # chunks get the corrected doc_type, no OCR
+    return {"version_id": version_id, "doc_type": payload.label, "status": "verified"}
 
 
 #delete document
@@ -367,8 +387,8 @@ async def created_document_file(
     #     str(final_file_path),
     # )
 
-    process_document_task.delay(
-        document_version_id=version_id,
+    start_ingestion_pipeline(
+        document_version_id=version_id, # use document_version.id in upload_new_version
         file_name=filename,
         file_path=str(final_file_path)
     )
@@ -466,7 +486,7 @@ async def upload_new_version(
     #     str(final_file_path),
     # )
 
-    process_document_task.delay(
+    start_ingestion_pipeline(
         document_version_id=document_version.id,
         file_name=filename,
         file_path=str(final_file_path)

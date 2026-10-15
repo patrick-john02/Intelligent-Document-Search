@@ -10,8 +10,9 @@ cd deployment
 docker compose up -d
 docker compose up -d pgadmin - for the UI on browser
 
-#CELERY
-docker run --name archive-redis -d -p 6379:6379 redis:7
+#CELERY Run two workers (in two terminals on Windows)
+uv run celery -A rag.worker worker -Q ocr -n ocr@%h --pool=solo -l info
+uv run celery -A rag.worker worker -Q default -n default@%h --pool=solo -l info
 
 
 # creds

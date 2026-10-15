@@ -90,6 +90,24 @@ export default function UploadDocumentDialog({
   const fillPercent = Math.min(100, Math.round((selectedFiles.length / MAX_BULK_FILES) * 100));
   const isCapacityFull = selectedFiles.length >= MAX_BULK_FILES;
 
+  // Dynamic wave fill scaling: Each dropped file visibly raises the water line
+  // Progresses smoothly from resting tide to ~32% for 1 file, scaling progressively to 100%
+  const dropWavePercent =
+    selectedFiles.length === 0
+      ? 0
+      : isCapacityFull
+      ? 100
+      : Math.min(98, Math.round(24 + Math.pow(selectedFiles.length / MAX_BULK_FILES, 0.72) * 74));
+
+  // Determine current wave height: Surges dramatically on drag-over and rises with dropped files
+  const currentWaveHeight = isCapacityFull
+    ? "100%"
+    : isDragOver
+    ? `${selectedFiles.length === 0 ? 74 : Math.min(95, Math.max(74, dropWavePercent + 32))}%`
+    : selectedFiles.length === 0
+    ? "28px"
+    : `${dropWavePercent}%`;
+
   const handleFilesAdded = (files: FileList | null) => {
     if (!files || files.length === 0) return;
     const newArr = Array.from(files);
@@ -165,6 +183,10 @@ export default function UploadDocumentDialog({
             overflow: "hidden",
             width: "100%",
             maxWidth: { xs: "95vw", sm: 880, md: 1040, lg: 1120 },
+            height: { xs: "92vh", sm: 760, md: 780 },
+            maxHeight: "92vh",
+            display: "flex",
+            flexDirection: "column",
             boxShadow: (theme) =>
               theme.palette.mode === "dark"
                 ? "0 0 40px rgba(0,0,0,0.85)"
@@ -178,6 +200,7 @@ export default function UploadDocumentDialog({
         sx={{
           height: 3.5,
           background: "linear-gradient(90deg, #06B6D4, #3B82F6, #10B981)",
+          flexShrink: 0,
         }}
       />
 
@@ -195,6 +218,7 @@ export default function UploadDocumentDialog({
               : "rgba(6, 182, 212, 0.03)",
           borderBottom: "1px solid",
           borderColor: "divider",
+          flexShrink: 0,
         }}
       >
         <Box>
@@ -203,24 +227,32 @@ export default function UploadDocumentDialog({
               Upload Documents
             </Typography>
             <Chip
-              icon={<WavesRoundedIcon sx={{ fontSize: "13px !important", color: "#06B6D4" }} />}
+              avatar={
+                <Avatar
+                  src="/alon.png"
+                  alt="Alon"
+                  sx={{
+                    width: "18px !important",
+                    height: "18px !important",
+                    bgcolor: "#FFFFFF",
+                  }}
+                />
+              }
               label="Alon (Archiving Agent)"
               size="small"
               sx={{
-                height: 22,
-                fontSize: "0.7rem",
+                height: 24,
+                fontSize: "0.72rem",
                 fontWeight: 700,
                 bgcolor: alpha("#06B6D4", 0.12),
                 color: "#0284C7",
                 border: "1px solid",
                 borderColor: alpha("#06B6D4", 0.3),
-                borderRadius: 1,
+                borderRadius: 1.5,
+                pl: 0.35,
               }}
             />
           </Stack>
-          <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.78rem" }}>
-            Autonomous OCR extraction, entity discovery, and physical coordinate mapping
-          </Typography>
         </Box>
 
         <Tooltip title="Close">
@@ -230,8 +262,18 @@ export default function UploadDocumentDialog({
         </Tooltip>
       </DialogTitle>
 
-      <form onSubmit={handleSubmit}>
-        <DialogContent sx={{ p: 3 }}>
+      <Box
+        component="form"
+        onSubmit={handleSubmit}
+        sx={{
+          display: "flex",
+          flexDirection: "column",
+          flex: 1,
+          minHeight: 0,
+          overflow: "hidden",
+        }}
+      >
+        <DialogContent sx={{ p: 3, flex: 1, minHeight: 0, overflowY: "auto" }}>
           <Stack spacing={3}>
             {/* Assistant Welcome Card featuring 3D Spotlight Container & Typewriter Effect */}
             <Paper
@@ -250,39 +292,40 @@ export default function UploadDocumentDialog({
               }}
             >
               <Stack direction={{ xs: "column", sm: "row" }} spacing={2.25} sx={{ alignItems: { sm: "center" } }}>
-                {/* 3D Model / Image Spotlight Slot for Alon */}
+                {/* Profile Spotlight Slot for Alon */}
                 <Box
                   sx={{
-                    width: { xs: 76, sm: 88 },
-                    height: { xs: 76, sm: 88 },
-                    borderRadius: 2.5,
-                    p: 0.75,
-                    bgcolor: (theme) =>
-                      theme.palette.mode === "dark"
-                        ? "rgba(6, 182, 212, 0.12)"
-                        : "rgba(6, 182, 212, 0.08)",
-                    border: "2px solid",
-                    borderColor: alpha("#06B6D4", 0.4),
+                    width: { xs: 78, sm: 88 },
+                    height: { xs: 78, sm: 88 },
+                    borderRadius: "50%",
+                    p: 0.5,
+                    bgcolor: "#FFFFFF",
+                    border: "2.5px solid",
+                    borderColor: "#06B6D4",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                     flexShrink: 0,
                     position: "relative",
-                    boxShadow: "0 4px 18px rgba(6, 182, 212, 0.22)",
+                    boxShadow: "0 4px 18px rgba(6, 182, 212, 0.28)",
                     background:
-                      "radial-gradient(circle, rgba(6,182,212,0.25) 0%, rgba(6,182,212,0.03) 75%)",
+                      "radial-gradient(circle, rgba(6,182,212,0.2) 0%, rgba(255,255,255,1) 85%)",
                   }}
                 >
                   <Avatar
                     src="/alon.png"
-                    alt="Alon 3D"
+                    alt="Agent Alon Profile"
                     sx={{
                       width: "100%",
                       height: "100%",
-                      borderRadius: 2,
+                      bgcolor: "#FFFFFF",
+                      "& img": {
+                        objectFit: "contain",
+                        p: 0.25,
+                      },
                     }}
                   />
-                  {/* 3D Identifier Badge */}
+                  {/* Identifier Badge */}
                   <Box
                     sx={{
                       position: "absolute",
@@ -296,9 +339,10 @@ export default function UploadDocumentDialog({
                       fontWeight: 800,
                       letterSpacing: "0.05em",
                       boxShadow: "0 2px 6px rgba(6, 182, 212, 0.4)",
+                      whiteSpace: "nowrap",
                     }}
                   >
-                    ALON AGENT
+                    AGENT ALON
                   </Box>
                 </Box>
 
@@ -333,27 +377,6 @@ export default function UploadDocumentDialog({
                       />
                     )}
                   </Typography>
-
-                  <Stack direction="row" spacing={0.75} sx={{ mt: 1.25, flexWrap: "wrap", gap: 0.5 }}>
-                    <Chip
-                      size="small"
-                      label="Anydoc OCR Engine Armed"
-                      icon={<VerifiedRoundedIcon sx={{ fontSize: "12px !important", color: "#06B6D4" }} />}
-                      sx={{ height: 20, fontSize: "0.66rem", fontWeight: 700, bgcolor: "background.paper", border: "1px solid", borderColor: alpha("#06B6D4", 0.3) }}
-                    />
-                    <Chip
-                      size="small"
-                      label="Auto-Title Discovery"
-                      icon={<AutoAwesomeOutlinedIcon sx={{ fontSize: "12px !important", color: "#0284C7" }} />}
-                      sx={{ height: 20, fontSize: "0.66rem", fontWeight: 700, bgcolor: "background.paper", border: "1px solid", borderColor: "divider" }}
-                    />
-                    <Chip
-                      size="small"
-                      label="Vector Embeddings"
-                      icon={<DescriptionOutlinedIcon sx={{ fontSize: "12px !important", color: "#8B5CF6" }} />}
-                      sx={{ height: 20, fontSize: "0.66rem", fontWeight: 700, bgcolor: "background.paper", border: "1px solid", borderColor: "divider" }}
-                    />
-                  </Stack>
                 </Box>
               </Stack>
             </Paper>
@@ -371,26 +394,31 @@ export default function UploadDocumentDialog({
               }}
               sx={{
                 p: { xs: 3, sm: 4 },
-                minHeight: 200,
+                minHeight: 210,
                 borderRadius: 2.5,
                 border: "2px dashed",
                 borderColor: isCapacityFull
                   ? "success.main"
                   : isDragOver
-                  ? "primary.main"
+                  ? "#06B6D4"
                   : selectedFiles.length > 0
                   ? "primary.light"
                   : "divider",
                 bgcolor: isCapacityFull
-                  ? alpha("#10B981", 0.04)
+                  ? alpha("#10B981", 0.05)
                   : isDragOver
-                  ? alpha("#06B6D4", 0.08)
+                  ? alpha("#06B6D4", 0.09)
                   : "background.default",
+                boxShadow: isDragOver
+                  ? "0 0 28px rgba(6, 182, 212, 0.32), inset 0 0 20px rgba(6, 182, 212, 0.12)"
+                  : isCapacityFull
+                  ? "0 0 20px rgba(16, 185, 129, 0.2)"
+                  : "none",
                 textAlign: "center",
                 cursor: isCapacityFull ? "default" : "pointer",
                 position: "relative",
                 overflow: "hidden",
-                transition: "border-color 0.2s ease, background-color 0.2s ease",
+                transition: "all 0.3s cubic-bezier(0.25, 1, 0.5, 1)",
                 "&:hover": {
                   borderColor: isCapacityFull ? "success.main" : "primary.main",
                   bgcolor: isCapacityFull ? alpha("#10B981", 0.06) : alpha("#06B6D4", 0.03),
@@ -398,6 +426,10 @@ export default function UploadDocumentDialog({
                 "@keyframes alonWaveMove": {
                   "0%": { transform: "translateX(0)" },
                   "100%": { transform: "translateX(-50%)" },
+                },
+                "@keyframes alonWaveMoveReverse": {
+                  "0%": { transform: "translateX(-50%)" },
+                  "100%": { transform: "translateX(0)" },
                 },
               }}
             >
@@ -408,8 +440,8 @@ export default function UploadDocumentDialog({
                   bottom: 0,
                   left: 0,
                   right: 0,
-                  height: selectedFiles.length === 0 ? "24px" : isCapacityFull ? "100%" : `${Math.max(22, fillPercent)}%`,
-                  transition: "height 0.6s cubic-bezier(0.34, 1.25, 0.64, 1)",
+                  height: currentWaveHeight,
+                  transition: "height 0.55s cubic-bezier(0.34, 1.25, 0.64, 1)",
                   pointerEvents: "none",
                   display: "flex",
                   flexDirection: "column",
@@ -417,34 +449,87 @@ export default function UploadDocumentDialog({
                   zIndex: 1,
                 }}
               >
-                {/* Wave Crest SVG */}
+                {/* Multi-Layered Fluid Wave Crest SVGs with parallax counter-motion */}
                 <Box
                   sx={{
                     width: "100%",
-                    height: 34,
+                    height: isDragOver ? 54 : 44,
                     flexShrink: 0,
                     overflow: "hidden",
-                    opacity: isCapacityFull ? 0.95 : 0.85,
+                    position: "relative",
+                    transition: "height 0.4s ease",
+                    opacity: isCapacityFull ? 0.96 : 0.9,
                   }}
                 >
-                  <svg
-                    viewBox="0 0 1200 120"
-                    preserveAspectRatio="none"
-                    style={{
-                      width: "200%",
+                  {/* Rear Secondary Wave (Offset counter-motion, richer depth) */}
+                  <Box
+                    sx={{
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      width: "100%",
                       height: "100%",
-                      animation: isDragOver ? "alonWaveMove 2.5s linear infinite" : "alonWaveMove 5s linear infinite",
+                      overflow: "hidden",
                     }}
                   >
-                    <path
-                      d="M0,35 C150,85 350,5 500,50 C650,95 900,15 1200,55 L1200,120 L0,120 Z"
-                      fill={isCapacityFull ? "rgba(16, 185, 129, 0.38)" : "rgba(6, 182, 212, 0.32)"}
-                    />
-                    <path
-                      d="M0,55 C200,105 400,15 600,65 C800,115 1000,25 1200,70 L1200,120 L0,120 Z"
-                      fill={isCapacityFull ? "rgba(5, 150, 105, 0.45)" : "rgba(2, 132, 199, 0.38)"}
-                    />
-                  </svg>
+                    <svg
+                      viewBox="0 0 1200 120"
+                      preserveAspectRatio="none"
+                      style={{
+                        width: "200%",
+                        height: "100%",
+                        animation: isDragOver
+                          ? "alonWaveMoveReverse 2.2s linear infinite"
+                          : "alonWaveMoveReverse 5s linear infinite",
+                      }}
+                    >
+                      <path
+                        d="M0,55 C200,105 400,15 600,65 C800,115 1000,25 1200,70 L1200,120 L0,120 Z"
+                        fill={
+                          isCapacityFull
+                            ? "rgba(5, 150, 105, 0.52)"
+                            : isDragOver
+                            ? "rgba(2, 132, 199, 0.52)"
+                            : "rgba(2, 132, 199, 0.4)"
+                        }
+                      />
+                    </svg>
+                  </Box>
+
+                  {/* Front Primary Wave (Fast forward rolling ocean wave crest) */}
+                  <Box
+                    sx={{
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      width: "100%",
+                      height: "100%",
+                      overflow: "hidden",
+                    }}
+                  >
+                    <svg
+                      viewBox="0 0 1200 120"
+                      preserveAspectRatio="none"
+                      style={{
+                        width: "200%",
+                        height: "100%",
+                        animation: isDragOver
+                          ? "alonWaveMove 1.6s linear infinite"
+                          : "alonWaveMove 3.6s linear infinite",
+                      }}
+                    >
+                      <path
+                        d="M0,35 C150,85 350,5 500,50 C650,95 900,15 1200,55 L1200,120 L0,120 Z"
+                        fill={
+                          isCapacityFull
+                            ? "rgba(16, 185, 129, 0.44)"
+                            : isDragOver
+                            ? "rgba(6, 182, 212, 0.46)"
+                            : "rgba(6, 182, 212, 0.34)"
+                        }
+                      />
+                    </svg>
+                  </Box>
                 </Box>
 
                 {/* Submerged Water Body filling the bottom */}
@@ -453,8 +538,13 @@ export default function UploadDocumentDialog({
                     width: "100%",
                     flex: 1,
                     background: isCapacityFull
-                      ? "linear-gradient(180deg, rgba(16, 185, 129, 0.22) 0%, rgba(5, 150, 105, 0.42) 100%)"
-                      : "linear-gradient(180deg, rgba(6, 182, 212, 0.16) 0%, rgba(2, 132, 199, 0.3) 100%)",
+                      ? "linear-gradient(180deg, rgba(16, 185, 129, 0.28) 0%, rgba(5, 150, 105, 0.52) 100%)"
+                      : isDragOver
+                      ? "linear-gradient(180deg, rgba(6, 182, 212, 0.32) 0%, rgba(2, 132, 199, 0.46) 55%, rgba(3, 105, 161, 0.6) 100%)"
+                      : selectedFiles.length > 0
+                      ? "linear-gradient(180deg, rgba(6, 182, 212, 0.22) 0%, rgba(2, 132, 199, 0.38) 100%)"
+                      : "linear-gradient(180deg, rgba(6, 182, 212, 0.16) 0%, rgba(2, 132, 199, 0.28) 100%)",
+                    transition: "background 0.3s ease",
                   }}
                 />
               </Box>
@@ -476,13 +566,24 @@ export default function UploadDocumentDialog({
                     width: 52,
                     height: 52,
                     borderRadius: "50%",
-                    bgcolor: isCapacityFull ? alpha("#10B981", 0.14) : (theme) => alpha(theme.palette.primary.main, 0.1),
-                    color: isCapacityFull ? "success.main" : "primary.main",
+                    bgcolor: isCapacityFull
+                      ? alpha("#10B981", 0.14)
+                      : isDragOver
+                      ? alpha("#06B6D4", 0.22)
+                      : (theme) => alpha(theme.palette.primary.main, 0.1),
+                    color: isCapacityFull
+                      ? "success.main"
+                      : isDragOver
+                      ? "#0284C7"
+                      : "primary.main",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                     mx: "auto",
                     mb: 1.25,
+                    transform: isDragOver ? "scale(1.12) translateY(-3px)" : "scale(1)",
+                    transition: "all 0.25s ease",
+                    boxShadow: isDragOver ? "0 4px 18px rgba(6, 182, 212, 0.35)" : "none",
                   }}
                 >
                   {isCapacityFull ? (
@@ -496,6 +597,10 @@ export default function UploadDocumentDialog({
                   {isCapacityFull ? (
                     <Box component="span" sx={{ color: "success.main" }}>
                       Bulk Capacity Reached ({selectedFiles.length}/{MAX_BULK_FILES})
+                    </Box>
+                  ) : isDragOver ? (
+                    <Box component="span" sx={{ color: "#0284C7", fontWeight: 900 }}>
+                      Release to Drop Records into Water Tank
                     </Box>
                   ) : (
                     <>
@@ -514,39 +619,63 @@ export default function UploadDocumentDialog({
                 {/* Metric Display inside the tank: {number}/25 */}
                 <Box sx={{ mt: 1.5 }}>
                   <Chip
-                    label={`${selectedFiles.length}/${MAX_BULK_FILES}`}
-                    color={isCapacityFull ? "success" : selectedFiles.length > 0 ? "primary" : "default"}
+                    icon={
+                      isDragOver ? (
+                        <WavesRoundedIcon sx={{ fontSize: "14px !important", color: "#0284C7" }} />
+                      ) : undefined
+                    }
+                    label={
+                      isDragOver
+                        ? "Alon is Active Drop here to ingest"
+                        : `${selectedFiles.length}/${MAX_BULK_FILES}`
+                    }
+                    color={
+                      isCapacityFull
+                        ? "success"
+                        : isDragOver
+                        ? "info"
+                        : selectedFiles.length > 0
+                        ? "primary"
+                        : "default"
+                    }
                     size="small"
                     sx={{
                       fontWeight: 800,
-                      fontSize: "0.84rem",
-                      fontFamily: "monospace",
+                      fontSize: isDragOver ? "0.75rem" : "0.84rem",
+                      fontFamily: isDragOver ? "inherit" : "monospace",
                       letterSpacing: "0.04em",
                       height: 26,
                       px: 0.5,
-                      boxShadow: isCapacityFull ? "0 2px 8px rgba(16, 185, 129, 0.25)" : "none",
+                      boxShadow: isCapacityFull
+                        ? "0 2px 8px rgba(16, 185, 129, 0.25)"
+                        : isDragOver
+                        ? "0 2px 10px rgba(6, 182, 212, 0.35)"
+                        : "none",
+                      transition: "all 0.25s ease",
                     }}
                   />
                 </Box>
               </Box>
             </Paper>
 
-            {/* Standard, Clean Staged Files List (No heavy animations, optimal for PC performance) */}
-            {selectedFiles.length > 0 && (
-              <Box>
-                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
-                  <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
-                    <Typography variant="caption" sx={{ fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", color: "text.secondary" }}>
-                      Staged Records ({selectedFiles.length}/{MAX_BULK_FILES})
-                    </Typography>
+            {/* Standard, Clean Staged Files List (Pre-reserved slot so dialog never jumps or adjusts) */}
+            <Box>
+              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
+                <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+                  <Typography variant="caption" sx={{ fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", color: "text.secondary" }}>
+                    Staged Records ({selectedFiles.length}/{MAX_BULK_FILES})
+                  </Typography>
+                  {selectedFiles.length > 0 && (
                     <Chip
                       size="small"
                       label={formatFileSize(totalBytes)}
                       variant="outlined"
                       sx={{ height: 20, fontSize: "0.68rem", fontWeight: 700 }}
                     />
-                  </Stack>
+                  )}
+                </Stack>
 
+                {selectedFiles.length > 0 && (
                   <Button
                     size="small"
                     color="inherit"
@@ -563,9 +692,24 @@ export default function UploadDocumentDialog({
                   >
                     Clear all
                   </Button>
-                </Box>
+                )}
+              </Box>
 
-                <Stack spacing={0.75} sx={{ maxHeight: 180, overflowY: "auto", pr: 0.5 }}>
+              {selectedFiles.length > 0 ? (
+                <Box
+                  sx={{
+                    display: "grid",
+                    gridTemplateColumns: {
+                      xs: "1fr",
+                      sm: "repeat(2, 1fr)",
+                      md: "repeat(3, 1fr)",
+                    },
+                    gap: 1,
+                    maxHeight: 180,
+                    overflowY: "auto",
+                    pr: 0.5,
+                  }}
+                >
                   {selectedFiles.map((file, idx) => (
                     <Paper
                       key={`${file.name}-${idx}`}
@@ -573,55 +717,88 @@ export default function UploadDocumentDialog({
                       sx={{
                         p: 1.25,
                         px: 1.5,
-                        borderRadius: 1.5,
+                        borderRadius: 2,
                         display: "flex",
-                        justifyContent: "space-between",
                         alignItems: "center",
+                        justifyContent: "space-between",
                         bgcolor: "background.paper",
+                        border: "1px solid",
+                        borderColor: "divider",
+                        transition: "border-color 0.15s ease, box-shadow 0.15s ease",
+                        "&:hover": {
+                          borderColor: "primary.main",
+                          boxShadow: "0 2px 8px rgba(6, 182, 212, 0.12)",
+                        },
                       }}
                     >
-                      <Stack direction="row" spacing={1.25} sx={{ alignItems: "center", overflow: "hidden", minWidth: 0 }}>
-                        {getFileIcon(file.name)}
+                      <Stack
+                        direction="row"
+                        spacing={1}
+                        sx={{ alignItems: "center", overflow: "hidden", minWidth: 0, flex: 1, mr: 0.5 }}
+                      >
+                        <Box sx={{ flexShrink: 0, display: "flex", alignItems: "center" }}>
+                          {getFileIcon(file.name)}
+                        </Box>
                         <Box sx={{ overflow: "hidden", minWidth: 0 }}>
-                          <Typography variant="body2" noWrap sx={{ fontWeight: 600, fontSize: "0.82rem" }}>
+                          <Typography
+                            variant="body2"
+                            noWrap
+                            sx={{ fontWeight: 600, fontSize: "0.79rem", lineHeight: 1.25 }}
+                          >
                             {file.name}
                           </Typography>
-                          <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.7rem" }}>
+                          <Typography
+                            variant="caption"
+                            sx={{ color: "text.secondary", fontSize: "0.68rem", display: "block" }}
+                          >
                             {formatFileSize(file.size)}
                           </Typography>
                         </Box>
                       </Stack>
 
-                      <IconButton
-                        size="small"
-                        onClick={() => handleRemoveFile(idx)}
-                        sx={{ color: "text.secondary", "&:hover": { color: "error.main" } }}
-                      >
-                        <DeleteOutlineRoundedIcon sx={{ fontSize: 16 }} />
-                      </IconButton>
+                      <Tooltip title="Remove file">
+                        <IconButton
+                          size="small"
+                          onClick={() => handleRemoveFile(idx)}
+                          sx={{
+                            color: "text.secondary",
+                            flexShrink: 0,
+                            p: 0.5,
+                            "&:hover": { color: "error.main" },
+                          }}
+                        >
+                          <DeleteOutlineRoundedIcon sx={{ fontSize: 16 }} />
+                        </IconButton>
+                      </Tooltip>
                     </Paper>
                   ))}
-                </Stack>
-              </Box>
-            )}
+                </Box>
+              ) : (
+                <Paper
+                  variant="outlined"
+                  sx={{
+                    py: 1.75,
+                    px: 2,
+                    borderRadius: 2,
+                    borderStyle: "dashed",
+                    borderColor: "divider",
+                    bgcolor: (theme) => alpha(theme.palette.text.primary, 0.015),
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.76rem" }}>
+                    No files staged yet — records dropped into the water tank will appear here
+                  </Typography>
+                </Paper>
+              )}
+            </Box>
 
             <Divider />
 
             {/* Physical Storage Coordinates Dropdown */}
             <Box>
-              <Typography
-                variant="caption"
-                sx={{
-                  fontWeight: 800,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.04em",
-                  color: "text.secondary",
-                  display: "block",
-                  mb: 1,
-                }}
-              >
-                Physical Archival Vault Coordinates
-              </Typography>
               <CabinetSelectDropdown
                 cabinet={cabinet}
                 onCabinetChange={setCabinet}
@@ -637,7 +814,7 @@ export default function UploadDocumentDialog({
           </Stack>
         </DialogContent>
 
-        <DialogActions sx={{ p: 2, px: 3, borderTop: "1px solid", borderColor: "divider" }}>
+        <DialogActions sx={{ p: 2, px: 3, borderTop: "1px solid", borderColor: "divider", flexShrink: 0 }}>
           <Button
             onClick={onClose}
             color="inherit"
@@ -658,7 +835,7 @@ export default function UploadDocumentDialog({
             Save
           </Button>
         </DialogActions>
-      </form>
+      </Box>
     </Dialog>
   );
 }

@@ -9,7 +9,7 @@ celery_app = Celery(
     "ingestion_worker",
     broker="redis://localhost:6379/0",
     backend="redis://localhost:6379/0",
-    include=["rag.ingestion"],
+    include=["rag.ingestion", "rag.pipeline"],
 )
 
 #Optional: Configure Celery for better performance with long-running tasks
@@ -17,7 +17,9 @@ celery_app.conf.update(
     task_serializer="json",
     accept_content=["json"],
     result_serializer="json",
-    # worker_prefetch_multiplier=1, Prevents on worker from hoarding all heavy OCR tasks
-    task_acks_late=True #Ensures tasks are retried if the worker crashes mid-OCR
+    task_default_queue="default",
+    task_acks_late=True,
+    task_reject_on_worker_lost=True,
+    worker_prefetch_multiplier=1,          # one heavy OCR job at a time per worker
+    broker_transport_options={"visibility_timeout": 4 * 60 * 60},  # long scans won't be re-delivered
 )
-
