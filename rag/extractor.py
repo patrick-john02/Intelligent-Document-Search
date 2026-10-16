@@ -85,9 +85,9 @@ def extract_pdf_interleaved(file_bytes: bytes) -> tuple[str, bool, float]:
                     has_scanned = True
                     if score > 0:
                         ocr_scores.append(score)
-                        assembled_pages.append(
-                            f"## Page {page_index + 1} [Scanned Page]\n\n{ocr_text.strip()}"
-                        )
+                    assembled_pages.append(
+                        f"## Page {page_index + 1} [Scanned Page]\n\n{ocr_text.strip()}"
+                    )
                 elif digital_text:
                     assembled_pages.append(f"## Page {page_index + 1}\n\n{digital_text}")
 
@@ -115,6 +115,7 @@ async def _extract_text_kreuzberg(file_bytes: bytes, file_name: str)->Extraction
         if result and getattr(result, "content", None):
             return ExtractionResult(
                 text=result.content.strip(),
+                extractor="kreuzberg",
                 is_scanned=False,
                 ocr_score=1.0,
             )
@@ -158,34 +159,42 @@ async def _extract_text_fallback(file_bytes: bytes, file_name: str = "") -> Extr
     if ext in ["png", "jpg", "jpeg", "webp", "tiff", "bmp"]:
         print(f"[Extractor] '{file_name}' detected as image. Running RapidOCR...")
         text, score = await asyncio.to_thread(_extract_from_image_bytes, file_bytes)
-        return ExtractionResult(text=text, is_scanned=True, ocr_score=score)
+        return ExtractionResult(text=text, is_scanned=True, ocr_score=score, extractor="rapidocr")
 
     if ext in ["txt", "csv", "md"]:
         print(f"[Extractor] '{file_name}' detected as text file. Decoding...")
         text = await asyncio.to_thread(anydoc.to_markdown_bytes, file_bytes)
-        return ExtractionResult(text=text or "", is_scanned=False, ocr_score=1.0)
+        return ExtractionResult(text=text or "", is_scanned=False, ocr_score=1.0, extractor="anydoc")
 
     if ext in ["docx", "pptx", "xlsx", "doc"]:
         print(f"[Extractor] '{file_name}' detected as office document. Parsing...")
         text = await asyncio.to_thread(anydoc.to_markdown_bytes, file_bytes)
-        return ExtractionResult(text=text or "", is_scanned=False, ocr_score=1.0)
+        return ExtractionResult(text=text or "", is_scanned=False, ocr_score=1.0, extractor="anydoc")
 
     print(f"[Extractor] Processing PDF '{file_name}' through Interleaved Engine...")
     pdf_text, is_scanned, score = await asyncio.to_thread(
         extract_pdf_interleaved, file_bytes
     )
     if pdf_text and len(pdf_text.strip()) > 0:
-        return ExtractionResult(text=pdf_text, is_scanned=is_scanned, ocr_score=score)
+        return ExtractionResult(text=pdf_text, is_scanned=is_scanned, ocr_score=score, extractor="pdf_interleaved")
 
     fallback_text = await asyncio.to_thread(anydoc.to_markdown_bytes, file_bytes)
-    return ExtractionResult(text=fallback_text or "", is_scanned=False, ocr_score=1.0)        
+    return ExtractionResult(text=fallback_text or "", is_scanned=False, ocr_score=1.0, extractor="anydoc")        
         
 
 
 #router endpoint
 #will try kreuzberg->output throught the extractionqualitygate->pass->if failed routes to fall back engine(fail)
 async def extract_text(file_bytes:bytes, file_name: str = "" )->ExtractionResult:
-    
+
+    # PDFs go straight to the interleaved engine: Kreuzberg output has no "## Page N"
+    # markers, so it could never pass the quality gate and only wasted a full parse.
+    # The interleaved engine also keeps page numbers and OCRs scanned pages individually.
+    ext = file_name.lower().rsplit(".", 1)[-1] if "." in file_name else ""
+    if ext == "pdf":
+        print(f"[EXTRACTOR] '{file_name}' is a PDF; using interleaved engine.")
+        return await _extract_text_fallback(file_bytes, file_name)
+
     result = await _extract_text_kreuzberg(file_bytes, file_name)
     
     if ExtractionQualityGate.is_acceptable(result, file_name, file_bytes):

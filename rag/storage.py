@@ -205,7 +205,7 @@ async def save_extraction(document_version_id: int, extraction: ExtractionResult
         db_session.add(
             DocumentExtractions(
                 document_version_id=document_version_id,
-                Extractor=extraction.extractor,
+                extractor=extraction.extractor,
                 full_text=extraction.text,
                 pages=pages,
                 page_count=len(pages),
