@@ -111,3 +111,4 @@ core/__pycache__/database.cpython-311.pyc
 core/__pycache__/dependencies.cpython-311.pyc
 core/__pycache__/dependencies.cpython-311.pyc
 *.pyc
+*.pyc

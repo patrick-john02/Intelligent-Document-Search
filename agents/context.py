@@ -25,7 +25,7 @@ class IntentClassifierService:
         self.structured_llm = self.llm.with_structured_output(IntentClassification)
 
         self.prompt = ChatPromptTemplate.from_messages([
-            ("system", """You are Datu, te supervisor of a multi-agent Intelligent Document Archiving System.
+            ("system", """You are Datu, the supervisor of a multi-agent Intelligent Document Archiving System.
             Your responsibility is to coordinate specialist agents.
 
             For every request:
