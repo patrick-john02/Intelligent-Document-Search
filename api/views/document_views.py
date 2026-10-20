@@ -23,7 +23,7 @@ import os
 
 #models
 from api.models.document import (
-    DocumentModel, DocumentVersion, DocumentTagAssignments
+    DocumentModel, DocumentVersion, DocumentTagAssignments, DocumentCategory
 )
 from api.models.enums.docs import ClearanceLevel
 from api.models.users import Users
@@ -324,6 +324,14 @@ async def created_document_file(
             status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid Format {extension} is no allowed only {ALLOWED_EXTENSIONS}"
         )
     
+    
+    #validate category exists before saving anything
+    category = await db.get(DocumentCategory, document_category_id)
+    if not category:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid document_category_id {document_category_id}: category does not exist"
+        )
     
     #read bytes
     file_bytes = await file.read()

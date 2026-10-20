@@ -1,5 +1,9 @@
 from datetime import datetime, timezone
 from langchain_core.messages import HumanMessage
+from langgraph.errors import GraphRecursionError
+
+from tools.documents.search import current_allowed_clearance
+from tools.access.permissions import get_user_clearance_levels
 
 from fastapi import(
     status, HTTPException, APIRouter, Depends
@@ -127,12 +131,26 @@ async def talk_to_ai(
     }
     config = {
         "configurable": {"thread_id":str(conversation.id)},
-        "recursion_limit": 6 #guardrail : stops execution after 6 steps maximum
+        "recursion_limit": 20 #guardrail : stops execution after 20 steps maximum
     }
-    
-    agent_output = await agent_app.ainvoke(initial_state, config=config)
-    last_msg = agent_output.get("messages", [])[-1].content if agent_output.get("message") else None
-    ai_content = agent_output.get("final_response") or last_msg or "No response generated."
+
+    token = current_allowed_clearance.set(get_user_clearance_levels(current_user))
+    # try:
+    #     agent_output = await agent_app.ainvoke(initial_state, config=config)
+    #     last_msg = agent_output.get("messages", [])[-1].content if agent_output.get("message") else None
+    #     ai_content = agent_output.get("final_response") or last_msg or "No response generated."
+    # except GraphRecursionError:
+    #     ai_content = "Sorry that request needed too many steps. Please make it more specific"
+
+    try:
+        agent_output = await agent_app.ainvoke(initial_state, config=config)
+        msgs = agent_output.get("messages", [])
+        last_msg = msgs[-1].content if msgs else None
+        ai_content = agent_output.get("final_response") or last_msg or "No response generated."
+    except GraphRecursionError:
+        ai_content = "Sorry, that request needed too many steps. Please make it more specific."
+    finally:
+        current_allowed_clearance.reset(token)
     
     assistant_message = ChatMessages(
         conversation_id = conversation.id,
@@ -151,8 +169,8 @@ async def talk_to_ai(
     return{
         "message": "Chat Created Successfully", 
         "conversation_id": conversation.id,
-        "chat": user_message,
-        "assistant_message": assistant_message
+        "chat": ChatMessagesResponse.model_validate(user_message),
+        "assistant_message": ChatMessagesResponse.model_validate(assistant_message)
     }
 
 
@@ -217,7 +235,7 @@ async def delete_conversation(
 
 
 #TODO: message feedback endpoint
-@router.patch("/messages/{id}/feedback", status_code=status.HTTP_200_OK)
+@router.patch("/messages/{id}/feedback", status_code=status.HTTP_200_OK, response_model=ChatMessagesResponse)
 async def users_feedback(
     id:int,
     payload: ChatRating,

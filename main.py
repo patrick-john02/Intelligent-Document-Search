@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 
 
 from core.configurations import app_settings
+from core.openapi_categories import setup_category_dropdown
 from agents.checkpointer import init_checkpointer, close_checkpointer
 
 from api.views import (
@@ -29,7 +30,7 @@ async def lifespan(app:FastAPI):
 
 
 
-app = FastAPI(title="Document Archiving system with Semantic Retrieval System")
+app = FastAPI(title="Document Archiving system with Semantic Retrieval System", lifespan=lifespan)
 
 origins = [origin.strip() for origin in app_settings.CORS_ORIGINS.split(",") if origin.strip()]
 
@@ -51,3 +52,4 @@ app.include_router(chat_view.router, prefix="/api")
 app.include_router(dashboard.router, prefix="/api")
 
 add_pagination(app)
+setup_category_dropdown(app)

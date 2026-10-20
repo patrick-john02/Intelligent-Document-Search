@@ -127,6 +127,9 @@ export const api = {
     put: <T = any>(endpoint: string, data?:any, options?: RequestOptions)=>
         fetchApi<T>(endpoint, {...options, method: "PUT", data}),
 
+    patch: <T = any>(endpoint: string, data?:any, options?: RequestOptions)=>
+        fetchApi<T>(endpoint, {...options, method: "PATCH", data}),
+
     delete: <T = any>(endpoint: string, option?: RequestOptions)=>
         fetchApi<T>(endpoint,{...option, method:"DELETE"}),
 };

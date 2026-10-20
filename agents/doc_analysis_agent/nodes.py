@@ -2,7 +2,7 @@
 from agents.doc_analysis_agent.state import DocAnalysisAgent
 from agents.doc_analysis_agent.context import DocAnalysisService
 #supervisor
-from agents.state import IntentAgentState
+from agents.state import SupervisorState
 from agents.doc_analysis_agent.graph import doc_analysis_app
 #tools
 from tools.analysis.compare import compare_documents
@@ -85,7 +85,7 @@ async def analyze_document_node(state: DocAnalysisAgent):
 
 
 
-async def call_doc_analysis_node(state:IntentAgentState):
+async def call_doc_analysis_node(state:SupervisorState):
     question = state.get("question", "")
     doc_ids = state.get("mentioned_document_ids", [])
     

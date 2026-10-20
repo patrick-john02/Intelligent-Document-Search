@@ -2,11 +2,15 @@ from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 from langgraph.store.base import BaseStore
 from core.configurations import chat_model
 from tools.registry import ALL_TOOLS
-from agents.state import IntentAgentState
+from agents.state import SupervisorState
+from agents.supervisor_tools import SUPERVISOR_TOOLS
+from agents.context import SUPERVISOR_SYSTEM_PROMPT
 
 
 
-model_with_tools = chat_model.bind_tools(ALL_TOOLS)
+
+model_with_tools = chat_model.bind_tools(SUPERVISOR_TOOLS)
+
 
 
 
@@ -26,11 +30,11 @@ Operational Guidelines:
 - Synthesize clear , well-formatted markdown answers based on the tool observations.
 """
 
-async def agent_node(state: IntentAgentState, store: BaseStore):
-    messages = state.get("question", "")
+async def agent_node(state: SupervisorState, store: BaseStore):
+    messages = state.get("messages", [])
     user_id = state.get("user_id")
 
-    user_preferences = {} 
+    user_preferences = ""
 
     if user_id:
         user_namespace = ("users", str(user_id))
@@ -45,7 +49,7 @@ async def agent_node(state: IntentAgentState, store: BaseStore):
 
     response = await model_with_tools.ainvoke(messages)
 
-    updates = {"message":[response]}
+    updates = {"messages": [response]}
 
     if not getattr(response, "tool_calls", None):
         updates["final_response"] = response.content

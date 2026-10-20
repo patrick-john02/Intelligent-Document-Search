@@ -14,6 +14,8 @@ docker compose up -d pgadmin - for the UI on browser
 uv run celery -A rag.worker worker -Q ocr -n ocr@%h --pool=solo -l info
 uv run celery -A rag.worker worker -Q default -n default@%h --pool=solo -l info
 
+watchfiles --filter python "celery -A rag.worker worker --loglevel=info --pool=solo -Q default,ocr"
+
 
 # creds
 Email: admin@admin.com

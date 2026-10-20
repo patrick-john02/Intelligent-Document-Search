@@ -14,6 +14,7 @@ from rag.classification.store import has_verified_label, save_classification, ge
 from rag.chunker import chunk_document
 from rag.storage import (
     update_document_status,
+    version_exists,
     save_extraction,
     get_extraction,
     save_chunks_to_database,
@@ -69,6 +70,12 @@ async def _extract(document_version_id: int, file_name: str, file_path: str, for
     if not force and await get_extraction(document_version_id) is not None:
         logger.info(f"[extract] checkpoint found for {document_version_id}, skipping OCR")
         return document_version_id
+
+    if not await version_exists(document_version_id):
+        raise ValueError(
+            f"Document version {document_version_id} does not exist in the database "
+            f"(stale task or wrong DATABASE_URL). Skipping."
+        )
 
     await update_document_status(document_version_id, "extracting")
 

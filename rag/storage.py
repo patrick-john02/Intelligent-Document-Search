@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from types import SimpleNamespace
 from datetime import datetime
 from typing import Sequence
 import logging
@@ -129,6 +130,12 @@ async def save_chunks_to_database(
         await db_session.commit()
 
 
+async def version_exists(document_version_id: int) -> bool:
+    """True if the document_version row is still in the database."""
+    async with SessionLocal() as db_session:
+        return await db_session.get(DocumentVersion, document_version_id) is not None
+
+
 async def update_document_status(
     document_version_id: int,
     status: str,
@@ -222,7 +229,7 @@ async def get_extraction(document_version_id: int)->DocumentExtractions | None:
     async with SessionLocal() as db_session:
         return await db_session.scalar(
             select(DocumentExtractions).where(
-                DocumentExtractions.id == document_version_id,
+                DocumentExtractions.document_version_id == document_version_id,
             )
         )
 
@@ -231,7 +238,7 @@ async def index_chunks_from_database(document_version_id: int)->int:
     async with SessionLocal() as db_session:
         result = await db_session.scalars(
             select(DocumentChunks).where(
-                DocumentChunks.id == document_version_id,
+                DocumentChunks.document_version_id == document_version_id,
             ).order_by(DocumentChunks.chunk_index)
         )
         rows =result.all()
@@ -243,10 +250,10 @@ async def index_chunks_from_database(document_version_id: int)->int:
     #same shape save_chunks_to_vector_store expects these (contents, metadata, ids)
     chunks = [
         SimpleNamespace(
-            content = rows.content,
-            metadata = rows.chunk_metadata or {},
-            document_version_id = rows.document_version_id,
-            chunk_id = (rows.chunk_metadata or {}).get("chunk_id", f"C{row.chunk_index + 1:03d}"),
+            content = row.content,
+            metadata = row.chunk_metadata or {},
+            document_version_id = row.document_version_id,
+            chunk_id = (row.chunk_metadata or {}).get("chunk_id", f"C{row.chunk_index + 1:03d}"),
         )
         for row in rows
     ]

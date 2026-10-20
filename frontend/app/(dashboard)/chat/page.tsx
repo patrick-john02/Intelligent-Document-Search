@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
@@ -34,6 +34,7 @@ import DashboardNavbar from "@/components/DashboardNavbar";
 import AppTheme from "@/shared-theme/AppTheme";
 import { useAuth } from "@/context/AuthContext";
 import { getDefaultRole } from "@/components/dashboard/types";
+import { api, ApiError } from "@/lib/api";
 
 // Chat Subcomponents
 import ConversationSidebar, { ConversationItem } from "@/components/chat/ConversationSidebar";
@@ -64,61 +65,77 @@ export interface ChatMessage {
   targetedDoc?: MentionableDocument;
 }
 
-const INITIAL_CONVERSATIONS: ConversationItem[] = [
-  {
-    id: "conv-1",
-    title: "Property Tax Delinquency Rules",
-    date: "Today, 10:45 AM",
-  },
-  {
-    id: "conv-2",
-    title: "Treasury Receipting Protocols",
-    date: "Yesterday",
-  },
-  {
-    id: "conv-3",
-    title: "Franchise Tax Exemptions Review",
-    date: "Sep 16, 2024",
-  },
-];
+// ---------- Backend response shapes (/api/chat) ----------
+interface ApiConversation {
+  id: number;
+  title: string;
+  user_id: number;
+  created_at: string;
+}
 
-const INITIAL_MESSAGES: ChatMessage[] = [
-  {
-    id: "msg-1",
-    sender: "user",
-    timestamp: "10:44 AM",
-    text: "What are the official surcharges and maximum penalty periods for delinquent real property tax in Region II, and where are the physical guidelines filed?",
-  },
-  {
-    id: "msg-2",
-    sender: "assistant",
-    timestamp: "10:45 AM",
-    text: "Under BLGF Department Order No. 2024-018, delinquent real property taxes are subject to a uniform 2% monthly surcharge on unremitted assessments. The surcharges are capped at a statutory ceiling of 72 months (equivalent to a maximum 144% penalty). Municipal treasurers are mandated to issue a formal final demand notice before physical levy or public auction.\n\nFor regional collection offices, Treasury Circular TC-2024-009 also directs all municipal and provincial treasury units within Region II to maintain electronic logs that sync with the central archival repository for compliance auditing.",
-    feedback: null,
-    referencedDocs: [
-      {
-        id: "doc-1",
-        title: "LGU Real Property Assessment Advisory Guidelines and Valuation Standards",
-        orderNo: "BLGF-DO-2024-018",
-        seriesYear: 2024,
-        shelfLocation: "Cabinet A • Shelf 2",
-        relevanceMatch: "98% Match",
-        excerpt:
-          "Section 4.1 Delinquent Assessment Penalties: Municipal treasurers shall enforce the revised 2% monthly surcharges on unremitted real property taxes, with a statutory maximum ceiling of 72 months from the date of final demand notice.",
-      },
-      {
-        id: "doc-2",
-        title: "Treasury Circular on Local Revenue Collections and Automation Protocols",
-        orderNo: "TC-2024-009",
-        seriesYear: 2024,
-        shelfLocation: "Cabinet B • Shelf 1",
-        relevanceMatch: "93% Match",
-        excerpt:
-          "All municipal and provincial collection offices within Region II are directed to integrate electronic treasury receipting systems with the Central Archival and Ingestion node by Q4 2024 to ensure automated compliance auditing.",
-      },
-    ],
-  },
-];
+interface ApiChatMessage {
+  id: number;
+  sender_type: string;
+  content: string;
+  task_type?: string | null;
+  created_at?: string | null;
+  is_helpful?: boolean | null;
+}
+
+interface TalkResponse {
+  message: string;
+  conversation_id: number;
+  chat: ApiChatMessage;
+  assistant_message: ApiChatMessage;
+}
+
+// Backend stores naive UTC timestamps (no "Z"), so mark them as UTC before parsing.
+const parseUtc = (iso?: string | null): Date | null => {
+  if (!iso) return null;
+  const hasZone = /Z$|[+-]\d{2}:?\d{2}$/.test(iso);
+  const d = new Date(hasZone ? iso : `${iso}Z`);
+  return isNaN(d.getTime()) ? null : d;
+};
+
+const formatTime = (iso?: string | null): string => {
+  const d = parseUtc(iso);
+  return d ? d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "";
+};
+
+const formatConvDate = (iso: string): string => {
+  const d = parseUtc(iso);
+  if (!d) return "";
+  const now = new Date();
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  if (d.toDateString() === now.toDateString()) return `Today, ${formatTime(iso)}`;
+  if (d.toDateString() === yesterday.toDateString()) return "Yesterday";
+  return d.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" });
+};
+
+// qwen3 can leak its <think>...</think> reasoning into the reply; hide it.
+const cleanAiText = (text: string): string =>
+  text.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
+
+const toConversationItem = (c: ApiConversation): ConversationItem => ({
+  id: String(c.id),
+  title: c.title,
+  date: formatConvDate(c.created_at),
+});
+
+const toChatMessage = (m: ApiChatMessage): ChatMessage => {
+  const isUser = m.sender_type === "user";
+  return {
+    id: String(m.id),
+    sender: isUser ? "user" : "assistant",
+    timestamp: formatTime(m.created_at),
+    text: isUser ? m.content : cleanAiText(m.content),
+    feedback: m.is_helpful === true ? "liked" : m.is_helpful === false ? "disliked" : null,
+  };
+};
+
+const errorText = (err: unknown): string =>
+  err instanceof ApiError ? err.message : "Could not reach the server. Is the backend running?";
 
 const QUICK_PROMPTS = [
   "Property tax penalty ceiling",
@@ -131,9 +148,10 @@ export default function ChatPage(props: { disableCustomTheme?: boolean }) {
   const effectiveRole = getDefaultRole(user);
 
   // States
-  const [conversations, setConversations] = useState<ConversationItem[]>(INITIAL_CONVERSATIONS);
-  const [activeConvId, setActiveConvId] = useState<string>("conv-1");
-  const [messages, setMessages] = useState<ChatMessage[]>(INITIAL_MESSAGES);
+  const [conversations, setConversations] = useState<ConversationItem[]>([]);
+  const [activeConvId, setActiveConvId] = useState<string>(""); // "" = new, unsaved chat
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState<boolean>(false);
   const [inputText, setInputText] = useState<string>("");
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [expandedDocId, setExpandedDocId] = useState<string | null>(null);
@@ -157,34 +175,50 @@ export default function ChatPage(props: { disableCustomTheme?: boolean }) {
     scrollToBottom();
   }, [messages, isGenerating]);
 
-  const handleSelectConversation = (id: string) => {
+  // Tracks the conversation on screen, so late responses don't land in the wrong chat
+  const activeConvRef = useRef<string>("");
+  useEffect(() => {
+    activeConvRef.current = activeConvId;
+  }, [activeConvId]);
+
+  const loadConversations = useCallback(async () => {
+    try {
+      const data = await api.get<ApiConversation[]>("/chat/list");
+      setConversations(data.map(toConversationItem));
+    } catch (err) {
+      console.error("Failed to load conversations", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadConversations();
+  }, [loadConversations]);
+
+  const handleSelectConversation = async (id: string) => {
+    if (id === activeConvId) return;
     setActiveConvId(id);
-    if (id === "conv-1") {
-      setMessages(INITIAL_MESSAGES);
-    } else {
-      setMessages([
-        {
-          id: `msg-${id}-1`,
-          sender: "assistant",
-          timestamp: "Archived",
-          text: `Displaying conversation history for "${conversations.find((c) => c.id === id)?.title}". Ask any follow-up question below.`,
-          feedback: null,
-        },
-      ]);
+    setMessages([]);
+    setTargetedDoc(null);
+    setIsLoadingHistory(true);
+    try {
+      const data = await api.get<ApiChatMessage[]>(`/chat/${id}/chats-lists`);
+      if (activeConvRef.current === id) setMessages(data.map(toChatMessage));
+    } catch (err) {
+      if (activeConvRef.current === id) {
+        setMessages([
+          { id: `err-${Date.now()}`, sender: "assistant", timestamp: "", text: `⚠️ ${errorText(err)}`, feedback: null },
+        ]);
+      }
+    } finally {
+      if (activeConvRef.current === id) setIsLoadingHistory(false);
     }
   };
 
   const handleNewChat = () => {
-    const newId = `conv-${Date.now()}`;
-    const newConv: ConversationItem = {
-      id: newId,
-      title: "New Conversation",
-      date: "Just now",
-    };
-    setConversations([newConv, ...conversations]);
-    setActiveConvId(newId);
+    setActiveConvId("");
     setMessages([]);
     setTargetedDoc(null);
+    setIsLoadingHistory(false);
   };
 
   // Mention handler when typing
@@ -276,88 +310,60 @@ export default function ChatPage(props: { disableCustomTheme?: boolean }) {
     }
   };
 
+  // Sends a prompt to the supervisor agent (POST /chat/talk) and shows its reply
+  const sendPrompt = async (prompt: string, activeDoc?: MentionableDocument) => {
+    const sentConvId = activeConvId;
+    const tempId = `temp-${Date.now()}`;
+
+    setMessages((prev) => [
+      ...prev,
+      { id: tempId, sender: "user", timestamp: "Just now", text: prompt, targetedDoc: activeDoc },
+    ]);
+    setIsGenerating(true);
+
+    try {
+      const res = await api.post<TalkResponse>("/chat/talk", {
+        content: prompt,
+        conversation_id: sentConvId ? Number(sentConvId) : null,
+      });
+
+      // User switched to another chat while waiting: the reply is saved, just don't show it here
+      if (activeConvRef.current !== sentConvId) return;
+
+      const userMsg = { ...toChatMessage(res.chat), targetedDoc: activeDoc };
+      const aiMsg = { ...toChatMessage(res.assistant_message), targetedDoc: activeDoc };
+      setMessages((prev) => [...prev.map((m) => (m.id === tempId ? userMsg : m)), aiMsg]);
+
+      if (!sentConvId) {
+        const newId = String(res.conversation_id);
+        activeConvRef.current = newId;
+        setActiveConvId(newId);
+        loadConversations(); // show the new conversation in the sidebar
+      }
+    } catch (err) {
+      if (activeConvRef.current !== sentConvId) return;
+      setMessages((prev) => [
+        ...prev,
+        { id: `err-${Date.now()}`, sender: "assistant", timestamp: "Just now", text: `⚠️ ${errorText(err)}`, feedback: null },
+      ]);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputText.trim()) return;
+    if (!inputText.trim() || isGenerating) return;
 
-    // Detect if message targets a specific document
     const activeDoc =
       targetedDoc ||
       MENTIONABLE_DOCUMENTS.find((d) => inputText.includes(`@[${d.orderNo}]`));
 
-    const userMessage: ChatMessage = {
-      id: `user-${Date.now()}`,
-      sender: "user",
-      timestamp: "Just now",
-      text: inputText,
-      targetedDoc: activeDoc,
-    };
-
-    setMessages((prev) => [...prev, userMessage]);
     const prompt = inputText;
     setInputText("");
     setTargetedDoc(null);
     setShowMentionMenu(false);
-    setIsGenerating(true);
-
-    // Simulate Multi-Agent execution response
-    setTimeout(() => {
-      let aiText = "";
-      let steps: PipelineStep[] = [];
-      let referencedDocs: ReferencedDoc[] = [];
-
-      if (activeDoc) {
-        aiText = `🎯 Multi-Agent Targeted Scope Active for ${activeDoc.orderNo}: "${activeDoc.title}".\n\nDirectly retrieved vector embeddings and linearized full text from physical location: ${activeDoc.shelfLocation}.\n\nKey Provisions Analyzed by Supervisor Agent:\n• Assessment & Compliance: ${activeDoc.summary}\n• Archival Integrity: Verified active validity under Series ${activeDoc.seriesYear}.\n• Physical Cross-Reference: Original stamped duplicate archived in ${activeDoc.shelfLocation}.`;
-
-        steps = [
-          { name: `1. Resolve @${activeDoc.orderNo}`, status: "completed", timeOrCount: activeDoc.shelfLocation },
-          { name: "2. Security Clearance", status: "completed", timeOrCount: `Verified ${activeDoc.clearance}` },
-          { name: "3. Vector Chunks Extract", status: "completed", timeOrCount: "4 Chunks (18ms)" },
-          { name: "4. Multi-Agent Synthesis", status: "completed", timeOrCount: "Targeted Brief" },
-        ];
-
-        referencedDocs = [
-          {
-            id: `doc-${Date.now()}`,
-            title: activeDoc.title,
-            orderNo: activeDoc.orderNo,
-            seriesYear: activeDoc.seriesYear,
-            shelfLocation: activeDoc.shelfLocation,
-            relevanceMatch: "99.4% Targeted Match",
-            excerpt: activeDoc.summary,
-          },
-        ];
-      } else {
-        aiText = `Based on the regional archive database regarding "${prompt}", all applicable directives have been cross-verified. The provisions cited below are currently active and filed under the records management division.`;
-
-        referencedDocs = [
-          {
-            id: `doc-${Date.now()}`,
-            title: "LGU Real Property Assessment Advisory Guidelines and Valuation Standards",
-            orderNo: "BLGF-DO-2024-018",
-            seriesYear: 2024,
-            shelfLocation: "Cabinet A • Shelf 2",
-            relevanceMatch: "96% Match",
-            excerpt:
-              "Section 4.1 Delinquent Assessment Penalties: Municipal treasurers shall enforce the revised 2% monthly surcharges on unremitted real property taxes, with a statutory maximum ceiling of 72 months from the date of final demand notice.",
-          },
-        ];
-      }
-
-      const assistantMessage: ChatMessage = {
-        id: `ai-${Date.now()}`,
-        sender: "assistant",
-        timestamp: "Just now",
-        text: aiText,
-        feedback: null,
-        pipelineSteps: steps.length > 0 ? steps : undefined,
-        referencedDocs,
-        targetedDoc: activeDoc,
-      };
-
-      setMessages((prev) => [...prev, assistantMessage]);
-      setIsGenerating(false);
-    }, 850);
+    sendPrompt(prompt, activeDoc);
   };
 
   const handleQuickPrompt = (prompt: string) => {
@@ -368,17 +374,21 @@ export default function ChatPage(props: { disableCustomTheme?: boolean }) {
     setExpandedDocId(expandedDocId === docId ? null : docId);
   };
 
-  // Response Feedback Actions: Like, Dislike, Copy, Refresh
-  const handleFeedback = (msgId: string, type: "liked" | "disliked") => {
-    setMessages((prev) =>
-      prev.map((msg) => {
-        if (msg.id === msgId) {
-          const newFeedback = msg.feedback === type ? null : type;
-          return { ...msg, feedback: newFeedback };
-        }
-        return msg;
-      })
-    );
+  // Response Feedback Actions: Like, Dislike, Copy, Regenerate
+  const isSavedMessage = (msgId: string) => /^\d+$/.test(msgId);
+
+  const handleFeedback = async (msgId: string, type: "liked" | "disliked") => {
+    if (!isSavedMessage(msgId)) return;
+    const current = messages.find((m) => m.id === msgId)?.feedback;
+    if (current === type) return; // backend can't clear a rating, so no un-toggle
+
+    setMessages((prev) => prev.map((m) => (m.id === msgId ? { ...m, feedback: type } : m)));
+    try {
+      await api.patch(`/chat/messages/${msgId}/feedback`, { is_helpful: type === "liked" });
+    } catch (err) {
+      console.error("Failed to save feedback", err);
+      setMessages((prev) => prev.map((m) => (m.id === msgId ? { ...m, feedback: current ?? null } : m)));
+    }
   };
 
   const handleCopyMessage = (msgId: string, text: string) => {
@@ -387,23 +397,12 @@ export default function ChatPage(props: { disableCustomTheme?: boolean }) {
     setTimeout(() => setCopiedMsgId(null), 2000);
   };
 
+  // Re-asks the question that produced this answer (adds a new Q&A pair)
   const handleRegenerate = (msgId: string) => {
-    setIsGenerating(true);
-    setTimeout(() => {
-      setMessages((prev) =>
-        prev.map((msg) => {
-          if (msg.id === msgId) {
-            return {
-              ...msg,
-              text: `${msg.text}\n\n[Regenerated on ${new Date().toLocaleTimeString()}]: Refreshed with latest regional indices and verified active validity.`,
-              timestamp: "Just now (Regenerated)",
-            };
-          }
-          return msg;
-        })
-      );
-      setIsGenerating(false);
-    }, 700);
+    if (isGenerating) return;
+    const idx = messages.findIndex((m) => m.id === msgId);
+    const question = [...messages.slice(0, idx)].reverse().find((m) => m.sender === "user");
+    if (question) sendPrompt(question.text, question.targetedDoc);
   };
 
   const renderMessageContent = (text: string) => {
@@ -532,7 +531,11 @@ export default function ChatPage(props: { disableCustomTheme?: boolean }) {
                   gap: 2,
                 }}
               >
-                {messages.length > 0 ? (
+                {isLoadingHistory ? (
+                  <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 600, my: "auto", textAlign: "center" }}>
+                    Loading conversation...
+                  </Typography>
+                ) : messages.length > 0 ? (
                   messages.map((msg) => (
                     <Box key={msg.id} sx={{ width: "100%" }}>
                       {msg.sender === "user" ? (
@@ -969,7 +972,7 @@ export default function ChatPage(props: { disableCustomTheme?: boolean }) {
                       <IconButton
                         type="submit"
                         color="primary"
-                        disabled={!inputText.trim()}
+                        disabled={!inputText.trim() || isGenerating}
                         sx={{
                           borderRadius: 1,
                           bgcolor: "primary.main",

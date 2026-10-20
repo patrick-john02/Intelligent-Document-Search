@@ -3,7 +3,7 @@ from typing import TypedDict, Optional, List, Annotated
 from langchain_core.messages import BaseMessage
 from langgraph.graph.message import add_messages
 
-class IntentAgentState(TypedDict, total=False):
+class SupervisorState(TypedDict, total=False):
     #stores the chat history. "add messages" means APPEND, never overwrite
     messages: Annotated[List[BaseMessage], add_messages]
 

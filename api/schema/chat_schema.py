@@ -7,7 +7,9 @@ from api.models.enums.conv import ReportType
 
 class ChatMessagesResponse(BaseModel):
     id: int
+    sender_type: str
     content: str
+    is_helpful: Optional[bool] = None
     task_type: Optional[TaskType] = None
     created_at: Optional[datetime] = None
 
