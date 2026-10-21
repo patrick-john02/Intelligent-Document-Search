@@ -10,14 +10,61 @@ import {
   DocumentSortOption,
   DocumentClearanceFilterOption,
 } from "./types";
-import { INITIAL_DOCUMENTS, INITIAL_FOLDERS } from "./mockData";
+import { INITIAL_FOLDERS } from "./mockData";
 import { parseSizeInBytes } from "./documentsUtils";
+import { getAllDocuments } from "@/lib/documentsApi";
+import { apiDocumentToArchive } from "./documentMapper";
+
+const STATUS_POLL_MS = 10000; // refresh while any document is still being ingested
 
 export function useDocumentsManager() {
-  const [documents, setDocuments] = useState<ArchiveDocument[]>(INITIAL_DOCUMENTS);
+  const [documents, setDocuments] = useState<ArchiveDocument[]>([]);
+  const [isLoadingDocuments, setIsLoadingDocuments] = useState(true);
+  const [documentsError, setDocumentsError] = useState<string | null>(null);
   const [folders, setFolders] = useState<ArchiveFolder[]>(INITIAL_FOLDERS);
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
-  const [selectedDoc, setSelectedDoc] = useState<ArchiveDocument | null>(INITIAL_DOCUMENTS[0]);
+  const [selectedDoc, setSelectedDoc] = useState<ArchiveDocument | null>(null);
+
+  // Load documents from GET /api/documents/all.
+  // Folders and soft-delete flags are frontend-only, so keep them from the current state.
+  const refreshDocuments = useCallback(
+    () =>
+      getAllDocuments()
+        .then((apiDocs) => {
+          const fresh = apiDocs.map(apiDocumentToArchive);
+          const keepLocal = (doc: ArchiveDocument, old?: ArchiveDocument) =>
+            old ? { ...doc, folderId: old.folderId, isDeleted: old.isDeleted } : doc;
+
+          setDocuments((prev) => {
+            const local = new Map(prev.map((d) => [d.id, d]));
+            return fresh.map((d) => keepLocal(d, local.get(d.id)));
+          });
+          // keep the selected document in sync; select the first one initially
+          setSelectedDoc((prev) => {
+            if (!prev) return fresh[0] ?? null;
+            const match = fresh.find((d) => d.id === prev.id);
+            return match ? keepLocal(match, prev) : prev;
+          });
+          setDocumentsError(null);
+        })
+        .catch((err) => {
+          setDocumentsError(err instanceof Error ? err.message : "Could not load documents");
+        })
+        .finally(() => setIsLoadingDocuments(false)),
+    []
+  );
+
+  useEffect(() => {
+    void refreshDocuments();
+  }, [refreshDocuments]);
+
+  // Poll while uploads are still going through OCR / chunking / embedding
+  const hasProcessing = documents.some((d) => d.status === "Processing");
+  useEffect(() => {
+    if (!hasProcessing) return;
+    const timer = setInterval(() => void refreshDocuments(), STATUS_POLL_MS);
+    return () => clearInterval(timer);
+  }, [hasProcessing, refreshDocuments]);
   const [viewMode, setViewMode] = useState<"grid" | "list" | "cabinet">("grid");
 
   // Filters & Search
@@ -219,7 +266,7 @@ export function useDocumentsManager() {
     ) {
       return filteredDocuments;
     }
-    return filteredDocuments.filter((d) => d.folderId === currentFolderId);
+    return filteredDocuments.filter((d) => (d.folderId ?? null) === currentFolderId);
   }, [
     filteredDocuments,
     currentFolderId,
@@ -389,13 +436,18 @@ export function useDocumentsManager() {
       if (docsWithFolder.length > 0) {
         setSelectedDoc(docsWithFolder[0]);
       }
+      // replace the optimistic entries with real data from the backend
+      void refreshDocuments();
     },
-    [currentFolderId]
+    [currentFolderId, refreshDocuments]
   );
 
   return {
     documents,
     setDocuments,
+    isLoadingDocuments,
+    documentsError,
+    refreshDocuments,
     folders,
     setFolders,
     currentFolderId,

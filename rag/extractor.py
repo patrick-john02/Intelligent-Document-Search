@@ -11,6 +11,16 @@ import pypdfium2 as pdfium
 from rapidocr_onnxruntime import RapidOCR
 import anydoc
 
+# Two boxes are on the same row if their vertical centers are within this
+# fraction of the smaller box height. Raise to ~0.7 for skewed scans.
+ROW_TOLERANCE = 0.5
+# A horizontal gap wider than this many text-heights means a new column/cell.
+COLUMN_GAP_FACTOR = 1.5
+COLUMN_SEPARATOR = " | "
+MIN_BOX_SCORE = 0.65 
+
+
+
 @dataclass
 class ExtractionResult:
     text:str
@@ -24,21 +34,44 @@ ocr_engine=RapidOCR()
 
 def _ocr_pil_image_with_score(image: Image.Image) -> tuple[str, float]:
     try:
-        result, _  = ocr_engine(image)
+        result, _ = ocr_engine(image)
         if not result:
             return "", 0.0
-        
-        lines: list[str] = []
+
+        items: list[tuple[list, str]] = []
         scores: list[float] = []
+
         for line in result:
-            if len(line) > 1 and line[1]:
-                lines.append(line[1])
-                if len(line) > 2 and isinstance(line[2], (int, float)):
-                    scores.append(float(line[2]))
-                    
+            # RapidOCR line = [box, text, score]
+            if len(line) < 2 or not line[1]:
+                continue
+            text = str(line[1]).strip()
+            if not text:
+                continue
+
+            score = None
+            if len(line) > 2:
+                try:
+                    score = float(line[2])
+                except (TypeError, ValueError):
+                    pass
+
+            # print(f"{score if score is not None else -1:.2f}  {text}")  # DEBUG: remove after tuning
+
+            if score is not None and score < MIN_BOX_SCORE:
+                continue  # skip stamp/handwriting noise
+
+            items.append((line[0], text))
+            if score is not None:
+                scores.append(score)
+
+        if not items:
+            return "", 0.0
+
+        rows = _group_boxes_into_rows(items)
         avg_score = (sum(scores) / len(scores)) if scores else 1.0
-        return "\n".join(lines), avg_score
-    
+        return "\n".join(rows), avg_score
+
     except Exception as e:
         print(f"[OCR] RapidOCR error on image: {str(e)}")
         return "", 0.0
@@ -62,6 +95,7 @@ def _extract_from_image_bytes(image_bytes:bytes)-> tuple[str, float]:
 # - Stitches everything together in original order
 
 def extract_pdf_interleaved(file_bytes: bytes) -> tuple[str, bool, float]: 
+    pdf=None
     try:
         pdf = pdfium.PdfDocument(file_bytes)
         assembled_pages: list[str] = []
@@ -74,7 +108,7 @@ def extract_pdf_interleaved(file_bytes: bytes) -> tuple[str, bool, float]:
             digital_text = text_page.get_text_range().strip()
             alnum_count = sum(c.isalnum() for c in digital_text)
 
-            if alnum_count >= 15:
+            if alnum_count >= 100:
                 assembled_pages.append(f"## Page {page_index + 1}\n\n{digital_text}")
             else:
                 pil_image = page.render(scale=2.0).to_pil()
@@ -97,10 +131,60 @@ def extract_pdf_interleaved(file_bytes: bytes) -> tuple[str, bool, float]:
             else (1.0 if not has_scanned else 0.0)
         )
         return "\n\n".join(assembled_pages), has_scanned, avg_score
+            
     except Exception as e:
         print(f"[Extractor] Interleaved PDF extraction error: {str(e)}")
         return "", False, 0.0
-    
+
+    finally:
+            if pdf is not None:
+                pdf.close()
+                
+                
+#HELPERS
+def _box_geometry(box) -> tuple[float, float, float, float]:
+    xs = [float(p[0]) for p in box]
+    ys = [float(p[1]) for p in box]
+    return min(xs), max(xs), min(ys), max(ys)
+
+def _group_boxes_into_rows(items: list[tuple[list, str]]) -> list[str]:
+    boxes = []
+    for box, text in items:
+        x0, x1, y0, y1 = _box_geometry(box)
+        boxes.append({
+            "x0": x0,
+            "x1": x1,
+            "yc": (y0 + y1) / 2,
+            "h": max(1.0, y1 - y0),
+            "text": text,
+        })
+    boxes.sort(key=lambda b: b["yc"])
+
+    # group boxes whose vertical centers line up
+    rows: list[list[dict]] = []
+    for b in boxes:
+        if rows:
+            row = rows[-1]
+            row_yc = sum(r["yc"] for r in row) / len(row)
+            row_h = sum(r["h"] for r in row) / len(row)
+            if abs(b["yc"] - row_yc) <= ROW_TOLERANCE * min(b["h"], row_h):
+                row.append(b)
+                continue
+        rows.append([b])
+
+    # join each row left-to-right; big gaps become a column separator
+    lines: list[str] = []
+    for row in rows:
+        row.sort(key=lambda r: r["x0"])
+        avg_h = sum(r["h"] for r in row) / len(row)
+        parts = [row[0]["text"]]
+        for prev, cur in zip(row, row[1:]):
+            gap = cur["x0"] - prev["x1"]
+            parts.append(COLUMN_SEPARATOR if gap > COLUMN_GAP_FACTOR * avg_h else " ")
+            parts.append(cur["text"])
+        lines.append("".join(parts).strip())
+
+    return lines
 
 #i used the kreuzberg as a primary extractor because of its performance
 async def _extract_text_kreuzberg(file_bytes: bytes, file_name: str)->ExtractionResult | None:
@@ -178,8 +262,12 @@ async def _extract_text_fallback(file_bytes: bytes, file_name: str = "") -> Extr
     if pdf_text and len(pdf_text.strip()) > 0:
         return ExtractionResult(text=pdf_text, is_scanned=is_scanned, ocr_score=score, extractor="pdf_interleaved")
 
-    fallback_text = await asyncio.to_thread(anydoc.to_markdown_bytes, file_bytes)
-    return ExtractionResult(text=fallback_text or "", is_scanned=False, ocr_score=1.0, extractor="anydoc")        
+    try:
+        fallback_text = await asyncio.to_thread(anydoc.to_markdown_bytes, file_bytes)
+    except Exception as e:
+        print(f"[Extractor] anydoc fallback failed for '{file_name}': {e}")
+        fallback_text = ""
+    return ExtractionResult(text=fallback_text or "", is_scanned=False, ocr_score=1.0, extractor="anydoc")       
         
 
 
@@ -218,7 +306,7 @@ def split_page(text:str)->list[dict]:
     pages:list[dict] = []
     for i, match in enumerate(matches):
         start = match.end()
-        end = matches[i+1].start() if i + 1 < len(match) else len(text) 
+        end = matches[i+1].start() if i + 1 < len(matches) else len(text) 
         pages.append({
             "page": int(match.group(1)),
             "text": text[start:end].strip(),

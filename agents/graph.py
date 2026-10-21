@@ -1,5 +1,5 @@
 from langgraph.graph import StateGraph, START, END
-from langgraph.checkpoint.memory import MemorySaver #RAM temporary persistent storage.
+# from langgraph.checkpoint.memory import MemorySaver #RAM temporary persistent storage.
 from langgraph.types import RetryPolicy
 from agents.state import SupervisorState
 from langgraph.prebuilt import ToolNode, tools_condition
@@ -9,12 +9,12 @@ from agents.nodes import agent_node
 from agents.supervisor_tools import SUPERVISOR_TOOLS
 
 #checkpointers and store
-from agents.checkpointer import posgres_checkpointer, store
+from agents.checkpointer import postgres_checkpointer, store
 
 workflow = StateGraph(SupervisorState)
 
 #NODE A : reasoning Node(LLM thinks, decides tools or answer)
-workflow.add_node("agent_node", agent_node, retry_policy=RetryPolicy(max_attempts=3))
+workflow.add_node("agent_node", agent_node)
 
 # workflow.add_node("tools", ToolNode(ALL_TOOLS))
 
@@ -39,7 +39,7 @@ workflow.add_edge("tools", "agent_node")
 
 # app = workflow.compile(checkpointer=memory)
 app=workflow.compile(
-    checkpointer=posgres_checkpointer, 
+    checkpointer=postgres_checkpointer, 
     store=store
 )
 

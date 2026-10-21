@@ -5,7 +5,11 @@ import Box from "@mui/material/Box";
 import CssBaseline from "@mui/material/CssBaseline";
 import Snackbar from "@mui/material/Snackbar";
 import Alert from "@mui/material/Alert";
+import Button from "@mui/material/Button";
+import LinearProgress from "@mui/material/LinearProgress";
 import { alpha } from "@mui/material/styles";
+import { getDocument } from "@/lib/documentsApi";
+import { apiDocumentToArchive } from "@/components/documents/documentMapper";
 
 // Layout & Context
 import SideMenu from "@/components/SideMenu";
@@ -51,6 +55,9 @@ export default function DocumentArchivePage(props: { disableCustomTheme?: boolea
   // Document Archive Domain State & Operations
   const {
     documents,
+    isLoadingDocuments,
+    documentsError,
+    refreshDocuments,
     folders,
     currentFolderId,
     currentFolder,
@@ -151,10 +158,24 @@ export default function DocumentArchivePage(props: { disableCustomTheme?: boolea
     setIntelligenceTab("mayumi");
   };
 
+  // Open the viewer right away with list data, then refresh it from GET /api/documents/{id}
+  const openPreview = (doc: ArchiveDocument) => {
+    setPreviewDoc(doc);
+    if (typeof doc.id !== "number") return;
+    getDocument(doc.id)
+      .then((fresh) => {
+        const mapped = { ...apiDocumentToArchive(fresh), folderId: doc.folderId };
+        setPreviewDoc((current) => (current && current.id === doc.id ? mapped : current));
+      })
+      .catch(() => {
+        /* keep the list data if the detail call fails */
+      });
+  };
+
   const handleOpenDossier = (doc?: ArchiveDocument | null) => {
     if (doc) {
       setSelectedDoc(doc);
-      setPreviewDoc(doc);
+      openPreview(doc);
     }
   };
 
@@ -172,13 +193,16 @@ export default function DocumentArchivePage(props: { disableCustomTheme?: boolea
     minimize: minimizeAgent,
     maximize: maximizeAgent,
     dismiss: dismissAgent,
-  } = useArchivingTask((newDocs) => {
-    handleArchivingComplete(newDocs);
-    if (newDocs.length > 0) {
-      setIsIntelligenceOpen(true);
-      setIntelligenceTab("dossier");
-    }
-  });
+  } = useArchivingTask(
+    (newDocs) => {
+      handleArchivingComplete(newDocs);
+      if (newDocs.length > 0) {
+        setIsIntelligenceOpen(true);
+        setIntelligenceTab("dossier");
+      }
+    },
+    (message) => setSnackbarMessage(message)
+  );
 
   return (
     <AppTheme {...props}>
@@ -314,6 +338,20 @@ export default function DocumentArchivePage(props: { disableCustomTheme?: boolea
                 overflow: "hidden",
               }}
             >
+              {isLoadingDocuments && <LinearProgress sx={{ flexShrink: 0 }} />}
+              {documentsError && (
+                <Alert
+                  severity="error"
+                  sx={{ m: 1.5, flexShrink: 0 }}
+                  action={
+                    <Button color="inherit" size="small" onClick={() => void refreshDocuments()}>
+                      Retry
+                    </Button>
+                  }
+                >
+                  Could not load documents: {documentsError}
+                </Alert>
+              )}
               <DocumentsExplorerView
                 viewMode={viewMode}
                 filteredDocuments={filteredDocuments}
@@ -341,7 +379,7 @@ export default function DocumentArchivePage(props: { disableCustomTheme?: boolea
               currentFolder={currentFolder}
               activeTab={intelligenceTab}
               onTabChange={(tab) => setIntelligenceTab(tab)}
-              onOpenDocument={(doc) => setPreviewDoc(doc)}
+              onOpenDocument={(doc) => openPreview(doc)}
             />
           </Box>
         </Box>
@@ -405,13 +443,13 @@ export default function DocumentArchivePage(props: { disableCustomTheme?: boolea
         {/* Action Feedback Snackbar */}
         <Snackbar
           open={Boolean(snackbarMessage)}
-          autoHideDuration={3000}
+          autoHideDuration={snackbarMessage?.startsWith("Upload failed") ? 8000 : 3000}
           onClose={() => setSnackbarMessage(null)}
           anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
         >
           <Alert
             onClose={() => setSnackbarMessage(null)}
-            severity="success"
+            severity={snackbarMessage?.startsWith("Upload failed") ? "error" : "success"}
             variant="filled"
             sx={{ width: "100%", borderRadius: 1.5, fontSize: "0.82rem" }}
           >

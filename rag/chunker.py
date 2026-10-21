@@ -80,7 +80,7 @@ class FileChunk:
     section_title: str = ""
     chunk_type: str = "paragraph" 
     token_count: int = 0
-    clearance_level: str = "PUBLIC"
+    clearance_level: str = "public"
     parent_chunk_id: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 

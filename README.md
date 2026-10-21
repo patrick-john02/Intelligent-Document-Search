@@ -40,4 +40,4 @@ agents to be created:
 
 
 
-LLM used on development - Qwen3.5:2B and Qwen3.5:4B.
+LLM used on development - Qwen3.5:2B and Qwen3.5:4B. groq api key

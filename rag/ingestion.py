@@ -5,7 +5,7 @@ import logging
 import httpx
 from typing import Any
 from celery.signals import worker_process_init, worker_process_shutdown
-from sqlalchemy.exc import OperationalError, DBAPIError
+from sqlalchemy.exc import OperationalError, InterfaceError
 
 from rag.worker import celery_app
 from rag.extractor import extract_text, ExtractionResult
@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 TRANSIENT_EXCEPTIONS = (
     OperationalError,
-    DBAPIError,
+    InterfaceError,
     httpx.HTTPError,
     ConnectionError,
     TimeoutError,

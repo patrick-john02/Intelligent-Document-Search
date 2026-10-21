@@ -1,20 +1,28 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
-import { ArchiveDocument, DocumentFileType } from "./types";
+import { useState, useCallback } from "react";
+import { ArchiveDocument, DocumentClearance, DocumentFileType } from "./types";
+import { uploadDocument, ClearanceLevelValue } from "@/lib/documentsApi";
+import { ApiError } from "@/lib/api";
 
 export interface QueuedFile {
   id: string;
   file: File;
   name: string;
   sizeFormatted: string;
-  status: "pending" | "processing" | "completed";
+  status: "pending" | "processing" | "completed" | "failed";
+  error?: string;
 }
 
 export interface ArchivingCabinetConfig {
   cabinet: string;
   shelf: string;
   folder: string;
+  categoryId: number;
+  categoryName: string;
+  clearanceLevel: ClearanceLevelValue;
+  seriesDate: string; // YYYY-MM-DD
+  departmentOrder: string;
 }
 
 const AGENT_PIPELINE_STEPS = [
@@ -33,66 +41,68 @@ export function formatFileSize(bytes: number): string {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
 }
 
-// Generate intelligent document title from file name using simulated ML
-function generateDiscoveredMetadata(fileName: string, index: number, cabinetConfig: ArchivingCabinetConfig): ArchiveDocument {
-  const cleanBase = fileName
-    .replace(/\.[^/.]+$/, "")
-    .replace(/[_-]/g, " ")
-    .trim();
+// "Disbursement_Voucher-2024.pdf" -> "Disbursement Voucher 2024"
+export function titleFromFileName(fileName: string): string {
+  return fileName.replace(/\.[^/.]+$/, "").replace(/[_-]+/g, " ").trim() || fileName;
+}
 
-  // Simulated ML title discovery
-  const titleVariants = [
-    `Official Assessment Directive on ${cleanBase.toUpperCase()}`,
-    `Treasury Advisory & Disbursement Register: ${cleanBase}`,
-    `Executive Resolution on ${cleanBase} and Compliance Standards`,
-    `Revenue Audit & Inspection Memorandum - ${cleanBase}`,
-  ];
-  const discoveredTitle = titleVariants[index % titleVariants.length];
+const UI_CLEARANCE: Record<ClearanceLevelValue, DocumentClearance> = {
+  public: "Public",
+  internal: "Internal",
+  confidential: "Confidential",
+  secret: "Restricted",
+  top_secret: "Restricted",
+};
 
-  const year = new Date().getFullYear();
-  const orderNum = `BLGF-ARC-${year}-${String(100 + Math.floor(Math.random() * 900))}`;
-  const ext = fileName.split(".").pop()?.toLowerCase();
+function toArchiveDocument(
+  file: File,
+  uploadedId: number,
+  config: ArchivingCabinetConfig
+): ArchiveDocument {
+  const ext = file.name.split(".").pop()?.toLowerCase();
   const fileType: DocumentFileType =
     ext === "xlsx" || ext === "xls" ? "xlsx" : ext === "docx" || ext === "doc" ? "docx" : "pdf";
+  const shelfLocation = `${config.cabinet} • ${config.shelf} • ${config.folder}`;
 
   return {
-    id: `doc-${Date.now()}-${index}`,
-    title: discoveredTitle,
-    orderNo: orderNum,
-    seriesYear: year,
-    category: index % 2 === 0 ? "Assessment Regulations" : "Treasury Advisories",
-    clearance: "Public",
-    cabinet: cabinetConfig.cabinet,
-    shelf: cabinetConfig.shelf,
-    folder: cabinetConfig.folder,
-    shelfLocation: `${cabinetConfig.cabinet} • ${cabinetConfig.shelf} • ${cabinetConfig.folder}`,
-    ocrAccuracy: +(97.5 + Math.random() * 2).toFixed(1),
-    fileSize: "3.2 MB",
-    pageCount: Math.floor(Math.random() * 18) + 6,
+    id: uploadedId,
+    title: titleFromFileName(file.name),
+    orderNo: config.departmentOrder,
+    seriesYear: Number(config.seriesDate.slice(0, 4)),
+    category: config.categoryName,
+    clearance: UI_CLEARANCE[config.clearanceLevel],
+    cabinet: config.cabinet,
+    shelf: config.shelf,
+    folder: config.folder,
+    shelfLocation,
+    ocrAccuracy: 0, // filled in by the ingestion pipeline
+    fileSize: formatFileSize(file.size),
+    pageCount: 0,
     fileType,
-    fileName,
+    fileName: file.name,
     version: "v1.0",
     ingestedDate: new Date().toISOString().split("T")[0],
-    status: "Indexed",
-    tags: [
-      { name: "ML-Discovered", score: 0.98 },
-      { name: "Anydoc Parsed", score: 0.95 },
-    ],
-    summary: `Autonomous archiving completed for ${fileName}. Intelligent document classification derived title: "${discoveredTitle}". Mapped to ${cabinetConfig.cabinet}.`,
-    uploadedBy: {
-      name: "Records Officer",
-      division: "Central Archival Operations",
-      position: "Archival Custodian",
-    },
-    executiveBrief: {
-      statutoryMandate: `Discovered and cataloged directive under ${orderNum}. Automatic entity extraction completed by Archiving Agent.`,
-      targetEntities: "Provincial & Municipal Accounting Offices, Internal Revenue Custodians.",
-      archivalDisposition: `Active record • Mapped to ${cabinetConfig.cabinet} • ${cabinetConfig.shelf} (${cabinetConfig.folder}).`,
-    },
+    status: "Processing", // OCR / chunking / embedding run in Celery after upload
+    tags: [],
+    summary: `Uploaded ${file.name}. OCR, classification and indexing are running in the background.`,
   };
 }
 
-export function useArchivingTask(onComplete?: (docs: ArchiveDocument[]) => void) {
+function errorText(err: unknown): string {
+  if (err instanceof ApiError) {
+    // FastAPI 422 returns detail as a list of validation errors
+    if (Array.isArray(err.data?.detail)) {
+      return err.data.detail.map((d: { msg?: string }) => d.msg).filter(Boolean).join("; ");
+    }
+    return err.message;
+  }
+  return err instanceof Error ? err.message : "Upload failed";
+}
+
+export function useArchivingTask(
+  onComplete?: (docs: ArchiveDocument[]) => void,
+  onError?: (message: string) => void
+) {
   const [isActive, setIsActive] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -102,10 +112,11 @@ export function useArchivingTask(onComplete?: (docs: ArchiveDocument[]) => void)
   const [processedDocs, setProcessedDocs] = useState<ArchiveDocument[]>([]);
   const [isFinished, setIsFinished] = useState(false);
 
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const updateFile = (id: string, patch: Partial<QueuedFile>) =>
+    setQueuedFiles((prev) => prev.map((q) => (q.id === id ? { ...q, ...patch } : q)));
 
   const startArchiving = useCallback(
-    (files: File[], cabinetConfig: ArchivingCabinetConfig) => {
+    async (files: File[], config: ArchivingCabinetConfig) => {
       if (files.length === 0) return;
 
       const queue: QueuedFile[] = files.map((f, i) => ({
@@ -113,7 +124,7 @@ export function useArchivingTask(onComplete?: (docs: ArchiveDocument[]) => void)
         file: f,
         name: f.name,
         sizeFormatted: formatFileSize(f.size),
-        status: "processing",
+        status: "pending",
       }));
 
       setQueuedFiles(queue);
@@ -124,46 +135,54 @@ export function useArchivingTask(onComplete?: (docs: ArchiveDocument[]) => void)
       setCurrentStep(AGENT_PIPELINE_STEPS[0]);
       setIsFinished(false);
 
-      if (timerRef.current) clearInterval(timerRef.current);
+      const uploaded: ArchiveDocument[] = [];
+      const failed: string[] = [];
+      const physicalShelfLocation = `${config.cabinet} • ${config.shelf} • ${config.folder}`;
 
-      let currentPct = 5;
-      timerRef.current = setInterval(() => {
-        currentPct += Math.floor(Math.random() * 8) + 5;
+      // Upload one at a time so the server and OCR queue aren't flooded
+      for (let i = 0; i < queue.length; i++) {
+        const q = queue[i];
+        updateFile(q.id, { status: "processing" });
+        setCurrentStep(`Uploading ${q.name} (${i + 1}/${queue.length})`);
 
-        if (currentPct >= 100) {
-          currentPct = 100;
-          if (timerRef.current) clearInterval(timerRef.current);
-
-          setProgress(100);
-          setStepIndex(3);
-          setCurrentStep(AGENT_PIPELINE_STEPS[3]);
-          setIsFinished(true);
-
-          // Generate newly archived documents
-          const newlyDiscovered = queue.map((q, idx) =>
-            generateDiscoveredMetadata(q.name, idx, cabinetConfig)
-          );
-          setProcessedDocs(newlyDiscovered);
-
-          if (onComplete) {
-            onComplete(newlyDiscovered);
-          }
-        } else {
-          setProgress(currentPct);
-          if (currentPct > 75) {
-            setStepIndex(3);
-            setCurrentStep(AGENT_PIPELINE_STEPS[3]);
-          } else if (currentPct > 50) {
-            setStepIndex(2);
-            setCurrentStep(AGENT_PIPELINE_STEPS[2]);
-          } else if (currentPct > 25) {
-            setStepIndex(1);
-            setCurrentStep(AGENT_PIPELINE_STEPS[1]);
-          }
+        try {
+          const res = await uploadDocument(q.file, {
+            title: titleFromFileName(q.name),
+            departmentOrder: config.departmentOrder,
+            seriesDate: config.seriesDate,
+            physicalShelfLocation,
+            categoryId: config.categoryId,
+            clearanceLevel: config.clearanceLevel,
+          });
+          uploaded.push(toArchiveDocument(q.file, res.id, config));
+          updateFile(q.id, { status: "completed" });
+        } catch (err) {
+          const msg = errorText(err);
+          failed.push(`${q.name}: ${msg}`);
+          updateFile(q.id, { status: "failed", error: msg });
         }
-      }, 400);
+
+        const pct = Math.round(((i + 1) / queue.length) * 100);
+        setProgress(Math.max(5, pct));
+        setStepIndex(Math.min(AGENT_PIPELINE_STEPS.length - 1, Math.floor((pct / 100) * AGENT_PIPELINE_STEPS.length)));
+      }
+
+      setProgress(100);
+      setStepIndex(AGENT_PIPELINE_STEPS.length - 1);
+      setCurrentStep(
+        failed.length === 0
+          ? `${uploaded.length} file(s) uploaded — indexing in background`
+          : `${uploaded.length} uploaded, ${failed.length} failed`
+      );
+      setProcessedDocs(uploaded);
+      setIsFinished(true);
+
+      if (uploaded.length > 0 && onComplete) onComplete(uploaded);
+      if (failed.length > 0 && onError) {
+        onError(`Upload failed for ${failed.length} file(s): ${failed.join(" | ")}`);
+      }
     },
-    [onComplete]
+    [onComplete, onError]
   );
 
   const minimize = useCallback(() => {
@@ -175,7 +194,6 @@ export function useArchivingTask(onComplete?: (docs: ArchiveDocument[]) => void)
   }, []);
 
   const dismiss = useCallback(() => {
-    if (timerRef.current) clearInterval(timerRef.current);
     setIsActive(false);
     setIsMinimized(false);
     setProgress(0);

@@ -17,6 +17,9 @@ import Avatar from "@mui/material/Avatar";
 import Badge from "@mui/material/Badge";
 import Tooltip from "@mui/material/Tooltip";
 import Grid from "@mui/material/Grid";
+import TextField from "@mui/material/TextField";
+import MenuItem from "@mui/material/MenuItem";
+import Alert from "@mui/material/Alert";
 import { alpha } from "@mui/material/styles";
 
 // Clean MUI Icons (Zero Emojis)
@@ -36,6 +39,7 @@ import CheckCircleRoundedIcon from "@mui/icons-material/CheckCircleRounded";
 
 import CabinetSelectDropdown from "./CabinetSelectDropdown";
 import { formatFileSize, ArchivingCabinetConfig } from "./useArchivingTask";
+import { listCategories, CLEARANCE_OPTIONS, ClearanceLevelValue, DocumentCategory } from "@/lib/documentsApi";
 
 interface UploadDocumentDialogProps {
   open: boolean;
@@ -59,6 +63,28 @@ export default function UploadDocumentDialog({
   const [folder, setFolder] = useState("Binder 01");
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Metadata required by POST /api/documents/upload (applied to every file in this batch)
+  const [categories, setCategories] = useState<DocumentCategory[]>([]);
+  const [categoriesError, setCategoriesError] = useState<string | null>(null);
+  const [categoryId, setCategoryId] = useState<number | "">("");
+  const [clearanceLevel, setClearanceLevel] = useState<ClearanceLevelValue>("public");
+  const [seriesDate, setSeriesDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [departmentOrder, setDepartmentOrder] = useState("");
+
+  useEffect(() => {
+    if (!open) return;
+    listCategories()
+      .then((data) => {
+        setCategoriesError(null);
+        setCategories(data);
+        setCategoryId((prev) => (prev === "" && data.length > 0 ? data[0].id : prev));
+      })
+      .catch((err) => setCategoriesError(err?.message || "Could not load categories"));
+  }, [open]);
+
+  const canSubmit =
+    selectedFiles.length > 0 && categoryId !== "" && departmentOrder.trim() !== "" && seriesDate !== "";
 
   // Alon Typewriter Effect
   const [typedContent, setTypedContent] = useState("");
@@ -144,12 +170,17 @@ export default function UploadDocumentDialog({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (selectedFiles.length === 0) return;
+    if (!canSubmit) return;
 
     onStartArchiving(selectedFiles, {
       cabinet,
       shelf,
       folder,
+      categoryId,
+      categoryName: categories.find((c) => c.id === categoryId)?.name ?? "",
+      clearanceLevel,
+      seriesDate,
+      departmentOrder: departmentOrder.trim(),
     });
 
     // Reset and close upload modal
@@ -797,6 +828,90 @@ export default function UploadDocumentDialog({
 
             <Divider />
 
+            {/* Document Details (sent to the upload endpoint) */}
+            <Box>
+              <Typography
+                variant="caption"
+                sx={{ fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", color: "text.secondary", display: "block", mb: 1.25 }}
+              >
+                Document Details
+              </Typography>
+
+              {categoriesError && (
+                <Alert severity="error" sx={{ mb: 1.5, fontSize: "0.8rem" }}>
+                  {categoriesError}
+                </Alert>
+              )}
+              {!categoriesError && open && categories.length === 0 && (
+                <Alert severity="warning" sx={{ mb: 1.5, fontSize: "0.8rem" }}>
+                  No document categories yet. Create one first before uploading.
+                </Alert>
+              )}
+
+              <Box
+                sx={{
+                  display: "grid",
+                  gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", md: "repeat(4, 1fr)" },
+                  gap: 1.5,
+                }}
+              >
+                <TextField
+                  select
+                  required
+                  size="small"
+                  label="Category"
+                  value={categoryId}
+                  onChange={(e) => setCategoryId(Number(e.target.value))}
+                  disabled={categories.length === 0}
+                >
+                  {categories.map((c) => (
+                    <MenuItem key={c.id} value={c.id}>
+                      {c.name}
+                    </MenuItem>
+                  ))}
+                </TextField>
+
+                <TextField
+                  select
+                  required
+                  size="small"
+                  label="Clearance Level"
+                  value={clearanceLevel}
+                  onChange={(e) => setClearanceLevel(e.target.value as ClearanceLevelValue)}
+                >
+                  {CLEARANCE_OPTIONS.map((o) => (
+                    <MenuItem key={o.value} value={o.value}>
+                      {o.label}
+                    </MenuItem>
+                  ))}
+                </TextField>
+
+                <TextField
+                  required
+                  size="small"
+                  label="Department / Order No."
+                  placeholder="e.g. PAO-2024-001"
+                  value={departmentOrder}
+                  onChange={(e) => setDepartmentOrder(e.target.value)}
+                />
+
+                <TextField
+                  required
+                  size="small"
+                  type="date"
+                  label="Series Date"
+                  value={seriesDate}
+                  onChange={(e) => setSeriesDate(e.target.value)}
+                  slotProps={{ inputLabel: { shrink: true } }}
+                />
+              </Box>
+              <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: 0.75, fontSize: "0.74rem" }}>
+                These details apply to every staged file. Each file&apos;s title is taken from its file name.
+              </Typography>
+            </Box>
+
+            <Divider />
+
             {/* Physical Storage Coordinates Dropdown */}
             <Box>
               <CabinetSelectDropdown
@@ -828,7 +943,7 @@ export default function UploadDocumentDialog({
             type="submit"
             variant="contained"
             color="primary"
-            disabled={selectedFiles.length === 0}
+            disabled={!canSubmit}
             startIcon={<SaveOutlinedIcon />}
             sx={{ textTransform: "none", fontWeight: 600, px: 3 }}
           >

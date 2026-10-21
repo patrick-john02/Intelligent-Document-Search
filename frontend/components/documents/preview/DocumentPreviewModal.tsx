@@ -36,6 +36,8 @@ import { ArchiveDocument } from "../types";
 import DocumentPdfRenderer from "./DocumentPdfRenderer";
 import DocumentSpreadsheetRenderer from "./DocumentSpreadsheetRenderer";
 import DocumentWordRenderer from "./DocumentWordRenderer";
+import DocumentFileViewer from "./DocumentFileViewer";
+import { downloadDocumentVersion, saveBlob } from "@/lib/documentsApi";
 
 const Transition = React.forwardRef(function Transition(
   props: TransitionProps & {
@@ -88,8 +90,19 @@ export default function DocumentPreviewModal({
     setCurrentPage((prev) => Math.min(prev + 1, totalPages));
   };
 
-  const handleDownload = () => {
-    setToastMessage(`Downloading official archival copy: "${document.fileName || document.orderNo}"`);
+  // GET /api/documents/version/{version_id}/download
+  const handleDownload = async () => {
+    if (!document.currentVersionId) {
+      setToastMessage("This document has no uploaded file to download.");
+      return;
+    }
+    setToastMessage(`Downloading "${document.fileName || document.title}"...`);
+    try {
+      const blob = await downloadDocumentVersion(document.currentVersionId);
+      saveBlob(blob, document.fileName || `document-${document.id}`);
+    } catch (err) {
+      setToastMessage(`Download failed: ${err instanceof Error ? err.message : "unknown error"}`);
+    }
   };
 
   const handlePrint = () => {
@@ -386,7 +399,12 @@ export default function DocumentPreviewModal({
           alignItems: "flex-start",
         }}
       >
-        {document.fileType === "xlsx" ? (
+        {document.currentVersionId ? (
+          // real file from the backend
+          <Box sx={{ alignSelf: "stretch", flex: 1, display: "flex", minHeight: 0 }}>
+            <DocumentFileViewer document={document} zoomLevel={zoomLevel} onDownload={handleDownload} />
+          </Box>
+        ) : document.fileType === "xlsx" ? (
           <DocumentSpreadsheetRenderer document={document} zoomLevel={zoomLevel} />
         ) : document.fileType === "docx" ? (
           <DocumentWordRenderer document={document} zoomLevel={zoomLevel} currentPage={currentPage} />

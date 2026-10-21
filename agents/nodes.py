@@ -1,57 +1,48 @@
-from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
+from langchain_core.messages import SystemMessage, trim_messages
 from langgraph.store.base import BaseStore
 from core.configurations import chat_model
-from tools.registry import ALL_TOOLS
+# from tools.registry import ALL_TOOLS
 from agents.state import SupervisorState
 from agents.supervisor_tools import SUPERVISOR_TOOLS
 from agents.context import SUPERVISOR_SYSTEM_PROMPT
 
 
+model_with_tools = chat_model.bind_tools(SUPERVISOR_TOOLS, parallel_tool_calls=False)
 
-
-model_with_tools = chat_model.bind_tools(SUPERVISOR_TOOLS)
-
-
-
-
-SUPERVISOR_SYSTEM_PROMPT = """You are an intelligent Document Research and Analaysis Assistant.
-You have access to the following specialized tools:
-1. `search_documents`: Search internal documents, circulars, and policies by keywords or semantic queries.
-2. `fetch_document_content`: Retrieve full text contentn of a specific document by its ID or title.
-3. `compare_documents`: Perform an in-depth comparison between two documents to find similarities, differences and unique points.
-4. `detect_duplicates`: Check if a document has exact binary hash or semantic duplicates in the database.
-
-
-Operational Guidelines:
--Analyze the user request step-by-step.
-- Call tools whenever you need to find, read, compare, or verify documents.
-- You can multiple tools in sequence (e.g. search for a document first, fetch its full content, then compare it).
-- If the user's request is ambiguous or lacks necessary references, politely ask for clarification.
-- Synthesize clear , well-formatted markdown answers based on the tool observations.
-"""
 
 async def agent_node(state: SupervisorState, store: BaseStore):
     messages = state.get("messages", [])
     user_id = state.get("user_id")
-
-    user_preferences = ""
+    attachment_ids = state.get("attachment_ids") or []
+    
+    prompt = SUPERVISOR_SYSTEM_PROMPT
+    
+    if attachment_ids:
+        ids = ", ".join(map(str, attachment_ids))
+        prompt += (
+            f"\n\nThe user attached documents with IDs: {ids}. "
+            "When they say 'this file' or 'the attachment', pass these IDs to ask_doc_analyst."
+        )
 
     if user_id:
-        user_namespace = ("users", str(user_id))
-        pref_item = await store.aget(user_namespace, "preferences") #this can be configure, what will be the user preferences, preffered response, preferred departments.
+        pref_item = await store.aget(("users", str(user_id)), "preferences") #this can be configure, what will be the user preferences, preffered response, preferred departments.
         if pref_item and pref_item.value:
-            user_preferences = f"\nUser Preferences: {pref_item.value}"
+            prompt += f"\n\nUser Preferences: {pref_item.value}"
+            
+       
+    recent = trim_messages(
+        messages,
+        strategy="last",
+        token_counter=len, # count messages, not tokens 
+        max_tokens=20, # keep last 20 messages
+        start_on="human", # never start on a dangling tool result
+    )
 
-    #grab the question from state or the last message in the history
-    if not messages or not isinstance(messages[0], SystemMessage):
-        full_prompt = SUPERVISOR_SYSTEM_PROMPT + user_preferences
-        messages = [SystemMessage(content=full_prompt)] + messages
-
-    response = await model_with_tools.ainvoke(messages)
+    response = await model_with_tools.ainvoke([SystemMessage(content=prompt)] + recent)
 
     updates = {"messages": [response]}
 
-    if not getattr(response, "tool_calls", None):
+    if not response.tool_calls:
         updates["final_response"] = response.content
     
     # LangGraph will take this dict and update the state automatically.

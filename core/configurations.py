@@ -1,6 +1,7 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from dotenv import load_dotenv 
-from langchain_ollama.chat_models import ChatOllama
+# from langchain_ollama.chat_models import ChatOllama
+from langchain_groq.chat_models import ChatGroq
 from langchain_ollama import OllamaEmbeddings
 import os
 
@@ -14,6 +15,10 @@ class AppSettings(BaseSettings):
     POSTGRES_DB: str
     POSTGRES_PORT: int
     HOST: str
+    
+    GROQ:str
+    GROQ_MODEL: str = "qwen/qwen3-32b"
+    GROQ_VISION_MODEL: str = "meta-llama/llama-4-scout-17b-16e-instruct"
     
     OLLAMA_BASE_URL: str = "http://localhost:11434"
     LLM_MODEL: str = "qwen3:8b"
@@ -33,23 +38,35 @@ app_settings = AppSettings()
 ollama_host = app_settings.OLLAMA_BASE_URL.replace("/v1", "").rstrip("/")
 ollama_url = ollama_host
 
-chat_model = ChatOllama(
-    model=app_settings.LLM_MODEL,
-    base_url=ollama_host,
-    temperature=0.1
+# chat_model = ChatOllama(
+#     model=app_settings.LLM_MODEL,
+#     base_url=ollama_host,
+#     temperature=0.1
+# )
+
+chat_model = ChatGroq(
+    model = app_settings.GROQ_MODEL,
+    api_key=app_settings.GROQ,
+    temperature=0.1,
 )
 
-vision_model = ChatOllama(
-    model=app_settings.VISION_LLM,
-    base_url=ollama_host,
+
+vision_model = ChatGroq(
+    model=app_settings.GROQ_VISION_MODEL,
+    api_key=app_settings.GROQ,
     temperature=0.1
 )
+# vision_model = ChatOllama(
+#     model=app_settings.VISION_LLM,
+#     base_url=ollama_host,
+#     temperature=0.1
+# )
 
 
 
 class NomicOllamaEmbeddings(OllamaEmbeddings):
-    document_prefix: str = "search_document:"
-    query_prefix: str = "search_query:"
+    document_prefix: str = "search_document: "
+    query_prefix: str = "search_query: "
     
     def embed_documents(self, texts: list[str])->list[list[float]]:
         return super().embed_documents([self.document_prefix + t for t in texts])
@@ -63,7 +80,7 @@ class NomicOllamaEmbeddings(OllamaEmbeddings):
     async def aembed_query(self, text: str)->list[float]:
         return (await super().aembed_documents([self.query_prefix + text]))[0]
     
-embedding_model = OllamaEmbeddings(
+embedding_model = NomicOllamaEmbeddings(
     model=app_settings.EMBEDDING_MODEL,
     base_url=ollama_host
 )

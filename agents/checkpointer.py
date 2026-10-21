@@ -22,7 +22,7 @@ checkpointer_pool = AsyncConnectionPool(
 )
 
 
-posgres_checkpointer = AsyncPostgresSaver(checkpointer_pool)
+postgres_checkpointer = AsyncPostgresSaver(checkpointer_pool)
 #store long-term cross-conversation memory
 #InMemoryStore stores key-value pairs organized by namespaces across threads
 store = InMemoryStore()
@@ -32,7 +32,7 @@ store = InMemoryStore()
 #open the pool and creates checkpoints table in postgresql if they do not exists
 async def init_checkpointer():
     await checkpointer_pool.open()
-    await posgres_checkpointer.setup()
+    await postgres_checkpointer.setup()
 
 
 #closes the connection pool on app shutdown.
