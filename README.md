@@ -9,6 +9,7 @@ type on terminal vscode :
 cd deployment
 docker compose up -d
 docker compose up -d pgadmin - for the UI on browser
+docker compose up -d redis
 
 #CELERY Run two workers (in two terminals on Windows)
 uv run celery -A rag.worker worker -Q ocr -n ocr@%h --pool=solo -l info
