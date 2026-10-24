@@ -1,9 +1,12 @@
+
+import logging
+
 from datetime import datetime, timezone
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import HumanMessage, ToolMessage
 from langgraph.errors import GraphRecursionError
 
-from tools.documents.search import current_allowed_clearance
-from tools.access.permissions import get_user_clearance_levels
+from tools.access.permissions import get_user_clearance_levels, clearance_filter, current_allowed_clearance
+from api.models.document import DocumentModel
 
 from fastapi import(
     status, HTTPException, APIRouter, Depends
@@ -31,7 +34,10 @@ from core.security import get_current_active_user
 #imports from agents
 from agents.graph import app as agent_app
 
+logger=logging.getLogger(__name__)
+
 router = APIRouter(prefix="/chat", tags=["Chat App"])
+
 
 @router.get("/list", status_code=status.HTTP_200_OK, response_model=list[ConversationsResponse])
 async def conversation_lists(
@@ -84,6 +90,25 @@ async def talk_to_ai(
     db:AsyncSession=Depends(get_db),
     current_user:Users=Depends(get_current_active_user)
 ):
+    #validate attachments BEFORE creating anything
+    allowed_levels = [lvl.lower() for lvl in get_user_clearance_levels(current_user)]
+    attachment_ids = list(dict.fromkeys(payload.attachment_ids or [])) # dedupe, keep order
+
+    if attachment_ids:
+        found = (await db.execute(
+            select(DocumentModel.id).where(
+                DocumentModel.id.in_(attachment_ids),
+                DocumentModel.is_deleted.is_(False),
+                clearance_filter(allowed_levels),
+            )
+        )).scalars().all()
+
+        if len(found) !=len(attachment_ids):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail= "One or more attachments were not found."
+            )
+
     if payload.conversation_id:
         conv_query = select(Conversation).where(
             Conversation.id == payload.conversation_id,
@@ -91,6 +116,7 @@ async def talk_to_ai(
         )
         conv_result = await db.execute(conv_query)
         conversation = conv_result.scalar_one_or_none()
+
         
         if not conversation:
             raise HTTPException(
@@ -125,32 +151,45 @@ async def talk_to_ai(
     
     initial_state = {
         "messages": [HumanMessage(content=payload.content)],
-        "question": payload.content,
-        "attachment_ids": payload.attachment_ids or [],
-        "user_id" : current_user.id
+        # "question": payload.content,
+        "attachment_ids": attachment_ids, # validated list, not payload.attachment_ids
+        "user_id" : current_user.id,
+        "user_profile":{
+            "name": f"{current_user.first_name} {current_user.last_name}".strip(),
+            "position": current_user.position,
+            "office": current_user.office,
+        }
     }
     config = {
         "configurable": {"thread_id":str(conversation.id)},
         "recursion_limit": 20 #guardrail : stops execution after 20 steps maximum
     }
 
-    token = current_allowed_clearance.set(get_user_clearance_levels(current_user))
-    # try:
-    #     agent_output = await agent_app.ainvoke(initial_state, config=config)
-    #     last_msg = agent_output.get("messages", [])[-1].content if agent_output.get("message") else None
-    #     ai_content = agent_output.get("final_response") or last_msg or "No response generated."
-    # except GraphRecursionError:
-    #     ai_content = "Sorry that request needed too many steps. Please make it more specific"
+    # token = current_allowed_clearance.set(get_user_clearance_levels(current_user))
+    token = current_allowed_clearance.set(allowed_levels)
 
+    sources: list[dict] = []
     try:
         agent_output = await agent_app.ainvoke(initial_state, config=config)
         msgs = agent_output.get("messages", [])
-        last_msg = msgs[-1].content if msgs else None
-        ai_content = agent_output.get("final_response") or last_msg or "No response generated."
+        ai_content = (msgs[-1].text if msgs else "") or "No response generated."
+
+        # sources from THIS turn only (tool results after the last human message)
+        last_human = max((i for i, m in enumerate(msgs) if isinstance(m, HumanMessage)), default=-1)
+        for m in msgs[last_human + 1:]:
+            if isinstance(m, ToolMessage) and isinstance(m.artifact, list):
+                sources.extend(m.artifact)
+
     except GraphRecursionError:
         ai_content = "Sorry, that request needed too many steps. Please make it more specific."
+
+    except Exception:
+        logger.exception("[Chat] Agent failed (conversation_id=%s)", conversation.id)
+        ai_content = "Sorry, I couldn't process that request right now. Please try again in a moment."
+
     finally:
         current_allowed_clearance.reset(token)
+
     
     assistant_message = ChatMessages(
         conversation_id = conversation.id,
@@ -165,12 +204,12 @@ async def talk_to_ai(
     await db.refresh(assistant_message)
     
     
-    
     return{
         "message": "Chat Created Successfully", 
         "conversation_id": conversation.id,
         "chat": ChatMessagesResponse.model_validate(user_message),
-        "assistant_message": ChatMessagesResponse.model_validate(assistant_message)
+        "assistant_message": ChatMessagesResponse.model_validate(assistant_message),
+        "sources": sources,
     }
 
 

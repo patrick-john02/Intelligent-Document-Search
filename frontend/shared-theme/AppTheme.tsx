@@ -10,6 +10,94 @@ interface AppThemeProps {
   themeComponents?: ThemeOptions["components"];
 }
 
+// Global compact / dense configuration for laptop screens and high-density dashboards
+const compactDensityComponents: ThemeOptions["components"] = {
+  MuiTable: {
+    defaultProps: {
+      size: "small",
+    },
+  },
+  MuiTableCell: {
+    styleOverrides: {
+      root: {
+        padding: "8px 12px",
+        fontSize: "0.8125rem",
+      },
+      sizeSmall: {
+        padding: "6px 10px",
+        fontSize: "0.8rem",
+      },
+      head: {
+        padding: "8px 12px",
+        fontSize: "0.78rem",
+        fontWeight: 700,
+      },
+    },
+  },
+  MuiTextField: {
+    defaultProps: {
+      size: "small",
+    },
+  },
+  MuiOutlinedInput: {
+    defaultProps: {
+      size: "small",
+    },
+    styleOverrides: {
+      root: {
+        borderRadius: 8,
+      },
+      input: {
+        padding: "8px 12px",
+      },
+      sizeSmall: {
+        fontSize: "0.85rem",
+      },
+    },
+  },
+  MuiInputBase: {
+    defaultProps: {
+      size: "small",
+    },
+  },
+  MuiFormControl: {
+    defaultProps: {
+      size: "small",
+    },
+  },
+  MuiSelect: {
+    defaultProps: {
+      size: "small",
+    },
+  },
+  MuiButton: {
+    defaultProps: {
+      size: "small",
+    },
+    styleOverrides: {
+      root: {
+        textTransform: "none",
+        fontWeight: 600,
+        boxShadow: "none",
+        borderRadius: 8,
+      },
+      sizeSmall: {
+        padding: "5px 12px",
+        fontSize: "0.8rem",
+      },
+      sizeMedium: {
+        padding: "8px 16px",
+        fontSize: "0.875rem",
+      },
+    },
+  },
+  MuiIconButton: {
+    defaultProps: {
+      size: "small",
+    },
+  },
+};
+
 export default function AppTheme({
   children,
   disableCustomTheme,
@@ -70,6 +158,7 @@ export default function AppTheme({
             borderRadius: 8,
           },
           components: {
+            ...compactDensityComponents,
             ...themeComponents,
           },
         });

@@ -2,6 +2,24 @@ from api.models.users import Users
 from api.models.enums.docs import ClearanceLevel, CLEARANCE_ORDER, get_subordinate_clearance_levels
 
 
+from contextvars import ContextVar
+from typing import Optional, List
+from sqlalchemy import String, cast, func
+from api.models.document import DocumentModel
+
+current_allowed_clearance: ContextVar[Optional[List[str]]] = ContextVar("current_allowed_clearance", default=None)
+
+
+def active_clearance_levels()->list[str]:
+    levels = current_allowed_clearance.get() or [ClearanceLevel.PUBLIC.value]
+    return [lvl.lower() for lvl in levels]
+
+
+def clearance_filter(levels:list[str] | None=None):
+    return func.lower(cast(DocumentModel.clearance_level, String)).in_(levels or active_clearance_levels())
+
+
+
 def get_user_clearance_levels(
     user: Users | None
 ) -> list[str]:

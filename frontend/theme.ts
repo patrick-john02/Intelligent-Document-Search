@@ -65,7 +65,32 @@ const theme = createTheme({
     borderRadius: 8,
   },
   components: {
+    MuiTable: {
+      defaultProps: {
+        size: "small",
+      },
+    },
+    MuiTableCell: {
+      styleOverrides: {
+        root: {
+          padding: "8px 12px",
+          fontSize: "0.8125rem",
+        },
+        sizeSmall: {
+          padding: "6px 10px",
+          fontSize: "0.8rem",
+        },
+        head: {
+          padding: "8px 12px",
+          fontSize: "0.78rem",
+          fontWeight: 700,
+        },
+      },
+    },
     MuiTextField: {
+      defaultProps: {
+        size: "small",
+      },
       styleOverrides: {
         root: {
           "& .MuiOutlinedInput-root": {
@@ -87,12 +112,48 @@ const theme = createTheme({
         },
       },
     },
+    MuiOutlinedInput: {
+      defaultProps: {
+        size: "small",
+      },
+      styleOverrides: {
+        input: {
+          padding: "8.5px 12px",
+        },
+      },
+    },
+    MuiInputBase: {
+      defaultProps: {
+        size: "small",
+      },
+    },
+    MuiFormControl: {
+      defaultProps: {
+        size: "small",
+      },
+    },
+    MuiSelect: {
+      defaultProps: {
+        size: "small",
+      },
+    },
     MuiButton: {
+      defaultProps: {
+        size: "small",
+      },
       styleOverrides: {
         root: {
-          padding: "10px 16px",
-          fontSize: "0.9rem",
+          padding: "6px 14px",
+          fontSize: "0.85rem",
           boxShadow: "none",
+        },
+        sizeSmall: {
+          padding: "5px 12px",
+          fontSize: "0.8rem",
+        },
+        sizeMedium: {
+          padding: "8px 16px",
+          fontSize: "0.875rem",
         },
         contained: {
           backgroundColor: "#0F172A",
@@ -133,6 +194,11 @@ const theme = createTheme({
             color: "primary.main",
           },
         },
+      },
+    },
+    MuiIconButton: {
+      defaultProps: {
+        size: "small",
       },
     },
   },

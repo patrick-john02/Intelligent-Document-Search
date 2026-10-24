@@ -25,3 +25,19 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Responsive Base REM Scaling:
+   High-DPI laptop displays (125%-150% OS scaling) decrease effective viewport
+   width to 1280px-1536px. Scaling the root rem proportionally shrinks fonts,
+   paddings, and layout elements uniformly to match the view on 24-inch 1080p monitors. */
+@media screen and (max-width: 1536px) {
+  html {
+    font-size: 14px;
+  }
+}
+
+@media screen and (max-width: 1280px) {
+  html {
+    font-size: 13.5px;
+  }
+}

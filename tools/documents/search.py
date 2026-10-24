@@ -16,11 +16,12 @@ from core.configurations import app_settings
 from rag.reranker import reranker
 from rag.classification.labels import DOC_TYPES
 
+from tools.access.permissions import get_user_clearance_levels, current_allowed_clearance
+
 logger = logging.getLogger(__name__)
 
 # Request-scoped context variables for pre-retrieval authorization
 current_user_context: ContextVar[Optional[Users]] = ContextVar("current_user_context", default=None)
-current_allowed_clearance: ContextVar[Optional[List[str]]] = ContextVar("current_allowed_clearance", default=None)
 
 DOC_TYPE_ALIASES = {
     "dv": "disbursement_voucher",
@@ -459,6 +460,7 @@ class FetchDocumentInput(BaseModel):
     "search_documents",
     description="Two-stage hybrid search internal documents: dense + lexical candidate generation (~20), RRF, Qwen cross-encoder reranking (top ~5-8), and parent context expansion with pre-retrieval clearance and version filtering.",
     args_schema=SearchDocumentsInput,
+    response_format="content_and_artifact",   # returns (text, sources)
 )
 async def search_document_tool(
     query: str,
@@ -468,7 +470,7 @@ async def search_document_tool(
     document_ids: Optional[List[int]] = None,
     doc_type: Optional[str] = None,
     year: Optional[int] = None,
-) -> str:
+) -> tuple[str, list[dict]]:
     results = await search_documents(
         query=query,
         top_k=top_k,
@@ -479,7 +481,7 @@ async def search_document_tool(
         year=year,
     )
     if not results:
-        return f"No relevant documents found matching query: '{query}'."
+        return f"No relevant documents found matching query: '{query}'.", []
 
     output = []
     for idx, item in enumerate(results, 1):
@@ -510,7 +512,19 @@ async def search_document_tool(
             f"{parent_section_text}"
         )
 
-    return "\n---\n".join(output)
+    # structured sources travel as the tool artifact, so citations never depend on the LLM copying IDs
+    sources = [
+        {
+            "document_id": item.get("document_id"),
+            "document_version_id": item.get("document_version_id"),
+            "file_name": item.get("file_name"),
+            "page_number": item.get("page_number"),
+            "chunk_id": item.get("chunk_id"),
+            "score": float(item.get("rerank_score", item.get("relevance_score", 0.0))),
+        }
+        for item in results
+    ]
+    return "\n---\n".join(output), sources
 
 
 @tool("fetch_parent_context", description="Retrieve the full enclosing parent section (~1,200 tokens) for a child chunk to obtain surrounding context.", args_schema=FetchParentContextInput)

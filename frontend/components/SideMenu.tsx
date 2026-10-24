@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { styled, Theme, CSSObject } from "@mui/material/styles";
+import { styled, Theme, CSSObject, useTheme } from "@mui/material/styles";
+import useMediaQuery from "@mui/material/useMediaQuery";
 import Avatar from "@mui/material/Avatar";
 import MuiDrawer, { drawerClasses } from "@mui/material/Drawer";
 import IconButton from "@mui/material/IconButton";
@@ -84,7 +85,23 @@ interface SideMenuProps {
 }
 
 export default function SideMenu({ currentRole }: SideMenuProps) {
+  const theme = useTheme();
+  // Automatically detect laptop or smaller viewport widths (< 1536px)
+  const isLaptopOrSmaller = useMediaQuery(theme.breakpoints.down("xl"));
   const [open, setOpen] = useState(true);
+  const [hasUserToggled, setHasUserToggled] = useState(false);
+
+  // Automatically start collapsed on laptop viewports to free horizontal space
+  useEffect(() => {
+    if (!hasUserToggled) {
+      setOpen(!isLaptopOrSmaller);
+    }
+  }, [isLaptopOrSmaller, hasUserToggled]);
+
+  const handleToggle = () => {
+    setHasUserToggled(true);
+    setOpen((prev) => !prev);
+  };
 
   const { user } = useAuth();
   const effectiveRole = currentRole || getDefaultRole(user);
@@ -215,7 +232,7 @@ export default function SideMenu({ currentRole }: SideMenuProps) {
         >
           <IconButton
             size="small"
-            onClick={() => setOpen(!open)}
+            onClick={handleToggle}
             sx={{
               position: "absolute",
               top: "50%",

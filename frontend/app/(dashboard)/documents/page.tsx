@@ -24,7 +24,7 @@ import { ArchiveDocument, ArchiveFolder } from "@/components/documents/types";
 // Modular Document Page Components
 import DocumentsHeaderBar from "@/components/documents/DocumentsHeaderBar";
 import DocumentsDeletedVaultBanner from "@/components/documents/DocumentsDeletedVaultBanner";
-import DocumentClearanceFilter from "@/components/documents/DocumentClearanceFilter";
+
 import DocumentsToolbar from "@/components/documents/DocumentsToolbar";
 import DocumentSelectionBanner from "@/components/documents/DocumentSelectionBanner";
 import FileExplorerSidebar from "@/components/documents/FileExplorerSidebar";
@@ -105,7 +105,7 @@ export default function DocumentArchivePage(props: { disableCustomTheme?: boolea
   // Layout Panels & Modal States
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
   const [isUploadOpen, setIsUploadOpen] = useState<boolean>(false);
-  const [isIntelligenceOpen, setIsIntelligenceOpen] = useState<boolean>(true);
+  const [isIntelligenceOpen, setIsIntelligenceOpen] = useState<boolean>(false);
   const [intelligenceTab, setIntelligenceTab] = useState<IntelligenceTab>("dossier");
   const [previewDoc, setPreviewDoc] = useState<ArchiveDocument | null>(null);
 
@@ -175,7 +175,8 @@ export default function DocumentArchivePage(props: { disableCustomTheme?: boolea
   const handleOpenDossier = (doc?: ArchiveDocument | null) => {
     if (doc) {
       setSelectedDoc(doc);
-      openPreview(doc);
+      setIsIntelligenceOpen(true);
+      setIntelligenceTab("dossier");
     }
   };
 
@@ -263,19 +264,15 @@ export default function DocumentArchivePage(props: { disableCustomTheme?: boolea
             />
           )}
 
-          {/* Security Clearance Classification Quick Filter */}
-          <DocumentClearanceFilter
-            selectedClearance={selectedClearance}
-            onClearanceChange={setSelectedClearance}
-            clearanceCounts={clearanceCounts}
-          />
-
           {/* Drive-Style Search & Quick Filters Toolbar */}
           <DocumentsToolbar
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
             selectedFileType={selectedFileType}
             onFileTypeChange={setSelectedFileType}
+            selectedClearance={selectedClearance}
+            onClearanceChange={setSelectedClearance}
+            clearanceCounts={clearanceCounts}
             fromDate={fromDate}
             toDate={toDate}
             onFromDateChange={setFromDate}

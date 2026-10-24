@@ -28,13 +28,17 @@ import InsertDriveFileRoundedIcon from "@mui/icons-material/InsertDriveFileRound
 import Typography from "@mui/material/Typography";
 
 import DocumentDateRangeFilter from "./DocumentDateRangeFilter";
-import { DocumentSortOption } from "./types";
+import { CLEARANCE_CONFIGS } from "./DocumentClearanceFilter";
+import { DocumentSortOption, DocumentClearanceFilterOption } from "./types";
 
 interface DocumentsToolbarProps {
   searchQuery: string;
   onSearchChange: (query: string) => void;
   selectedFileType: string;
   onFileTypeChange: (type: string) => void;
+  selectedClearance?: DocumentClearanceFilterOption;
+  onClearanceChange?: (clearance: DocumentClearanceFilterOption) => void;
+  clearanceCounts?: Record<DocumentClearanceFilterOption, number>;
   fromDate: Dayjs | null;
   toDate: Dayjs | null;
   onFromDateChange: (date: Dayjs | null) => void;
@@ -50,6 +54,9 @@ export default function DocumentsToolbar({
   onSearchChange,
   selectedFileType,
   onFileTypeChange,
+  selectedClearance = "All",
+  onClearanceChange,
+  clearanceCounts,
   fromDate,
   toDate,
   onFromDateChange,
@@ -194,6 +201,92 @@ export default function DocumentsToolbar({
             </MenuItem>
           </Select>
         </FormControl>
+
+        {/* Security Clearance Dropdown Selector */}
+        {onClearanceChange && (
+          <FormControl size="small" sx={{ minWidth: 165, width: { xs: "100%", sm: "auto" } }}>
+            <Select
+              value={selectedClearance}
+              onChange={(e) => onClearanceChange(e.target.value as DocumentClearanceFilterOption)}
+              displayEmpty
+              renderValue={(val) => {
+                const cfg = CLEARANCE_CONFIGS.find((c) => c.value === val) || CLEARANCE_CONFIGS[0];
+                const count = clearanceCounts ? clearanceCounts[cfg.value] : undefined;
+                return (
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 0.85, overflow: "hidden" }}>
+                    <Box component="span" sx={{ display: "flex", alignItems: "center", color: cfg.color }}>
+                      {cfg.icon}
+                    </Box>
+                    <Typography variant="body2" sx={{ fontSize: "0.82rem", fontWeight: 600, color: "text.primary" }}>
+                      {val === "All" ? "All Clearances" : val}
+                    </Typography>
+                    {count !== undefined && (
+                      <Box
+                        component="span"
+                        sx={{
+                          fontSize: "0.68rem",
+                          fontWeight: 700,
+                          px: 0.6,
+                          py: 0.05,
+                          borderRadius: 1,
+                          bgcolor: val === "All" ? "action.hover" : alpha(cfg.color, 0.15),
+                          color: val === "All" ? "text.secondary" : cfg.color,
+                          ml: "auto",
+                        }}
+                      >
+                        {count}
+                      </Box>
+                    )}
+                  </Box>
+                );
+              }}
+              sx={{
+                borderRadius: 1.5,
+                fontSize: "0.82rem",
+                height: 36,
+                bgcolor: "background.paper",
+                "& .MuiSelect-select": {
+                  py: 0.5,
+                  fontWeight: 600,
+                },
+              }}
+            >
+              {CLEARANCE_CONFIGS.map((cfg) => {
+                const count = clearanceCounts ? clearanceCounts[cfg.value] : undefined;
+                return (
+                  <MenuItem key={cfg.value} value={cfg.value} sx={{ fontSize: "0.82rem", py: 0.75 }}>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1, width: "100%" }}>
+                      <Box component="span" sx={{ display: "flex", alignItems: "center", color: cfg.color }}>
+                        {cfg.icon}
+                      </Box>
+                      <Box sx={{ flexGrow: 1 }}>
+                        <Typography variant="body2" sx={{ fontSize: "0.82rem", fontWeight: 600 }}>
+                          {cfg.label}
+                        </Typography>
+                      </Box>
+                      {count !== undefined && (
+                        <Box
+                          component="span"
+                          sx={{
+                            fontSize: "0.7rem",
+                            fontWeight: 700,
+                            px: 0.6,
+                            py: 0.1,
+                            borderRadius: 1,
+                            bgcolor: alpha(cfg.color, 0.12),
+                            color: cfg.color,
+                          }}
+                        >
+                          {count}
+                        </Box>
+                      )}
+                    </Box>
+                  </MenuItem>
+                );
+              })}
+            </Select>
+          </FormControl>
+        )}
       </Box>
 
       {/* Date Range & Sort Selector */}

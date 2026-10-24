@@ -9,6 +9,8 @@ from api.models.document import DocumentModel, DocumentVersion
 from core.dependencies import SessionLocal, deps
 from rag.dedup import default_duplicate_detector
 from tools.analysis.fetch import resolve_document_content
+from tools.access.permissions import clearance_filter, active_clearance_levels
+from tools.documents.search import resolve_authorized_version_ids
 
 
 class DuplicateMatch(BaseModel):
@@ -59,7 +61,8 @@ async def check_hash_duplicates(
                 .join(DocumentVersion.document)
                 .where(
                     DocumentVersion.checksum == checksum,
-                    DocumentModel.is_deleted.is_(False),
+                    DocumentModel.is_deleted.is_(False), clearance_filter(),
+                    
                 )
                 .options(selectinload(DocumentVersion.document))
             )
@@ -103,7 +106,7 @@ async def check_algorithmic_duplicates(
         async with SessionLocal() as session:
             stmt = (
                 select(DocumentModel)
-                .where(DocumentModel.is_deleted.is_(False))
+                .where(DocumentModel.is_deleted.is_(False), clearance_filter())
                 .options(selectinload(DocumentModel.versions))
             )
             if exclude_document_id:
@@ -164,11 +167,17 @@ async def check_semantic_duplicates(
         return matches
 
     query_sample = text.strip()[:1500]
+    allowed_ids = await resolve_authorized_version_ids(active_clearance_levels())
+    if not allowed_ids:
+        return matches
+
+    
 
     try:
         results = await deps.vector_store.asimilarity_search_with_score(
             query=query_sample,
             k=k,
+            filter={"document_version_id": {"$in": allowed_ids}},
         )
 
         seen_doc_ids = set()

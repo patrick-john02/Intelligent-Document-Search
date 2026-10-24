@@ -1,6 +1,6 @@
 from psycopg_pool import AsyncConnectionPool
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
-from langgraph.store.memory import InMemoryStore
+from langgraph.store.postgres.aio import AsyncPostgresStore
 
 #imports
 from core.configurations import app_settings
@@ -25,7 +25,7 @@ checkpointer_pool = AsyncConnectionPool(
 postgres_checkpointer = AsyncPostgresSaver(checkpointer_pool)
 #store long-term cross-conversation memory
 #InMemoryStore stores key-value pairs organized by namespaces across threads
-store = InMemoryStore()
+store = AsyncPostgresStore(checkpointer_pool)
 
 
 
@@ -33,6 +33,7 @@ store = InMemoryStore()
 async def init_checkpointer():
     await checkpointer_pool.open()
     await postgres_checkpointer.setup()
+    await store.setup() #creates the store tables if missing.
 
 
 #closes the connection pool on app shutdown.

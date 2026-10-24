@@ -13,6 +13,9 @@ import { gray } from '../../../shared-theme/themePrimitives';
 /* eslint-disable import/prefer-default-export */
 export const dataGridCustomizations = {
   MuiDataGrid: {
+    defaultProps: {
+      density: 'compact',
+    },
     styleOverrides: {
       root: ({ theme }) => ({
         '--DataGrid-overlayHeight': '300px',
