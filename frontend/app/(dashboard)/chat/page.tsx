@@ -2,31 +2,10 @@
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import Box from "@mui/material/Box";
-import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
-import TextField from "@mui/material/TextField";
-import IconButton from "@mui/material/IconButton";
-import Button from "@mui/material/Button";
-import Paper from "@mui/material/Paper";
-import Divider from "@mui/material/Divider";
 import Chip from "@mui/material/Chip";
-import Collapse from "@mui/material/Collapse";
-import Tooltip from "@mui/material/Tooltip";
 import CssBaseline from "@mui/material/CssBaseline";
 import { alpha } from "@mui/material/styles";
-import Link from "next/link";
-
-// Icons (Functional only)
-import SendRoundedIcon from "@mui/icons-material/SendRounded";
-import ThumbUpOutlinedIcon from "@mui/icons-material/ThumbUpOutlined";
-import ThumbUpRoundedIcon from "@mui/icons-material/ThumbUpRounded";
-import ThumbDownOutlinedIcon from "@mui/icons-material/ThumbDownOutlined";
-import ThumbDownRoundedIcon from "@mui/icons-material/ThumbDownRounded";
-import ContentCopyRoundedIcon from "@mui/icons-material/ContentCopyRounded";
-import RefreshRoundedIcon from "@mui/icons-material/RefreshRounded";
-import AlternateEmailRoundedIcon from "@mui/icons-material/AlternateEmailRounded";
-import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
-import AutoAwesomeRoundedIcon from "@mui/icons-material/AutoAwesomeRounded";
 
 // Layout & Customizations
 import SideMenu from "@/components/SideMenu";
@@ -38,32 +17,14 @@ import { api, ApiError } from "@/lib/api";
 
 // Chat Subcomponents
 import ConversationSidebar, { ConversationItem } from "@/components/chat/ConversationSidebar";
-import DocumentMentionDropdown, {
-  MENTIONABLE_DOCUMENTS,
-  MentionableDocument,
-} from "@/components/chat/DocumentMentionDropdown";
-import MultiAgentStepper, { PipelineStep } from "@/components/chat/MultiAgentStepper";
+import ChatComposer from "@/components/chat/ChatComposer";
+import ChatMessageItem, { ChatMessage, ReferencedDoc } from "@/components/chat/ChatMessageItem";
+import ChatEmptyState from "@/components/chat/ChatEmptyState";
+import ChatThinkingIndicator from "@/components/chat/ChatThinkingIndicator";
+import ChatSkeleton from "@/components/chat/ChatSkeleton";
+import { MentionableDocument } from "@/components/chat/DocumentMentionDropdown";
 
-export interface ReferencedDoc {
-  id: string;
-  title: string;
-  orderNo: string;
-  seriesYear: number | string;
-  shelfLocation: string;
-  relevanceMatch: string;
-  excerpt: string;
-}
-
-export interface ChatMessage {
-  id: string;
-  sender: "user" | "assistant";
-  timestamp: string;
-  text: string;
-  referencedDocs?: ReferencedDoc[];
-  feedback?: "liked" | "disliked" | null;
-  pipelineSteps?: PipelineStep[];
-  targetedDoc?: MentionableDocument;
-}
+export type { ReferencedDoc, ChatMessage };
 
 // ---------- Backend response shapes (/api/chat) ----------
 interface ApiConversation {
@@ -137,12 +98,6 @@ const toChatMessage = (m: ApiChatMessage): ChatMessage => {
 const errorText = (err: unknown): string =>
   err instanceof ApiError ? err.message : "Could not reach the server. Is the backend running?";
 
-const QUICK_PROMPTS = [
-  "Property tax penalty ceiling",
-  "Treasury electronic receipting deadline",
-  "Municipal franchise tax exemptions",
-];
-
 export default function ChatPage(props: { disableCustomTheme?: boolean }) {
   const { user } = useAuth();
   const effectiveRole = getDefaultRole(user);
@@ -152,20 +107,11 @@ export default function ChatPage(props: { disableCustomTheme?: boolean }) {
   const [activeConvId, setActiveConvId] = useState<string>(""); // "" = new, unsaved chat
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState<boolean>(false);
-  const [inputText, setInputText] = useState<string>("");
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
-  const [expandedDocId, setExpandedDocId] = useState<string | null>(null);
-  const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
-
-  // Mention State for Agent Targeted Directives
-  const [showMentionMenu, setShowMentionMenu] = useState<boolean>(false);
-  const [mentionQuery, setMentionQuery] = useState<string>("");
-  const [mentionSelectedIndex, setMentionSelectedIndex] = useState<number>(0);
-  const [targetedDoc, setTargetedDoc] = useState<MentionableDocument | null>(null);
-  const inputRef = useRef<HTMLInputElement | null>(null);
 
   // Auto-scroll anchor
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -196,9 +142,11 @@ export default function ChatPage(props: { disableCustomTheme?: boolean }) {
 
   const handleSelectConversation = async (id: string) => {
     if (id === activeConvId) return;
+    if (isGenerating && abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
     setActiveConvId(id);
     setMessages([]);
-    setTargetedDoc(null);
     setIsLoadingHistory(true);
     try {
       const data = await api.get<ApiChatMessage[]>(`/chat/${id}/chats-lists`);
@@ -215,123 +163,81 @@ export default function ChatPage(props: { disableCustomTheme?: boolean }) {
   };
 
   const handleNewChat = () => {
+    if (isGenerating && abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
     setActiveConvId("");
     setMessages([]);
-    setTargetedDoc(null);
     setIsLoadingHistory(false);
   };
 
-  // Mention handler when typing
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const value = e.target.value;
-    setInputText(value);
+  const handleRenameConversation = async (id: string, newTitle: string) => {
+    const previous = conversations;
+    setConversations((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, title: newTitle } : c))
+    );
 
-    const cursor = e.target.selectionStart ?? value.length;
-    const textBeforeCursor = value.slice(0, cursor);
-    const atMatch = textBeforeCursor.match(/@([a-zA-Z0-9\-_.]*)$/);
-
-    if (atMatch) {
-      setMentionQuery(atMatch[1]);
-      setShowMentionMenu(true);
-      setMentionSelectedIndex(0);
-    } else {
-      setShowMentionMenu(false);
+    try {
+      await api.patch(`/chat/${id}`, { title: newTitle });
+    } catch (err) {
+      console.error("Failed to rename conversation", err);
+      setConversations(previous);
     }
   };
 
-  const handleSelectMention = (doc: MentionableDocument) => {
-    const cursor = inputRef.current?.selectionStart ?? inputText.length;
-    const textBeforeCursor = inputText.slice(0, cursor);
-    const textAfterCursor = inputText.slice(cursor);
+  const handleDeleteConversation = async (id: string) => {
+    const previous = conversations;
+    setConversations((prev) => prev.filter((c) => c.id !== id));
 
-    const newBefore = textBeforeCursor.replace(/@([a-zA-Z0-9\-_.]*)$/, `@[${doc.orderNo}] `);
-    setInputText(newBefore + textAfterCursor);
-    setTargetedDoc(doc);
-    setShowMentionMenu(false);
-
-    setTimeout(() => {
-      inputRef.current?.focus();
-    }, 50);
-  };
-
-  const handleTriggerMention = () => {
-    setInputText((prev) => (prev.endsWith(" ") || prev === "" ? `${prev}@` : `${prev} @`));
-    setMentionQuery("");
-    setShowMentionMenu(true);
-    setMentionSelectedIndex(0);
-    setTimeout(() => {
-      inputRef.current?.focus();
-    }, 50);
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    if (showMentionMenu) {
-      const normalizedQuery = mentionQuery.toLowerCase().trim();
-      const filtered = MENTIONABLE_DOCUMENTS.filter(
-        (doc) =>
-          !normalizedQuery ||
-          doc.orderNo.toLowerCase().includes(normalizedQuery) ||
-          doc.title.toLowerCase().includes(normalizedQuery) ||
-          doc.category.toLowerCase().includes(normalizedQuery) ||
-          doc.shelfLocation.toLowerCase().includes(normalizedQuery)
-      );
-
-      if (e.key === "ArrowDown") {
-        e.preventDefault();
-        if (filtered.length > 0) {
-          setMentionSelectedIndex((prev) => (prev + 1) % filtered.length);
-        }
-        return;
-      }
-      if (e.key === "ArrowUp") {
-        e.preventDefault();
-        if (filtered.length > 0) {
-          setMentionSelectedIndex((prev) => (prev - 1 + filtered.length) % filtered.length);
-        }
-        return;
-      }
-      if ((e.key === "Enter" || e.key === "Tab") && !e.shiftKey) {
-        e.preventDefault();
-        if (filtered.length > 0 && filtered[mentionSelectedIndex]) {
-          handleSelectMention(filtered[mentionSelectedIndex]);
-        }
-        return;
-      }
-      if (e.key === "Escape") {
-        e.preventDefault();
-        setShowMentionMenu(false);
-        return;
-      }
+    if (activeConvId === id) {
+      handleNewChat();
     }
 
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage(e);
+    try {
+      await api.delete(`/chat/delete/${id}`);
+    } catch (err) {
+      console.error("Failed to delete conversation", err);
+      setConversations(previous);
     }
+  };
+
+  const handleStopGenerating = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setIsGenerating(false);
   };
 
   // Sends a prompt to the supervisor agent (POST /chat/talk) and shows its reply
-  const sendPrompt = async (prompt: string, activeDoc?: MentionableDocument) => {
+  const sendPrompt = async (prompt: string, activeDoc?: MentionableDocument | null) => {
     const sentConvId = activeConvId;
     const tempId = `temp-${Date.now()}`;
 
     setMessages((prev) => [
       ...prev,
-      { id: tempId, sender: "user", timestamp: "Just now", text: prompt, targetedDoc: activeDoc },
+      { id: tempId, sender: "user", timestamp: "Just now", text: prompt, targetedDoc: activeDoc || undefined },
     ]);
     setIsGenerating(true);
 
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     try {
-      const res = await api.post<TalkResponse>("/chat/talk", {
-        content: prompt,
-        conversation_id: sentConvId ? Number(sentConvId) : null,
-      });
+      const res = await api.post<TalkResponse>(
+        "/chat/talk",
+        {
+          content: prompt,
+          conversation_id: sentConvId ? Number(sentConvId) : null,
+        },
+        { signal: controller.signal }
+      );
 
       // User switched to another chat while waiting: the reply is saved, just don't show it here
       if (activeConvRef.current !== sentConvId) return;
 
-      const userMsg = { ...toChatMessage(res.chat), targetedDoc: activeDoc };
-      const aiMsg = { ...toChatMessage(res.assistant_message), targetedDoc: activeDoc };
+      const userMsg = { ...toChatMessage(res.chat), targetedDoc: activeDoc || undefined };
+      const aiMsg = { ...toChatMessage(res.assistant_message), targetedDoc: activeDoc || undefined };
       setMessages((prev) => [...prev.map((m) => (m.id === tempId ? userMsg : m)), aiMsg]);
 
       if (!sentConvId) {
@@ -340,7 +246,10 @@ export default function ChatPage(props: { disableCustomTheme?: boolean }) {
         setActiveConvId(newId);
         loadConversations(); // show the new conversation in the sidebar
       }
-    } catch (err) {
+    } catch (err: unknown) {
+      if ((err as Error)?.name === "AbortError") {
+        return;
+      }
       if (activeConvRef.current !== sentConvId) return;
       setMessages((prev) => [
         ...prev,
@@ -348,33 +257,11 @@ export default function ChatPage(props: { disableCustomTheme?: boolean }) {
       ]);
     } finally {
       setIsGenerating(false);
+      abortControllerRef.current = null;
     }
   };
 
-  const handleSendMessage = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!inputText.trim() || isGenerating) return;
-
-    const activeDoc =
-      targetedDoc ||
-      MENTIONABLE_DOCUMENTS.find((d) => inputText.includes(`@[${d.orderNo}]`));
-
-    const prompt = inputText;
-    setInputText("");
-    setTargetedDoc(null);
-    setShowMentionMenu(false);
-    sendPrompt(prompt, activeDoc);
-  };
-
-  const handleQuickPrompt = (prompt: string) => {
-    setInputText(prompt);
-  };
-
-  const toggleDocExcerpt = (docId: string) => {
-    setExpandedDocId(expandedDocId === docId ? null : docId);
-  };
-
-  // Response Feedback Actions: Like, Dislike, Copy, Regenerate
+  // Response Feedback Actions: Like, Dislike, Regenerate
   const isSavedMessage = (msgId: string) => /^\d+$/.test(msgId);
 
   const handleFeedback = async (msgId: string, type: "liked" | "disliked") => {
@@ -391,43 +278,12 @@ export default function ChatPage(props: { disableCustomTheme?: boolean }) {
     }
   };
 
-  const handleCopyMessage = (msgId: string, text: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedMsgId(msgId);
-    setTimeout(() => setCopiedMsgId(null), 2000);
-  };
-
   // Re-asks the question that produced this answer (adds a new Q&A pair)
   const handleRegenerate = (msgId: string) => {
     if (isGenerating) return;
     const idx = messages.findIndex((m) => m.id === msgId);
     const question = [...messages.slice(0, idx)].reverse().find((m) => m.sender === "user");
     if (question) sendPrompt(question.text, question.targetedDoc);
-  };
-
-  const renderMessageContent = (text: string) => {
-    const parts = text.split(/(@\[[^\]]+\])/g);
-    return parts.map((part, i) => {
-      if (part.startsWith("@[") && part.endsWith("]")) {
-        const docOrder = part.slice(2, -1);
-        return (
-          <Chip
-            key={i}
-            label={`@${docOrder}`}
-            size="small"
-            color="primary"
-            sx={{
-              mx: 0.5,
-              height: 22,
-              fontSize: "0.75rem",
-              fontWeight: 700,
-              borderRadius: 1,
-            }}
-          />
-        );
-      }
-      return <span key={i}>{part}</span>;
-    });
   };
 
   return (
@@ -472,19 +328,17 @@ export default function ChatPage(props: { disableCustomTheme?: boolean }) {
               flexShrink: 0,
             }}
           >
-            <Box>
-              <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-                <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                  AI Assistant
-                </Typography>
-                <Chip
-                  label="Document Intelligence"
-                  size="small"
-                  color="primary"
-                  variant="outlined"
-                  sx={{ height: 20, fontSize: "0.68rem", fontWeight: 700, borderRadius: 1 }}
-                />
-              </Box>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+              <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                AI Assistant
+              </Typography>
+              <Chip
+                label="Document Intelligence"
+                size="small"
+                color="primary"
+                variant="outlined"
+                sx={{ height: 20, fontSize: "0.68rem", fontWeight: 700, borderRadius: 1 }}
+              />
             </Box>
           </Box>
 
@@ -506,6 +360,8 @@ export default function ChatPage(props: { disableCustomTheme?: boolean }) {
               activeId={activeConvId}
               onSelect={handleSelectConversation}
               onNewChat={handleNewChat}
+              onRename={handleRenameConversation}
+              onDelete={handleDeleteConversation}
             />
 
             {/* Right Pane: Chat Console (Header fixed, Input fixed, only Messages scroll) */}
@@ -532,470 +388,39 @@ export default function ChatPage(props: { disableCustomTheme?: boolean }) {
                 }}
               >
                 {isLoadingHistory ? (
-                  <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 600, my: "auto", textAlign: "center" }}>
-                    Loading conversation...
-                  </Typography>
+                  <ChatSkeleton />
                 ) : messages.length > 0 ? (
                   messages.map((msg) => (
-                    <Box key={msg.id} sx={{ width: "100%" }}>
-                      {msg.sender === "user" ? (
-                        /* User Message Box */
-                        <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
-                          <Paper
-                            variant="outlined"
-                            sx={{
-                              p: 1.75,
-                              borderRadius: 1,
-                              bgcolor: "action.hover",
-                              borderColor: "divider",
-                              maxWidth: { xs: "100%", md: "78%" },
-                            }}
-                          >
-                            <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.5, gap: 2 }}>
-                              <Typography variant="caption" sx={{ fontWeight: 700, color: "primary.main" }}>
-                                You
-                              </Typography>
-                              <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                                {msg.timestamp}
-                              </Typography>
-                            </Box>
-                            <Typography variant="body2" sx={{ color: "text.primary", lineHeight: 1.55 }}>
-                              {renderMessageContent(msg.text)}
-                            </Typography>
-                          </Paper>
-                        </Box>
-                      ) : (
-                        /* Assistant Message Box */
-                        <Paper
-                          variant="outlined"
-                          sx={{
-                            p: 2,
-                            borderRadius: 1,
-                            bgcolor: "background.paper",
-                            borderColor: "divider",
-                            width: "100%",
-                          }}
-                        >
-                          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
-                            <Typography
-                              variant="caption"
-                              sx={{ fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "text.secondary" }}
-                            >
-                              Document Assistant
-                            </Typography>
-                            <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                              {msg.timestamp}
-                            </Typography>
-                          </Box>
-
-                          {/* Multi-Agent Stepper Pipeline if targeted scope */}
-                          {msg.pipelineSteps && (
-                            <Box sx={{ mb: 2 }}>
-                              <MultiAgentStepper steps={msg.pipelineSteps} />
-                            </Box>
-                          )}
-
-                          {/* Targeted Directive Indicator */}
-                          {msg.targetedDoc && (
-                            <Box sx={{ mb: 1.5 }}>
-                              <Chip
-                                icon={<AutoAwesomeRoundedIcon sx={{ fontSize: "13px !important" }} />}
-                                label={`Targeted Agent Directive: ${msg.targetedDoc.orderNo} (${msg.targetedDoc.shelfLocation})`}
-                                size="small"
-                                color="primary"
-                                variant="outlined"
-                                sx={{ height: 22, fontSize: "0.72rem", fontWeight: 700 }}
-                              />
-                            </Box>
-                          )}
-
-                          {/* Response Text */}
-                          <Typography
-                            variant="body2"
-                            sx={{
-                              color: "text.primary",
-                              lineHeight: 1.65,
-                              fontSize: "0.9rem",
-                              mb: 2,
-                              whiteSpace: "pre-line",
-                            }}
-                          >
-                            {msg.text}
-                          </Typography>
-
-                          {/* Referenced Documents List */}
-                          {msg.referencedDocs && msg.referencedDocs.length > 0 && (
-                            <Box sx={{ mt: 1.5, pt: 1.5, borderTop: "1px solid", borderColor: "divider" }}>
-                              <Typography
-                                variant="caption"
-                                sx={{
-                                  fontWeight: 700,
-                                  textTransform: "uppercase",
-                                  letterSpacing: "0.05em",
-                                  color: "text.secondary",
-                                  display: "block",
-                                  mb: 1,
-                                }}
-                              >
-                                Referenced Documents:
-                              </Typography>
-
-                              <Stack spacing={1}>
-                                {msg.referencedDocs.map((doc) => {
-                                  const isExpanded = expandedDocId === doc.id;
-                                  return (
-                                    <Paper
-                                      key={doc.id}
-                                      variant="outlined"
-                                      sx={{
-                                        p: 1.25,
-                                        borderRadius: 1,
-                                        bgcolor: "action.hover",
-                                        borderColor: "divider",
-                                      }}
-                                    >
-                                      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 1, mb: 0.5 }}>
-                                        <Box sx={{ flex: 1 }}>
-                                          <Typography variant="subtitle2" sx={{ fontWeight: 700, fontSize: "0.84rem", color: "text.primary" }}>
-                                            {doc.title}
-                                          </Typography>
-                                          <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 600 }}>
-                                            Order: {doc.orderNo} ({doc.seriesYear})
-                                          </Typography>
-                                        </Box>
-                                        <Chip
-                                          label={doc.relevanceMatch}
-                                          size="small"
-                                          color="success"
-                                          sx={{ height: 20, fontSize: "0.68rem", fontWeight: 700, borderRadius: 1 }}
-                                        />
-                                      </Box>
-
-                                      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 1, pt: 0.25 }}>
-                                        <Typography variant="caption" sx={{ fontWeight: 700, color: "primary.main" }}>
-                                          Location: {doc.shelfLocation}
-                                        </Typography>
-
-                                        <Stack direction="row" spacing={1}>
-                                          <Button
-                                            size="small"
-                                            onClick={() => toggleDocExcerpt(doc.id)}
-                                            sx={{
-                                              fontSize: "0.72rem",
-                                              textTransform: "none",
-                                              p: "2px 8px",
-                                              borderRadius: 1,
-                                            }}
-                                          >
-                                            {isExpanded ? "Hide Excerpt" : "View Excerpt"}
-                                          </Button>
-
-                                          <Button
-                                            component={Link}
-                                            href="/documents"
-                                            size="small"
-                                            variant="outlined"
-                                            sx={{
-                                              fontSize: "0.72rem",
-                                              textTransform: "none",
-                                              p: "2px 8px",
-                                              borderRadius: 1,
-                                            }}
-                                          >
-                                            Open PDF
-                                          </Button>
-                                        </Stack>
-                                      </Box>
-
-                                      {/* Collapsible Document Excerpt */}
-                                      <Collapse in={isExpanded}>
-                                        <Paper
-                                          variant="outlined"
-                                          sx={{
-                                            mt: 1.25,
-                                            p: 1.25,
-                                            borderRadius: 1,
-                                            bgcolor: "background.paper",
-                                            borderColor: "divider",
-                                          }}
-                                        >
-                                          <Typography variant="caption" sx={{ fontWeight: 700, color: "text.secondary", display: "block", mb: 0.25 }}>
-                                            Exact Document Excerpt:
-                                          </Typography>
-                                          <Typography variant="body2" sx={{ fontSize: "0.82rem", lineHeight: 1.55 }}>
-                                            "{doc.excerpt}"
-                                          </Typography>
-                                        </Paper>
-                                      </Collapse>
-                                    </Paper>
-                                  );
-                                })}
-                              </Stack>
-                            </Box>
-                          )}
-
-                          {/* Response Action Bar: Like, Dislike, Refresh, Copy */}
-                          <Box
-                            sx={{
-                              display: "flex",
-                              justifyContent: "flex-end",
-                              alignItems: "center",
-                              gap: 0.5,
-                              mt: 1.5,
-                              pt: 1,
-                              borderTop: "1px solid",
-                              borderColor: "divider",
-                            }}
-                          >
-                            {/* Copy Button */}
-                            <Tooltip title={copiedMsgId === msg.id ? "Copied!" : "Copy Response"}>
-                              <IconButton
-                                size="small"
-                                onClick={() => handleCopyMessage(msg.id, msg.text)}
-                                sx={{
-                                  borderRadius: 1,
-                                  p: 0.75,
-                                  color: copiedMsgId === msg.id ? "primary.main" : "text.secondary",
-                                  "&:hover": { color: "text.primary" },
-                                }}
-                                aria-label="Copy response"
-                              >
-                                <ContentCopyRoundedIcon sx={{ fontSize: 16 }} />
-                              </IconButton>
-                            </Tooltip>
-
-                            {/* Refresh / Regenerate Button */}
-                            <Tooltip title="Regenerate Response">
-                              <IconButton
-                                size="small"
-                                onClick={() => handleRegenerate(msg.id)}
-                                sx={{
-                                  borderRadius: 1,
-                                  p: 0.75,
-                                  color: "text.secondary",
-                                  "&:hover": { color: "text.primary" },
-                                }}
-                                aria-label="Regenerate response"
-                              >
-                                <RefreshRoundedIcon sx={{ fontSize: 17 }} />
-                              </IconButton>
-                            </Tooltip>
-
-                            {/* Like Button */}
-                            <Tooltip title="Good Response">
-                              <IconButton
-                                size="small"
-                                onClick={() => handleFeedback(msg.id, "liked")}
-                                sx={{
-                                  borderRadius: 1,
-                                  p: 0.75,
-                                  color: msg.feedback === "liked" ? "primary.main" : "text.secondary",
-                                  "&:hover": { color: "primary.main" },
-                                }}
-                                aria-label="Like response"
-                              >
-                                {msg.feedback === "liked" ? (
-                                  <ThumbUpRoundedIcon sx={{ fontSize: 16 }} />
-                                ) : (
-                                  <ThumbUpOutlinedIcon sx={{ fontSize: 16 }} />
-                                )}
-                              </IconButton>
-                            </Tooltip>
-
-                            {/* Dislike Button */}
-                            <Tooltip title="Poor Response">
-                              <IconButton
-                                size="small"
-                                onClick={() => handleFeedback(msg.id, "disliked")}
-                                sx={{
-                                  borderRadius: 1,
-                                  p: 0.75,
-                                  color: msg.feedback === "disliked" ? "error.main" : "text.secondary",
-                                  "&:hover": { color: "error.main" },
-                                }}
-                                aria-label="Dislike response"
-                              >
-                                {msg.feedback === "disliked" ? (
-                                  <ThumbDownRoundedIcon sx={{ fontSize: 16 }} />
-                                ) : (
-                                  <ThumbDownOutlinedIcon sx={{ fontSize: 16 }} />
-                                )}
-                              </IconButton>
-                            </Tooltip>
-                          </Box>
-                        </Paper>
-                      )}
-                    </Box>
+                    <ChatMessageItem
+                      key={msg.id}
+                      message={msg}
+                      onFeedback={handleFeedback}
+                      onRegenerate={handleRegenerate}
+                      isGenerating={isGenerating}
+                    />
                   ))
                 ) : (
-                  /* Empty state */
-                  <Paper
-                    variant="outlined"
-                    sx={{
-                      p: 4,
-                      textAlign: "center",
-                      borderRadius: 1,
-                      borderColor: "divider",
-                      my: "auto",
-                    }}
-                  >
-                    <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 0.5 }}>
-                      How can I assist you with official documents?
-                    </Typography>
-                    <Typography variant="body2" sx={{ color: "text.secondary", maxWidth: 480, mx: "auto" }}>
-                      Ask questions about tax advisories, treasury memorandums, or regulatory procedures. All answers will cite the verified document and physical shelf location.
-                    </Typography>
-                  </Paper>
+                  /* Modern Empty State with Suggested Prompts Grid */
+                  <ChatEmptyState
+                    onSelectPrompt={(prompt) => sendPrompt(prompt)}
+                  />
                 )}
 
-                {/* Loading indicator when assistant is thinking */}
+                {/* Loading indicator when assistant is synthesizing */}
                 {isGenerating && (
-                  <Box sx={{ width: "100%", p: 1.5, textAlign: "left" }}>
-                    <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 600 }}>
-                      Searching archives & synthesizing response...
-                    </Typography>
-                  </Box>
+                  <ChatThinkingIndicator onStop={handleStopGenerating} />
                 )}
 
                 <div ref={messagesEndRef} />
               </Box>
 
-              {/* Suggestions row (above the input) */}
-              <Box sx={{ pt: 1, pb: 0.75, display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap", flexShrink: 0 }}>
-                <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 700 }}>
-                  Suggestions:
-                </Typography>
-                {QUICK_PROMPTS.map((prompt) => (
-                  <Button
-                    key={prompt}
-                    size="small"
-                    onClick={() => handleQuickPrompt(prompt)}
-                    sx={{
-                      fontSize: "0.72rem",
-                      textTransform: "none",
-                      color: "text.secondary",
-                      bgcolor: "action.hover",
-                      borderRadius: 1,
-                      py: "1px",
-                      px: "6px",
-                      "&:hover": { color: "primary.main" },
-                    }}
-                  >
-                    {prompt}
-                  </Button>
-                ))}
-
-                <Divider orientation="vertical" flexItem sx={{ mx: 0.5, height: 16, my: "auto" }} />
-
-                <Button
-                  size="small"
-                  startIcon={<AlternateEmailRoundedIcon sx={{ fontSize: 13 }} />}
-                  onClick={handleTriggerMention}
-                  variant="outlined"
-                  color="primary"
-                  sx={{
-                    fontSize: "0.72rem",
-                    textTransform: "none",
-                    borderRadius: 1,
-                    py: "1px",
-                    px: "8px",
-                    fontWeight: 700,
-                  }}
-                >
-                  Target Directive (@)
-                </Button>
-              </Box>
-
-              {/* Chat Input Bar (Pinned at Bottom, Expands Upward with Multiline) */}
-              <Box sx={{ position: "relative", width: "100%", flexShrink: 0 }}>
-                {/* Floating Mention Autocomplete Popover */}
-                <DocumentMentionDropdown
-                  open={showMentionMenu}
-                  query={mentionQuery}
-                  selectedIndex={mentionSelectedIndex}
-                  onSelect={handleSelectMention}
-                  onClose={() => setShowMentionMenu(false)}
+              {/* Chat Composer Bar (Pinned at Bottom with modern single-Paper ergonomics) */}
+              <Box sx={{ pt: 1.5, flexShrink: 0 }}>
+                <ChatComposer
+                  onSendMessage={sendPrompt}
+                  isGenerating={isGenerating}
+                  onStopGenerating={handleStopGenerating}
                 />
-
-                <Paper
-                  elevation={0}
-                  variant="outlined"
-                  sx={{
-                    p: 1.25,
-                    borderRadius: 1.5,
-                    bgcolor: "background.paper",
-                    borderColor: showMentionMenu ? "primary.main" : "divider",
-                    transition: "border-color 0.15s ease",
-                  }}
-                >
-                  {/* Active Targeted Directive Chip */}
-                  {targetedDoc && (
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1, flexWrap: "wrap" }}>
-                      <Chip
-                        icon={<AutoAwesomeRoundedIcon sx={{ fontSize: "14px !important" }} />}
-                        label={`Agent Target: ${targetedDoc.orderNo} (${targetedDoc.shelfLocation})`}
-                        color="primary"
-                        size="small"
-                        onDelete={() => setTargetedDoc(null)}
-                        deleteIcon={<CloseRoundedIcon sx={{ fontSize: "14px !important" }} />}
-                        sx={{ fontWeight: 700, borderRadius: 1.5, fontSize: "0.74rem" }}
-                      />
-                      <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.7rem" }}>
-                        Vector retrieval scoped specifically to this directive
-                      </Typography>
-                    </Box>
-                  )}
-
-                  <form onSubmit={handleSendMessage}>
-                    <Box sx={{ display: "flex", gap: 1, alignItems: "flex-end" }}>
-                      {/* Multiline input: expands upward as user types */}
-                      <TextField
-                        fullWidth
-                        multiline
-                        inputRef={inputRef}
-                        minRows={1}
-                        maxRows={6}
-                        value={inputText}
-                        onChange={handleInputChange}
-                        onKeyDown={handleKeyDown}
-                        placeholder="Ask a question, or type '@' to target a specific directive for the agent... (Shift+Enter for newline)"
-                        sx={{
-                          "& .MuiOutlinedInput-root": {
-                            borderRadius: 1,
-                            fontSize: "0.9rem",
-                            p: "8px 12px",
-                          },
-                        }}
-                      />
-
-                      {/* Solo Icon Send Button */}
-                      <IconButton
-                        type="submit"
-                        color="primary"
-                        disabled={!inputText.trim() || isGenerating}
-                        sx={{
-                          borderRadius: 1,
-                          bgcolor: "primary.main",
-                          color: "primary.contrastText",
-                          width: 40,
-                          height: 40,
-                          flexShrink: 0,
-                          mb: "1px",
-                          "&:hover": {
-                            bgcolor: "primary.dark",
-                          },
-                          "&.Mui-disabled": {
-                            bgcolor: "action.disabledBackground",
-                            color: "action.disabled",
-                          },
-                        }}
-                        aria-label="Send message"
-                      >
-                        <SendRoundedIcon sx={{ fontSize: 18 }} />
-                      </IconButton>
-                    </Box>
-                  </form>
-                </Paper>
               </Box>
             </Box>
           </Box>
