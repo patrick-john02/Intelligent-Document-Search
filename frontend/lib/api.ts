@@ -133,3 +133,55 @@ export const api = {
     delete: <T = any>(endpoint: string, option?: RequestOptions)=>
         fetchApi<T>(endpoint,{...option, method:"DELETE"}),
 };
+
+
+// Streams Server-Sent Events from a POST endpoint (e.g. /chat/talk/stream).
+// EventSource can't send a POST body or an Authorization header, so we read the stream with fetch.
+export async function streamApi(
+    endpoint: string,
+    body: unknown,
+    onEvent: (event: string, data: any) => void,
+    signal?: AbortSignal
+): Promise<void> {
+    const token = getStoredToken();
+    const res = await fetch(`${API_SOURCE}${endpoint}`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(body),
+        signal,
+    });
+
+    if (!res.ok || !res.body) {
+        let data: any;
+        try { data = await res.json(); } catch {}
+        throw new ApiError(res.status, data?.detail || res.statusText, data);
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        // each SSE event ends with a blank line
+        let sep: number;
+        while ((sep = buffer.indexOf("\n\n")) !== -1) {
+            const raw = buffer.slice(0, sep);
+            buffer = buffer.slice(sep + 2);
+
+            let event = "message";
+            let data = "";
+            for (const line of raw.split("\n")) {
+                if (line.startsWith("event:")) event = line.slice(6).trim();
+                else if (line.startsWith("data:")) data += line.slice(5).trim();
+            }
+            if (data) onEvent(event, JSON.parse(data));
+        }
+    }
+}

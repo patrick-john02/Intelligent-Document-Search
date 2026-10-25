@@ -126,7 +126,7 @@ export default function CabinetMapView({
                             fontWeight: 600,
                           }}
                         >
-                          Inspect Dossier
+                          Select Record
                         </Button>
                       </Box>
                     </Paper>

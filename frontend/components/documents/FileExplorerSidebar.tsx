@@ -16,6 +16,7 @@ import Tooltip from "@mui/material/Tooltip";
 import { alpha } from "@mui/material/styles";
 
 // Icons
+import HomeRoundedIcon from "@mui/icons-material/HomeRounded";
 import FolderRoundedIcon from "@mui/icons-material/FolderRounded";
 import FolderOpenRoundedIcon from "@mui/icons-material/FolderOpenRounded";
 import InsertDriveFileRoundedIcon from "@mui/icons-material/InsertDriveFileRounded";
@@ -296,10 +297,6 @@ export default function FileExplorerSidebar({
     }));
   };
 
-  if (!isOpen) {
-    return null;
-  }
-
   const isAllSelected =
     selectedCategory === "All" &&
     selectedCabinet === "All" &&
@@ -309,10 +306,10 @@ export default function FileExplorerSidebar({
     <Paper
       variant="outlined"
       sx={{
-        width: { xs: "100%", sm: 260 },
+        width: { xs: isOpen ? "100%" : 0, sm: isOpen ? 260 : 54 },
+        display: { xs: isOpen ? "flex" : "none", sm: "flex" },
         flexShrink: 0,
         height: "100%",
-        display: "flex",
         flexDirection: "column",
         bgcolor: "background.paper",
         borderColor: "divider",
@@ -321,77 +318,174 @@ export default function FileExplorerSidebar({
         transition: "width 0.2s ease-in-out",
       }}
     >
-      {/* Sidebar Header */}
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          px: 2,
-          py: 1.5,
-          borderBottom: "1px solid",
-          borderColor: "divider",
-        }}
-      >
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-          <FolderOpenRoundedIcon sx={{ fontSize: 20, color: "primary.main" }} />
-          <Typography variant="subtitle2" sx={{ fontWeight: 700, fontSize: "0.88rem" }}>
-            File Directory
-          </Typography>
+      {!isOpen ? (
+        <Box
+          sx={{
+            width: "100%",
+            height: "100%",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            py: 1.5,
+            gap: 1.25,
+          }}
+        >
+          <Tooltip title="Expand File Directory" placement="right">
+            <IconButton
+              size="small"
+              onClick={onToggleOpen}
+              aria-label="Expand file directory"
+              sx={{
+                width: 36,
+                height: 36,
+                borderRadius: 1.5,
+                border: "1px solid",
+                borderColor: "divider",
+                bgcolor: "background.paper",
+                "&:hover": { bgcolor: "action.hover", borderColor: "primary.main" },
+              }}
+            >
+              <ChevronRightRoundedIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+
+          <Divider sx={{ width: "65%", my: 0.25 }} />
+
+          {/* Quick Home Icon */}
+          <Tooltip title={`Home (${documents.length})`} placement="right">
+            <IconButton
+              size="small"
+              onClick={() => {
+                onSelectFolder?.(null);
+                onSelectCategory("All");
+                onSelectCabinet("All");
+                onSelectFileType("All");
+              }}
+              aria-label="Go to Home"
+              sx={{
+                width: 36,
+                height: 36,
+                borderRadius: 1.5,
+                ...(isAllSelected && !currentFolderId
+                  ? { bgcolor: "action.selected", color: "primary.main" }
+                  : { color: "text.secondary", "&:hover": { bgcolor: "action.hover" } }),
+              }}
+            >
+              <HomeRoundedIcon sx={{ fontSize: 20 }} />
+            </IconButton>
+          </Tooltip>
+
+          {/* Quick Folders Icon -> Expands */}
+          <Tooltip title="Folders (Click to expand)" placement="right">
+            <IconButton
+              size="small"
+              onClick={onToggleOpen}
+              aria-label="Expand folders"
+              sx={{
+                width: 36,
+                height: 36,
+                borderRadius: 1.5,
+                ...(Boolean(currentFolderId)
+                  ? { bgcolor: "action.selected", color: "primary.main" }
+                  : { color: "text.secondary", "&:hover": { bgcolor: "action.hover" } }),
+              }}
+            >
+              <FolderRoundedIcon sx={{ fontSize: 20 }} />
+            </IconButton>
+          </Tooltip>
+
+          {/* Quick Cabinets Icon -> Expands */}
+          <Tooltip title="Physical Cabinets (Click to expand)" placement="right">
+            <IconButton
+              size="small"
+              onClick={onToggleOpen}
+              aria-label="Expand cabinets"
+              sx={{
+                width: 36,
+                height: 36,
+                borderRadius: 1.5,
+                ...(selectedCabinet !== "All"
+                  ? { bgcolor: "action.selected", color: "primary.main" }
+                  : { color: "text.secondary", "&:hover": { bgcolor: "action.hover" } }),
+              }}
+            >
+              <Inventory2OutlinedIcon sx={{ fontSize: 20 }} />
+            </IconButton>
+          </Tooltip>
         </Box>
-
-        <Tooltip title="Hide file directory">
-          <IconButton size="small" onClick={onToggleOpen} sx={{ p: 0.5 }}>
-            <ChevronLeftRoundedIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
-      </Box>
-
-      {/* Hierarchical Folder Directory Tree (Google Drive style) */}
-      <Box sx={{ flex: 1, overflowY: "auto", p: 1 }}>
-        <List component="nav" dense disablePadding>
-          {/* Root Level: All Documents */}
-          <ListItemButton
-            selected={isAllSelected && !currentFolderId}
-            onClick={() => {
-              onSelectFolder?.(null);
-              onSelectCategory("All");
-              onSelectCabinet("All");
-              onSelectFileType("All");
-            }}
+      ) : (
+        <>
+          {/* Sidebar Header */}
+          <Box
             sx={{
-              borderRadius: 1,
-              py: 0.75,
-              mb: 0.5,
-              "&.Mui-selected": {
-                bgcolor: "action.selected",
-                color: "primary.main",
-              },
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              px: 2,
+              py: 1.5,
+              borderBottom: "1px solid",
+              borderColor: "divider",
             }}
           >
-            <ListItemIcon sx={{ minWidth: 30, color: isAllSelected && !currentFolderId ? "primary.main" : "text.secondary" }}>
-              <InsertDriveFileRoundedIcon sx={{ fontSize: 18 }} />
-            </ListItemIcon>
-            <ListItemText
-              primary={
-                <Typography sx={{ fontSize: "0.82rem", fontWeight: isAllSelected && !currentFolderId ? 700 : 500 }}>
-                  All Documents
-                </Typography>
-              }
-            />
-            <Chip
-              label={documents.length}
-              size="small"
-              sx={{
-                height: 18,
-                fontSize: "0.68rem",
-                fontWeight: 600,
-                borderRadius: 1,
-                bgcolor: isAllSelected && !currentFolderId ? "primary.main" : "action.hover",
-                color: isAllSelected && !currentFolderId ? "primary.contrastText" : "text.secondary",
-              }}
-            />
-          </ListItemButton>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              <FolderOpenRoundedIcon sx={{ fontSize: 20, color: "primary.main" }} />
+              <Typography variant="subtitle2" sx={{ fontWeight: 700, fontSize: "0.88rem" }}>
+                File Directory
+              </Typography>
+            </Box>
+
+            <Tooltip title="Hide file directory">
+              <IconButton size="small" onClick={onToggleOpen} sx={{ p: 0.5 }}>
+                <ChevronLeftRoundedIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Box>
+
+          {/* Hierarchical Folder Directory Tree (Google Drive style) */}
+          <Box sx={{ flex: 1, overflowY: "auto", p: 1 }}>
+            <List component="nav" dense disablePadding>
+              {/* Root Level: Home */}
+              <ListItemButton
+                selected={isAllSelected && !currentFolderId}
+                onClick={() => {
+                  onSelectFolder?.(null);
+                  onSelectCategory("All");
+                  onSelectCabinet("All");
+                  onSelectFileType("All");
+                }}
+                sx={{
+                  borderRadius: 1,
+                  py: 0.75,
+                  mb: 0.5,
+                  "&.Mui-selected": {
+                    bgcolor: "action.selected",
+                    color: "primary.main",
+                  },
+                }}
+              >
+                <ListItemIcon sx={{ minWidth: 30, color: isAllSelected && !currentFolderId ? "primary.main" : "text.secondary" }}>
+                  <HomeRoundedIcon sx={{ fontSize: 19 }} />
+                </ListItemIcon>
+                <ListItemText
+                  primary={
+                    <Typography sx={{ fontSize: "0.82rem", fontWeight: isAllSelected && !currentFolderId ? 700 : 500 }}>
+                      Home
+                    </Typography>
+                  }
+                />
+                <Chip
+                  label={documents.length}
+                  size="small"
+                  sx={{
+                    height: 18,
+                    fontSize: "0.68rem",
+                    fontWeight: 600,
+                    borderRadius: 1,
+                    bgcolor: isAllSelected && !currentFolderId ? "primary.main" : "action.hover",
+                    color: isAllSelected && !currentFolderId ? "primary.contrastText" : "text.secondary",
+                  }}
+                />
+              </ListItemButton>
 
           <Divider sx={{ my: 1 }} />
 
@@ -701,6 +795,8 @@ export default function FileExplorerSidebar({
           </Collapse>
         </List>
       </Box>
+        </>
+      )}
     </Paper>
   );
 }

@@ -19,11 +19,18 @@ class ClassificationStatus(str, Enum):
     UNKNOWN = "unknown"
     VERIFIED = "verified"
 
-# ============================================================================
+class ProposalStatus(str, Enum):
+    PENDING = "pending" #archiving agent finished, waiting for human
+    ACCEPTED = "accepted" #human accepted as-is
+    EDITED = "edited" #human accepted after changing some values
+    REJECTED = "rejected" #human rejected the proposal
+    FAILED = "failed" #archiving agent errored / rate-limited (can be re-run)
+    SUPERSEDED = "superseded" #replaced by a newer run (rerun or a new version)
+
+
 # CLEARANCE HIERARCHY
 # Lower levels are strictly accessible by higher clearance levels:
 # public (0) < internal (1) < confidential (2) < secret (3) < top_secret (4)
-# ============================================================================
 CLEARANCE_ORDER = {
     ClearanceLevel.PUBLIC.value: 0,
     ClearanceLevel.INTERNAL.value: 1,

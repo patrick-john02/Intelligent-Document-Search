@@ -30,12 +30,30 @@ target_metadata = Base.metadata
 # my_important_option = config.get_main_option("my_important_option")
 # ... etc.
 
+LANGGRAPH_TABLES = {
+    "checkpoints", "checkpoint_blobs", "checkpoint_writes", "checkpoint_migrations",
+    "store", "store_migrations",
+}
+
+def _is_external(table_name: str | None)->bool:
+    return bool(table_name) and (table_name.startswith("langchain_") or table_name in LANGGRAPH_TABLES)
+
+
+# def include_object(object, name, type_, reflected, compare_to):
+#     # Ignore langchain vector store tables managed by PGVector
+#     if type_ == "table" and name and name.startswith("langchain_"):
+#         return False
+#     return True
 
 def include_object(object, name, type_, reflected, compare_to):
-    # Ignore langchain vector store tables managed by PGVector
-    if type_ == "table" and name and name.startswith("langchain_"):
+    if type_ == "table" and _is_external(name):
+        return False
+    #also skip indexes/constraints that belong to those tables 
+    table = getattr(object, "table", None)
+    if table is not None and _is_external(table.name):
         return False
     return True
+
 
 
 def run_migrations_offline() -> None:

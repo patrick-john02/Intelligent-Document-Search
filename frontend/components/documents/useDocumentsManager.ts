@@ -159,7 +159,7 @@ export function useDocumentsManager() {
 
   // Breadcrumbs Trail
   const breadcrumbTrail = useMemo(() => {
-    const trail: { id: string | null; name: string }[] = [{ id: null, name: "Documents" }];
+    const trail: { id: string | null; name: string }[] = [{ id: null, name: "Home" }];
     if (!currentFolderId) return trail;
 
     const path: { id: string; name: string }[] = [];

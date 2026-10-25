@@ -39,6 +39,8 @@ agents to be created:
 4. document analysis agent
 5. report generator agent
 
+test
+uv run python -m test.try_alon 27
 
 
 LLM used on development - Qwen3.5:2B and Qwen3.5:4B. groq api key

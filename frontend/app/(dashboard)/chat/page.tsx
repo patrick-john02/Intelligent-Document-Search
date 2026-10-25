@@ -13,7 +13,7 @@ import DashboardNavbar from "@/components/DashboardNavbar";
 import AppTheme from "@/shared-theme/AppTheme";
 import { useAuth } from "@/context/AuthContext";
 import { getDefaultRole } from "@/components/dashboard/types";
-import { api, ApiError } from "@/lib/api";
+import { api, ApiError, streamApi } from "@/lib/api";
 
 // Chat Subcomponents
 import ConversationSidebar, { ConversationItem } from "@/components/chat/ConversationSidebar";
@@ -76,7 +76,7 @@ const formatConvDate = (iso: string): string => {
 
 // qwen3 can leak its <think>...</think> reasoning into the reply; hide it.
 const cleanAiText = (text: string): string =>
-  text.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
+  text.replace(/<think>[\s\S]*?(<\/think>|$)/g, "").trim();
 
 const toConversationItem = (c: ApiConversation): ConversationItem => ({
   id: String(c.id),
@@ -108,6 +108,7 @@ export default function ChatPage(props: { disableCustomTheme?: boolean }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState<boolean>(false);
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
+  const [streamStatus, setStreamStatus] = useState<string | undefined>(undefined); // live agent status while streaming
 
   // Auto-scroll anchor
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -209,54 +210,94 @@ export default function ChatPage(props: { disableCustomTheme?: boolean }) {
     setIsGenerating(false);
   };
 
-  // Sends a prompt to the supervisor agent (POST /chat/talk) and shows its reply
+  // Streams the supervisor's reply (POST /chat/talk/stream): live status, then the answer word by word
   const sendPrompt = async (prompt: string, activeDoc?: MentionableDocument | null) => {
     const sentConvId = activeConvId;
     const tempId = `temp-${Date.now()}`;
+    const aiTempId = `ai-${Date.now()}`;
+    let convId = sentConvId;
+    let rawAi = "";
 
     setMessages((prev) => [
       ...prev,
       { id: tempId, sender: "user", timestamp: "Just now", text: prompt, targetedDoc: activeDoc || undefined },
     ]);
     setIsGenerating(true);
+    setStreamStatus(undefined);
 
     const controller = new AbortController();
     abortControllerRef.current = controller;
 
-    try {
-      const res = await api.post<TalkResponse>(
-        "/chat/talk",
-        {
-          content: prompt,
-          conversation_id: sentConvId ? Number(sentConvId) : null,
-        },
-        { signal: controller.signal }
+    // User switched to another chat while streaming: the reply is still saved, just don't render it here
+    const stillHere = () => activeConvRef.current === convId;
+
+    // Create the assistant bubble on the first visible text, then keep updating it
+    const showAiText = (text: string) =>
+      setMessages((prev) =>
+        prev.some((m) => m.id === aiTempId)
+          ? prev.map((m) => (m.id === aiTempId ? { ...m, text } : m))
+          : [...prev, { id: aiTempId, sender: "assistant", timestamp: "Just now", text, feedback: null, targetedDoc: activeDoc || undefined }]
       );
 
-      // User switched to another chat while waiting: the reply is saved, just don't show it here
-      if (activeConvRef.current !== sentConvId) return;
+    try {
+      await streamApi(
+        "/chat/talk/stream",
+        { content: prompt, conversation_id: sentConvId ? Number(sentConvId) : null },
+        (event, data) => {
+          if (event === "meta") {
+            convId = String(data.conversation_id);
+            if (activeConvRef.current !== sentConvId) return;
+            const userMsg = { ...toChatMessage(data.chat), targetedDoc: activeDoc || undefined };
+            setMessages((prev) => prev.map((m) => (m.id === tempId ? userMsg : m)));
+            if (!sentConvId) {
+              activeConvRef.current = convId;
+              setActiveConvId(convId);
+              loadConversations(); // show the new conversation in the sidebar
+            }
+            return;
+          }
+          if (!stillHere()) return;
 
-      const userMsg = { ...toChatMessage(res.chat), targetedDoc: activeDoc || undefined };
-      const aiMsg = { ...toChatMessage(res.assistant_message), targetedDoc: activeDoc || undefined };
-      setMessages((prev) => [...prev.map((m) => (m.id === tempId ? userMsg : m)), aiMsg]);
-
-      if (!sentConvId) {
-        const newId = String(res.conversation_id);
-        activeConvRef.current = newId;
-        setActiveConvId(newId);
-        loadConversations(); // show the new conversation in the sidebar
-      }
+          switch (event) {
+            case "status": // e.g. "Searching the archive…"
+              setStreamStatus(data.text);
+              break;
+            case "reset": // supervisor decided to call a specialist: drop any partial text
+              rawAi = "";
+              setMessages((prev) => prev.filter((m) => m.id !== aiTempId));
+              break;
+            case "token": {
+              rawAi += data.text;
+              const visible = cleanAiText(rawAi);
+              if (visible) showAiText(visible);
+              break;
+            }
+            case "done": {
+              // swap the temporary bubble for the saved message (real id -> feedback works)
+              const aiMsg = { ...toChatMessage(data.assistant_message), targetedDoc: activeDoc || undefined };
+              setMessages((prev) =>
+                prev.some((m) => m.id === aiTempId)
+                  ? prev.map((m) => (m.id === aiTempId ? aiMsg : m))
+                  : [...prev, aiMsg] // e.g. error fallback: no tokens were streamed
+              );
+              break;
+            }
+          }
+        },
+        controller.signal
+      );
     } catch (err: unknown) {
       if ((err as Error)?.name === "AbortError") {
         return;
       }
-      if (activeConvRef.current !== sentConvId) return;
+      if (!stillHere()) return;
       setMessages((prev) => [
-        ...prev,
+        ...prev.filter((m) => m.id !== aiTempId),
         { id: `err-${Date.now()}`, sender: "assistant", timestamp: "Just now", text: `⚠️ ${errorText(err)}`, feedback: null },
       ]);
     } finally {
       setIsGenerating(false);
+      setStreamStatus(undefined);
       abortControllerRef.current = null;
     }
   };
@@ -407,8 +448,8 @@ export default function ChatPage(props: { disableCustomTheme?: boolean }) {
                 )}
 
                 {/* Loading indicator when assistant is synthesizing */}
-                {isGenerating && (
-                  <ChatThinkingIndicator onStop={handleStopGenerating} />
+                {isGenerating && !messages.some((m) => m.id.startsWith("ai-")) && (
+                  <ChatThinkingIndicator label={streamStatus} onStop={handleStopGenerating} />
                 )}
 
                 <div ref={messagesEndRef} />

@@ -13,15 +13,11 @@ from agents.checkpointer import postgres_checkpointer, store
 
 workflow = StateGraph(SupervisorState)
 
-#NODE A : reasoning Node(LLM thinks, decides tools or answer)
-workflow.add_node("agent_node", agent_node)
-
-# workflow.add_node("tools", ToolNode(ALL_TOOLS))
-
-workflow.add_edge(START, "agent_node")
+#reasoning Node(LLM thinks, decides tools or answer)
+workflow.add_node("agent_node", agent_node, retry_policy=RetryPolicy(max_attempts=3))
 workflow.add_node("tools", ToolNode(SUPERVISOR_TOOLS))
 
-
+workflow.add_edge(START, "agent_node")
 workflow.add_conditional_edges(
     "agent_node",
     tools_condition,
@@ -30,7 +26,6 @@ workflow.add_conditional_edges(
         END: END
     }
 )
-
 workflow.add_edge("tools", "agent_node")
 
 #Compile

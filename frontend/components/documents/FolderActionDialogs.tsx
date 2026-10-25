@@ -55,7 +55,7 @@ export function CreateFolderDialog({
       </DialogTitle>
       <DialogContent sx={{ pt: 1 }}>
         <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mb: 2 }}>
-          Creating folder inside: <strong>{currentFolderName || "Documents (Root)"}</strong>
+          Creating folder inside: <strong>{currentFolderName || "Home"}</strong>
         </Typography>
 
         <TextField

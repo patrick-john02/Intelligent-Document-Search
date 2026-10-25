@@ -67,18 +67,16 @@ export default function FolderGrid({
         )}
       </Box>
 
-      {/* Subfolders Grid */}
+      {/* Subfolders Fluid Responsive Grid */}
       <Box
         sx={{
           display: "grid",
           gridTemplateColumns: {
             xs: "repeat(1, 1fr)",
-            sm: "repeat(2, 1fr)",
-            md: "repeat(3, 1fr)",
-            lg: "repeat(4, 1fr)",
-            xl: "repeat(5, 1fr)",
+            sm: "repeat(auto-fill, minmax(210px, 1fr))",
           },
           gap: 1.5,
+          transition: "all 0.2s ease-in-out",
         }}
       >
         {folders.map((folder) => {
@@ -91,6 +89,8 @@ export default function FolderGrid({
               onClick={() => onOpenFolder(folder.id)}
               sx={{
                 p: 1.5,
+                minHeight: 64,
+                boxSizing: "border-box",
                 borderRadius: 2,
                 cursor: "pointer",
                 bgcolor: "background.paper",
@@ -150,7 +150,7 @@ export default function FolderGrid({
               <IconButton
                 size="small"
                 onClick={(e) => onFolderContextMenu(e, folder)}
-                sx={{ p: 0.25, color: "text.secondary" }}
+                sx={{ p: 0.25, color: "text.secondary", flexShrink: 0 }}
               >
                 <MoreVertRoundedIcon sx={{ fontSize: 17 }} />
               </IconButton>

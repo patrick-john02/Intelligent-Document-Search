@@ -70,6 +70,7 @@ export default function SmartSearchResultCard({
     <>
       <Card
         variant="outlined"
+        onDoubleClick={() => onPreview?.(item)}
         sx={{
           borderRadius: 1.5,
           borderColor: "divider",

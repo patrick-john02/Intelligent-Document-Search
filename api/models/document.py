@@ -1,5 +1,8 @@
 from sqlalchemy.orm import Mapped, mapped_column, DeclarativeBase, relationship
-from sqlalchemy import String, Integer, DateTime, Date, Boolean, ForeignKey, BigInteger, Text, JSON, Float, UUID, Computed, UniqueConstraint
+from sqlalchemy import (
+    String, Integer, DateTime, Date, Boolean, ForeignKey, BigInteger, Text, 
+    JSON, Float, Computed, UniqueConstraint, Index, text, true
+)
 from sqlalchemy.dialects.postgresql import TSVECTOR
 from typing import List, TYPE_CHECKING, Any
 from datetime import datetime, date
@@ -13,7 +16,7 @@ if TYPE_CHECKING:
     from api.models.conversations import ChatMessageSources
 
 
-from api.models.enums.docs import JobStatus, ClearanceLevel
+from api.models.enums.docs import JobStatus, ClearanceLevel, ProposalStatus
 from api.models.base import Base
 
 class DocumentStatus(Base):
@@ -98,6 +101,56 @@ class DocumentVersion(Base):
     cms_sources: Mapped[list["ChatMessageSources"]] = relationship(back_populates="document_version")
 
     extraction: Mapped["DocumentExtractions | None"] = relationship(back_populates="document_version", uselist=False)
+    archive_proposal: Mapped[list["ArchiveProposal"]] = relationship(back_populates="document_version")
+
+#Alon Archiving agent proposed archive metadata for one document version.
+#purpose: alon never edits a document directly. He writes a proposal here, and a human accpets, edits or rejects it (human-in-the-loop).
+
+class ArchiveProposal(Base):
+    __tablename__ = "archive_proposals"
+    __table_args__ = (
+        #at most ONE pending proposal per version; a rerun supersedes the old one
+        Index(
+            "uq_archive_proposals_one_pending",
+            "document_version_id",
+            unique=True,
+            postgresql_where=text("status = 'pending'"),
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    document_version_id: Mapped[int] = mapped_column(
+        ForeignKey("document_version.id", ondelete="CASCADE"), index=True
+    )
+    document_version: Mapped["DocumentVersion"] = relationship(back_populates="archive_proposal")
+    status: Mapped[str] = mapped_column(
+        String(20), default=ProposalStatus.PENDING.value,
+        server_default=ProposalStatus.PENDING.value, index=True
+    )
+
+
+    #alons structured output (title, doc type + reason, year, key fields,
+    #suggested shelf location, duplicate warning, summary, issues). NULL if the run failed.
+    proposal: Mapped[dict[str, Any]  | None] = mapped_column(JSON, nullable=True)
+    final_values: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    needs_human_review: Mapped[bool] = mapped_column(Boolean, default=True, server_default=true())
+    model_name: Mapped[str | None] = mapped_column(String(100),nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    #link to the run log (timing, model, errors) in the existing agent_executions table
+    agent_execution_id: Mapped[int | None] = mapped_column(
+        ForeignKey("agent_executions.id", ondelete="SET NULL"), nullable=True
+    )
+
+    #review decision
+    reviewed_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    reviewed_by: Mapped["Users | None"] = relationship(foreign_keys=[reviewed_by_id], lazy="selectin")
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    review_note: Mapped[str | None] = mapped_column(Text, nullable=True)  # e.g. reason for rejecting
+
+    created_at: Mapped[datetime] = mapped_column(DateTime)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
 
 class DocumentClassifications(Base):
     __tablename__ = "document_classifications"

@@ -12,6 +12,7 @@ from tools.documents.search import(
 #analysis tools
 from tools.analysis.compare import compare_document_tool
 from tools.analysis.detect_duplicates import detect_duplicates_tool
+from tools.archiving.archive_tools import ARCHIVE_TOOLS
 
 
 RESEARCH_TOOLS: List[BaseTool] = [
@@ -27,7 +28,7 @@ DOC_ANALYSIS_TOOLS: List[BaseTool] = [
     detect_duplicates_tool,
 ]
 
-ARCHIVE_TOOLS: List[BaseTool]= []
+# ARCHIVE_TOOLS: List[BaseTool]= []
 
 
 ALL_TOOLS: List[BaseTool] = list({

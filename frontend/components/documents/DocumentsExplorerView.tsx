@@ -2,8 +2,11 @@
 
 import React from "react";
 import Box from "@mui/material/Box";
+import Stack from "@mui/material/Stack";
+import Button from "@mui/material/Button";
 import Typography from "@mui/material/Typography";
 import InsertDriveFileRoundedIcon from "@mui/icons-material/InsertDriveFileRounded";
+import CreateNewFolderOutlinedIcon from "@mui/icons-material/CreateNewFolderOutlined";
 
 import { ArchiveDocument, ArchiveFolder } from "./types";
 import CabinetMapView from "./CabinetMapView";
@@ -24,7 +27,8 @@ export interface DocumentsExplorerViewProps {
   getFolderItemCount: (folderId: string) => number;
   onNewSubfolder: () => void;
   onSelectDoc: (doc: ArchiveDocument) => void;
-  onOpenDossier: (doc: ArchiveDocument) => void;
+  onOpenDossier?: (doc: ArchiveDocument) => void;
+  onOpenPreview: (doc: ArchiveDocument) => void;
   onDocContextMenu: (event: React.MouseEvent<HTMLElement>, doc: ArchiveDocument) => void;
   onAskMayumi: (doc: ArchiveDocument) => void;
   onOpenUpload: () => void;
@@ -43,6 +47,7 @@ export default function DocumentsExplorerView({
   onNewSubfolder,
   onSelectDoc,
   onOpenDossier,
+  onOpenPreview,
   onDocContextMenu,
   onAskMayumi,
   onOpenUpload,
@@ -54,7 +59,6 @@ export default function DocumentsExplorerView({
         selectedDocId={selectedDoc?.id}
         onSelectDoc={(doc) => {
           onSelectDoc(doc);
-          onOpenDossier(doc);
         }}
       />
     );
@@ -83,7 +87,7 @@ export default function DocumentsExplorerView({
       {/* FILES SECTION */}
       {currentFiles.length > 0 && (
         <Box>
-          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 1.5 }}>
+          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 1.5, flexWrap: "wrap", gap: 1 }}>
             <Typography
               variant="subtitle2"
               sx={{
@@ -101,9 +105,26 @@ export default function DocumentsExplorerView({
               Files ({currentFiles.length})
             </Typography>
 
-            <Typography variant="caption" sx={{ color: "text.secondary" }}>
-              Tip: Double-click any document to open dossier inspector
-            </Typography>
+            <Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
+              {currentSubfolders.length === 0 && !isDeletedMode && (
+                <Button
+                  size="small"
+                  onClick={onNewSubfolder}
+                  startIcon={<CreateNewFolderOutlinedIcon sx={{ fontSize: 15 }} />}
+                  sx={{
+                    fontSize: "0.75rem",
+                    textTransform: "none",
+                    fontWeight: 600,
+                    color: "primary.main",
+                  }}
+                >
+                  New Subfolder
+                </Button>
+              )}
+              <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                Tip: Double-click any document to open preview
+              </Typography>
+            </Stack>
           </Box>
 
           {viewMode === "grid" ? (
@@ -126,7 +147,7 @@ export default function DocumentsExplorerView({
                   onSelect={() => onSelectDoc(doc)}
                   onDoubleClick={() => {
                     onSelectDoc(doc);
-                    onOpenDossier(doc);
+                    onOpenPreview(doc);
                   }}
                   onContextMenu={onDocContextMenu}
                 />
@@ -139,7 +160,7 @@ export default function DocumentsExplorerView({
               onSelect={onSelectDoc}
               onDoubleClick={(doc) => {
                 onSelectDoc(doc);
-                onOpenDossier(doc);
+                onOpenPreview(doc);
               }}
               onAskAi={onAskMayumi}
               onContextMenu={onDocContextMenu}

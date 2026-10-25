@@ -103,7 +103,7 @@ export default function DocumentArchivePage(props: { disableCustomTheme?: boolea
   } = useDocumentsManager();
 
   // Layout Panels & Modal States
-  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
   const [isUploadOpen, setIsUploadOpen] = useState<boolean>(false);
   const [isIntelligenceOpen, setIsIntelligenceOpen] = useState<boolean>(false);
   const [intelligenceTab, setIntelligenceTab] = useState<IntelligenceTab>("dossier");
@@ -241,18 +241,14 @@ export default function DocumentArchivePage(props: { disableCustomTheme?: boolea
             onNavigateBack={() => navigateToFolder(currentFolder?.parentId || null)}
             folderCount={currentSubfolders.length}
             fileCount={currentFiles.length}
-            isSidebarOpen={isSidebarOpen}
-            onToggleSidebar={() => setIsSidebarOpen((prev) => !prev)}
             viewMode={viewMode}
             onViewModeChange={setViewMode}
             isIntelligenceOpen={isIntelligenceOpen}
             intelligenceTab={intelligenceTab}
             onToggleInspector={handleToggleInspector}
-            onOpenMayumi={() => handleOpenMayumi(selectedDoc)}
             isDeletedMode={isDeletedMode}
             totalDeletedCount={totalDeletedCount}
             onToggleDeletedMode={() => setIsDeletedMode((prev) => !prev)}
-            onOpenCreateFolder={() => setIsCreateFolderOpen(true)}
             onOpenUpload={() => setIsUploadOpen(true)}
           />
 
@@ -321,7 +317,7 @@ export default function DocumentArchivePage(props: { disableCustomTheme?: boolea
               onSelectCabinet={(cab) => setSelectedCabinet(cab)}
               onSelectFileType={(type) => setSelectedFileType(type)}
               isOpen={isSidebarOpen}
-              onToggleOpen={() => setIsSidebarOpen(false)}
+              onToggleOpen={() => setIsSidebarOpen((prev) => !prev)}
             />
 
             {/* 2. Center Document Workspace */}
@@ -362,6 +358,7 @@ export default function DocumentArchivePage(props: { disableCustomTheme?: boolea
                 onNewSubfolder={() => setIsCreateFolderOpen(true)}
                 onSelectDoc={(doc) => setSelectedDoc(doc)}
                 onOpenDossier={handleOpenDossier}
+                onOpenPreview={openPreview}
                 onDocContextMenu={handleOpenDocContextMenu}
                 onAskMayumi={(doc) => handleOpenMayumi(doc)}
                 onOpenUpload={() => setIsUploadOpen(true)}
@@ -416,7 +413,7 @@ export default function DocumentArchivePage(props: { disableCustomTheme?: boolea
             handleCreateFolder(name, color);
             setIsCreateFolderOpen(false);
           }}
-          currentFolderName={currentFolder ? currentFolder.name : "Documents (Root)"}
+          currentFolderName={currentFolder ? currentFolder.name : "Home"}
         />
 
         <RenameFolderDialog
