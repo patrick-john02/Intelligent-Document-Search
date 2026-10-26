@@ -297,9 +297,15 @@ export default function SideMenu({ currentRole }: SideMenuProps) {
         }}
       >
         <Avatar
+          src={user?.picture || user?.avatar_url}
+          alt={displayName}
+          component={Link}
+          href="/profile"
           sx={{
             width: 36,
             height: 36,
+            textDecoration: "none",
+            cursor: "pointer",
             bgcolor:
               ROLE_CONFIGS[effectiveRole].badgeColor === "primary"
                 ? "primary.main"
@@ -307,6 +313,10 @@ export default function SideMenu({ currentRole }: SideMenuProps) {
             color: "primary.contrastText",
             fontSize: "0.85rem",
             fontWeight: 700,
+            transition: "transform 0.15s ease-in-out",
+            "&:hover": {
+              transform: "scale(1.08)",
+            },
           }}
         >
           {initials}
@@ -314,11 +324,29 @@ export default function SideMenu({ currentRole }: SideMenuProps) {
 
         {open && (
           <>
-            <Box sx={{ mr: "auto", overflow: "hidden" }}>
+            <Box
+              component={Link}
+              href="/profile"
+              sx={{
+                mr: "auto",
+                overflow: "hidden",
+                textDecoration: "none",
+                cursor: "pointer",
+                "&:hover .profile-name": {
+                  color: "primary.main",
+                },
+              }}
+            >
               <Typography
+                className="profile-name"
                 variant="body2"
                 noWrap
-                sx={{ fontWeight: 600, lineHeight: "18px", color: "text.primary" }}
+                sx={{
+                  fontWeight: 600,
+                  lineHeight: "18px",
+                  color: "text.primary",
+                  transition: "color 0.15s ease",
+                }}
               >
                 {displayName}
               </Typography>

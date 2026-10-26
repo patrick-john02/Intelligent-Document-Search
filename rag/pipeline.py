@@ -20,6 +20,9 @@ from rag.storage import (
     save_chunks_to_database,
     index_chunks_from_database,
 )
+from agents.archiving_agent.runner import run_alon
+from rag.archive_store import get_uploader_clearance, save_alon_result
+
 
 logger = logging.getLogger(__name__)
 
@@ -116,12 +119,25 @@ async def _classify(document_version_id: int) -> int:
     return document_version_id
 
 
-async def _extract_metadata(document_version_id: int) -> int:
-    await update_document_status(document_version_id, "extracting_metadata")
-    extraction = await _load_extraction_or_fail(document_version_id)
-    # TODO: entities = ner.extract(extraction.full_text)
-    #       save to extracted_entities table
+
+#archiving agent reviews the indexed document and saves a proposal for a human.
+#Runs LAST, after indexing, so the document is already searchable while Alon works (~1 min).
+#Never fails the pipeline and never changes version.status (search needs it to stay 'indexed').
+async def _archive_review(document_version_id: int)->int:
+    try:
+        levels = await get_uploader_clearance(document_version_id)
+        result = await run_alon(document_version_id, levels)
+        proposal_id = save_alon_result(document_version_id, result)
+        logger.info(
+            f"[archive_review] version {document_version_id}:proposal {proposal_id}"
+            f'{{"pending" if result.proposal else "failed"}} in {result.elapsed_ms / 1000:.1f}s'   
+        )
+    except Exception:
+        logger.exception(f"[archive_review] Alon could not run/save for version {document_version_id}; continuing")
+
     return document_version_id
+
+
 
 
 async def _chunk(document_version_id: int) -> int:
@@ -158,10 +174,16 @@ def classify_task(self, document_version_id: int):
     return _run_stage(self, "classify", document_version_id, _classify(document_version_id))
 
 
-@celery_app.task(name="ingestion.extract_metadata", **TASK_OPTIONS)
-def extract_metadata_task(self, document_version_id: int):
-    return _run_stage(self, "extract_metadata", document_version_id,
-                      _extract_metadata(document_version_id))
+# @celery_app.task(name="ingestion.extract_metadata", **TASK_OPTIONS)
+# def extract_metadata_task(self, document_version_id: int):
+#     return _run_stage(self, "extract_metadata", document_version_id,
+#                       _extract_metadata(document_version_id))
+
+
+@celery_app.task(name="ingestion.archive_review", **TASK_OPTIONS)
+def archive_review_task(self, document_version_id: int):
+    return _run_stage(self, "archive_review", document_version_id,
+                      _archive_review(document_version_id))
 
 
 @celery_app.task(name="ingestion.chunk", **TASK_OPTIONS)
@@ -185,9 +207,12 @@ def start_ingestion_pipeline(document_version_id: int, file_name: str, file_path
     workflow = chain(
         extract_task.s(document_version_id, file_name, file_path, force_reextract).set(queue=extract_queue),
         classify_task.s(),
-        extract_metadata_task.s(),
+        # extract_metadata_task.s(),
+
         chunk_task.s(),
         embed_index_task.s(),
+        archive_review_task.s(), #lasty, after the document is searchable.
+
     )
     return workflow.apply_async()
 

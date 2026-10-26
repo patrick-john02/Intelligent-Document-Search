@@ -6,6 +6,7 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import Paper from "@mui/material/Paper";
 import Button from "@mui/material/Button";
+import Chip from "@mui/material/Chip";
 import CssBaseline from "@mui/material/CssBaseline";
 import Snackbar from "@mui/material/Snackbar";
 import Alert from "@mui/material/Alert";
@@ -29,6 +30,7 @@ import BookmarkListView from "@/components/bookmarks/BookmarkListView";
 import BookmarkDetailsDrawer from "@/components/bookmarks/BookmarkDetailsDrawer";
 import EditNoteModal from "@/components/bookmarks/EditNoteModal";
 import NewCollectionModal from "@/components/bookmarks/NewCollectionModal";
+import ExportBookmarksDialog from "@/components/bookmarks/ExportBookmarksDialog";
 
 export default function BookmarksPage(props: { disableCustomTheme?: boolean }) {
   const { user } = useAuth();
@@ -40,6 +42,7 @@ export default function BookmarksPage(props: { disableCustomTheme?: boolean }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCollection, setSelectedCollection] = useState("All");
   const [onlyPinned, setOnlyPinned] = useState(false);
+  const [onlyPhysical, setOnlyPhysical] = useState(false);
   const [sortBy, setSortBy] = useState<"date" | "year" | "order" | "title">("date");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
@@ -47,6 +50,7 @@ export default function BookmarksPage(props: { disableCustomTheme?: boolean }) {
   const [activeItem, setActiveItem] = useState<BookmarkItem | null>(null);
   const [editingItem, setEditingItem] = useState<BookmarkItem | null>(null);
   const [newCollectionOpen, setNewCollectionOpen] = useState(false);
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState<string | null>(null);
 
   // Computed Metrics
@@ -56,6 +60,7 @@ export default function BookmarksPage(props: { disableCustomTheme?: boolean }) {
       collectionsCount: collections.filter((c) => c !== "All").length,
       pinnedCount: bookmarks.filter((b) => b.isPinned).length,
       physicalOnShelfCount: bookmarks.filter((b) => !!b.shelfLocation?.barcode).length,
+      withNotesCount: bookmarks.filter((b) => !!b.personalNotes?.trim()).length,
     };
   }, [bookmarks, collections]);
 
@@ -70,6 +75,11 @@ export default function BookmarksPage(props: { disableCustomTheme?: boolean }) {
 
         // Pinned filter
         if (onlyPinned && !item.isPinned) {
+          return false;
+        }
+
+        // Physical records filter
+        if (onlyPhysical && !item.shelfLocation?.barcode) {
           return false;
         }
 
@@ -110,7 +120,7 @@ export default function BookmarksPage(props: { disableCustomTheme?: boolean }) {
         }
         return 0;
       });
-  }, [bookmarks, selectedCollection, onlyPinned, searchQuery, sortBy]);
+  }, [bookmarks, selectedCollection, onlyPinned, onlyPhysical, searchQuery, sortBy]);
 
   // Handlers
   const handleTogglePin = (id: string, e?: React.MouseEvent) => {
@@ -130,7 +140,6 @@ export default function BookmarksPage(props: { disableCustomTheme?: boolean }) {
       })
     );
 
-    // Update activeItem if it's currently open in drawer
     if (activeItem && activeItem.id === id) {
       setActiveItem((prev) => (prev ? { ...prev, isPinned: !prev.isPinned } : null));
     }
@@ -158,6 +167,16 @@ export default function BookmarksPage(props: { disableCustomTheme?: boolean }) {
     setSnackbarMessage("Personal notes and collection updated successfully.");
   };
 
+  const handleSaveInlineNote = (id: string, note: string) => {
+    setBookmarks((prev) =>
+      prev.map((b) => (b.id === id ? { ...b, personalNotes: note } : b))
+    );
+    if (activeItem && activeItem.id === id) {
+      setActiveItem((prev) => (prev ? { ...prev, personalNotes: note } : null));
+    }
+    setSnackbarMessage("Personal notes updated.");
+  };
+
   const handleRemoveBookmark = (id: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     const target = bookmarks.find((b) => b.id === id);
@@ -176,17 +195,30 @@ export default function BookmarksPage(props: { disableCustomTheme?: boolean }) {
     }
   };
 
+  const handleConfirmExport = (format: string, includeNotes: boolean) => {
+    if (format === "gdocs") {
+      setSnackbarMessage(
+        "Exported bookmarks to Google Docs: 'My Drive / Intelligent Document Search / Bookmarks / Research Digest.gdoc'"
+      );
+    } else if (format === "pdf") {
+      setSnackbarMessage("Generated research summary PDF ready for print.");
+    } else {
+      setSnackbarMessage("Spreadsheet data exported successfully.");
+    }
+  };
+
   const handleResetFilters = () => {
     setSearchQuery("");
     setSelectedCollection("All");
     setOnlyPinned(false);
+    setOnlyPhysical(false);
   };
 
   return (
     <AppTheme {...props}>
       <CssBaseline enableColorScheme />
       <Box sx={{ display: "flex", minHeight: "100vh", bgcolor: "background.default" }}>
-        {/* Persistent Staff Sidebar */}
+        {/* Persistent Sidebar */}
         <SideMenu currentRole={effectiveRole} />
 
         {/* Main Content Area */}
@@ -202,30 +234,68 @@ export default function BookmarksPage(props: { disableCustomTheme?: boolean }) {
             pb: { xs: 8, sm: 6 },
           }}
         >
-          {/* Reusable 1-File Navbar */}
+          {/* Top Navbar */}
           <DashboardNavbar currentRole={effectiveRole} />
 
-          {/* Unified Title Bar */}
-          <Box sx={{ mt: 1, mb: 2.5 }}>
-            <Typography variant="h6" sx={{ fontWeight: 700, letterSpacing: "-0.01em" }}>
-              Saved Directives
-            </Typography>
-            <Typography variant="body2" sx={{ color: "text.secondary", fontSize: "0.82rem" }}>
-              Personal bookmarked records, annotated guidelines, and rapid physical shelf coordinates.
-            </Typography>
+          {/* Title Bar */}
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              py: 1.25,
+              borderBottom: "1px solid",
+              borderColor: "divider",
+              mt: 1,
+              mb: 2.5,
+              flexWrap: "wrap",
+              gap: 1.5,
+            }}
+          >
+            <Box>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                <Typography variant="h6" sx={{ fontWeight: 700, letterSpacing: "-0.01em" }}>
+                  Saved Directives & Personal Collections
+                </Typography>
+                <Chip
+                  label="Research Library"
+                  size="small"
+                  color="primary"
+                  variant="outlined"
+                  sx={{ height: 22, fontSize: "0.7rem", fontWeight: 700, borderRadius: 1.5 }}
+                />
+              </Box>
+              <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                Personal bookmarked records, study annotations, physical archive shelf coordinates, and Google Docs export.
+              </Typography>
+            </Box>
           </Box>
 
           <Stack spacing={2.5}>
             {/* 1. Top KPI Summary */}
             <BookmarkMetricsSummary
               metrics={metrics}
-              activeFilter={onlyPinned ? "PINNED" : selectedCollection}
+              activeFilter={
+                onlyPinned
+                  ? "PINNED"
+                  : onlyPhysical
+                    ? "SHELF"
+                    : selectedCollection !== "All"
+                      ? selectedCollection
+                      : "All"
+              }
               onFilterClick={(filterKey) => {
                 if (filterKey === "PINNED") {
                   setOnlyPinned(true);
+                  setOnlyPhysical(false);
+                  setSelectedCollection("All");
+                } else if (filterKey === "SHELF") {
+                  setOnlyPhysical(true);
+                  setOnlyPinned(false);
                   setSelectedCollection("All");
                 } else if (filterKey === "All") {
                   setOnlyPinned(false);
+                  setOnlyPhysical(false);
                   setSelectedCollection("All");
                 }
               }}
@@ -240,11 +310,14 @@ export default function BookmarksPage(props: { disableCustomTheme?: boolean }) {
               onSelectCollection={setSelectedCollection}
               onlyPinned={onlyPinned}
               onTogglePinned={() => setOnlyPinned((prev) => !prev)}
+              onlyPhysical={onlyPhysical}
+              onTogglePhysical={() => setOnlyPhysical((prev) => !prev)}
               sortBy={sortBy}
               onSortChange={setSortBy}
               viewMode={viewMode}
               onViewModeChange={setViewMode}
               onOpenNewCollection={() => setNewCollectionOpen(true)}
+              onOpenExportDialog={() => setExportDialogOpen(true)}
             />
 
             {/* 3. Bookmarks Display Area */}
@@ -254,29 +327,32 @@ export default function BookmarksPage(props: { disableCustomTheme?: boolean }) {
                 sx={{
                   p: 6,
                   textAlign: "center",
-                  borderRadius: 1,
+                  borderRadius: 2.5,
+                  border: "1px dashed",
+                  borderColor: "divider",
                   bgcolor: "background.paper",
                 }}
               >
                 <BookmarkBorderRoundedIcon sx={{ fontSize: 44, color: "text.disabled", mb: 1.5 }} />
-                <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 0.5 }}>
-                  No saved directives match your filter
+                <Typography variant="subtitle1" sx={{ fontWeight: 700, color: "text.primary", mb: 0.5 }}>
+                  No saved directives match your filters
                 </Typography>
-                <Typography
-                  variant="body2"
-                  sx={{ color: "text.secondary", fontSize: "0.82rem", maxWidth: 420, mx: "auto", mb: 2 }}
-                >
-                  Try adjusting your search keywords, switching collections, or toggling the pinned filter.
+                <Typography variant="body2" sx={{ color: "text.secondary", maxWidth: 440, mx: "auto", mb: 2 }}>
+                  {searchQuery || selectedCollection !== "All" || onlyPinned || onlyPhysical
+                    ? "Try adjusting your search criteria, collection filter, or toggles."
+                    : "Bookmark directives from Smart Search or Document Archive to review them here."}
                 </Typography>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  onClick={handleResetFilters}
-                  startIcon={<FilterAltOffRoundedIcon sx={{ fontSize: 16 }} />}
-                  sx={{ borderRadius: 1, textTransform: "none", fontWeight: 600 }}
-                >
-                  Reset Filters
-                </Button>
+                {(searchQuery || selectedCollection !== "All" || onlyPinned || onlyPhysical) && (
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={<FilterAltOffRoundedIcon />}
+                    onClick={handleResetFilters}
+                    sx={{ borderRadius: 2, textTransform: "none", fontWeight: 600 }}
+                  >
+                    Reset All Filters
+                  </Button>
+                )}
               </Paper>
             ) : viewMode === "grid" ? (
               <Box
@@ -284,8 +360,8 @@ export default function BookmarksPage(props: { disableCustomTheme?: boolean }) {
                   display: "grid",
                   gridTemplateColumns: {
                     xs: "1fr",
-                    sm: "repeat(2, 1fr)",
-                    lg: "repeat(3, 1fr)",
+                    md: "repeat(2, 1fr)",
+                    xl: "repeat(3, 1fr)",
                   },
                   gap: 2,
                 }}
@@ -295,7 +371,7 @@ export default function BookmarksPage(props: { disableCustomTheme?: boolean }) {
                     key={item.id}
                     item={item}
                     isSelected={activeItem?.id === item.id}
-                    onSelect={setActiveItem}
+                    onSelect={(selected) => setActiveItem(selected)}
                     onTogglePin={handleTogglePin}
                     onEditNote={handleEditNote}
                     onRemove={handleRemoveBookmark}
@@ -306,7 +382,7 @@ export default function BookmarksPage(props: { disableCustomTheme?: boolean }) {
               <BookmarkListView
                 items={filteredBookmarks}
                 selectedId={activeItem?.id}
-                onSelect={setActiveItem}
+                onSelect={(selected) => setActiveItem(selected)}
                 onTogglePin={handleTogglePin}
                 onEditNote={handleEditNote}
                 onRemove={handleRemoveBookmark}
@@ -314,13 +390,14 @@ export default function BookmarksPage(props: { disableCustomTheme?: boolean }) {
             )}
           </Stack>
 
-          {/* Details Slide-Over Drawer */}
+          {/* Slide-out Directive Intelligence Drawer */}
           <BookmarkDetailsDrawer
             item={activeItem}
             open={Boolean(activeItem)}
             onClose={() => setActiveItem(null)}
             onTogglePin={handleTogglePin}
             onEditNote={(item) => setEditingItem(item)}
+            onSaveInlineNote={handleSaveInlineNote}
             onRemove={handleRemoveBookmark}
           />
 
@@ -333,24 +410,34 @@ export default function BookmarksPage(props: { disableCustomTheme?: boolean }) {
             onSave={handleSaveNote}
           />
 
-          {/* New Collection Modal */}
+          {/* Create New Collection Modal */}
           <NewCollectionModal
             open={newCollectionOpen}
             onClose={() => setNewCollectionOpen(false)}
             onCreate={handleCreateCollection}
           />
 
-          {/* Notification Toast */}
+          {/* Export Bookmarks Dialog */}
+          <ExportBookmarksDialog
+            open={exportDialogOpen}
+            onClose={() => setExportDialogOpen(false)}
+            bookmarks={filteredBookmarks}
+            onConfirmExport={handleConfirmExport}
+            userEmail={user?.email}
+          />
+
+          {/* Toast Notification */}
           <Snackbar
             open={Boolean(snackbarMessage)}
-            autoHideDuration={3000}
+            autoHideDuration={3500}
             onClose={() => setSnackbarMessage(null)}
             anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
           >
             <Alert
               onClose={() => setSnackbarMessage(null)}
-              severity="info"
-              sx={{ width: "100%", borderRadius: 1, fontWeight: 600, fontSize: "0.82rem" }}
+              severity="success"
+              variant="filled"
+              sx={{ width: "100%", borderRadius: 2 }}
             >
               {snackbarMessage}
             </Alert>

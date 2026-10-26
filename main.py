@@ -15,6 +15,7 @@ from api.views import (
     chat_view,
     search_views,
     dashboard,
+    archive_review_views,
 )
 from api.views.admin import (
     user_management,
@@ -50,6 +51,8 @@ app.include_router(search_views.router, prefix="/api")
 app.include_router(category_views.router, prefix="/api")
 app.include_router(chat_view.router, prefix="/api")
 app.include_router(dashboard.router, prefix="/api")
+app.include_router(archive_review_views.router, prefix="/api")
+
 
 add_pagination(app)
 setup_category_dropdown(app)

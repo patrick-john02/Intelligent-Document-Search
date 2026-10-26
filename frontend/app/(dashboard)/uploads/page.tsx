@@ -2,12 +2,12 @@
 
 import React, { useState, useMemo } from "react";
 import Box from "@mui/material/Box";
+import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
-import TextField from "@mui/material/TextField";
-import Button from "@mui/material/Button";
-import Paper from "@mui/material/Paper";
 import Chip from "@mui/material/Chip";
 import CssBaseline from "@mui/material/CssBaseline";
+import Snackbar from "@mui/material/Snackbar";
+import Alert from "@mui/material/Alert";
 import { alpha } from "@mui/material/styles";
 
 // Layout & Dashboard Context
@@ -17,378 +17,186 @@ import AppTheme from "@/shared-theme/AppTheme";
 import { useAuth } from "@/context/AuthContext";
 import { getDefaultRole } from "@/components/dashboard/types";
 
-// Uploads Subcomponents
-import { StaffUploadItem, UploadMetrics } from "@/components/uploads/types";
-import UploadMetricsSummary from "@/components/uploads/UploadMetricsSummary";
-import TeamsCategoryGrid, { TEAMS_CATEGORIES, CategoryMeta } from "@/components/uploads/TeamsCategoryGrid";
-import CategoryDetailView from "@/components/uploads/CategoryDetailView";
-import NewUploadModal from "@/components/uploads/NewUploadModal";
+// Uploads & Personal Files Components
+import {
+  PersonalFileItem,
+  GoogleDriveAccountMeta,
+} from "@/components/uploads/types";
+import { INITIAL_PERSONAL_FILES } from "@/components/uploads/seedPersonalFiles";
+import GoogleDriveSyncBanner from "@/components/uploads/GoogleDriveSyncBanner";
+import PersonalFilesToolbar, { FilterTab } from "@/components/uploads/PersonalFilesToolbar";
+import PersonalFilesGridView from "@/components/uploads/PersonalFilesGridView";
+import PersonalFilesListView from "@/components/uploads/PersonalFilesListView";
+import PersonalFileInspectorDrawer from "@/components/uploads/PersonalFileInspectorDrawer";
+import UploadPersonalFileDialog from "@/components/uploads/UploadPersonalFileDialog";
+import GoogleDriveImportDialog from "@/components/uploads/GoogleDriveImportDialog";
 
-const SEED_UPLOADS: StaffUploadItem[] = [
-  {
-    id: "up-1",
-    title: "LGU Real Property Assessment Advisory Guidelines and Valuation Standards",
-    orderNo: "BLGF-DO-2024-018",
-    seriesYear: 2024,
-    category: "Assessment Regulations",
-    clearance: "Public",
-    fileName: "blgf-do-2024-018-assessment-guidelines.pdf",
-    fileSize: "4.8 MB",
-    pageCount: 28,
-    uploadedAt: "2024-08-28 09:15",
-    status: "Published",
-    version: "v1.1",
-    uploadedBy: {
-      name: "Maria Santos",
-      division: "Administrative Records",
-      position: "Senior Records Officer",
-    },
-    versionHistory: [
-      {
-        version: "v1.1",
-        date: "2024-08-28 09:15",
-        fileName: "blgf-do-2024-018-assessment-guidelines-signed.pdf",
-        uploadedBy: "Maria Santos",
-        notes: "Uploaded officially signed copy with assessor dry seal",
-      },
-      {
-        version: "v1.0",
-        date: "2024-08-20 11:30",
-        fileName: "blgf-do-2024-018-assessment-guidelines-draft.pdf",
-        uploadedBy: "Maria Santos",
-        notes: "Initial advance copy upload",
-      },
-    ],
-    shelfLocation: {
-      cabinet: "Cabinet A",
-      shelf: "Shelf 2",
-      binder: "Binder 04",
-      barcode: "R2-CAB-A-S2-B04",
-      tagged: true,
-    },
-    stages: {
-      upload: { status: "completed", timestamp: "2024-08-28 09:15", detail: "File verified." },
-      textExtraction: { status: "completed", timestamp: "2024-08-28 09:16", detail: "28 pages verified." },
-      indexing: { status: "completed", timestamp: "2024-08-28 09:18", detail: "Search ready." },
-      physicalTag: { status: "completed", timestamp: "2024-08-28 09:20", detail: "Cabinet A • Shelf 2 (Binder 04)." },
-      status: { status: "completed", timestamp: "2024-08-28 10:00", detail: "Published in catalog." },
-    },
-    extractedSummary:
-      "Prescribes the operational rules for local government units regarding property valuations, schedule of market values, and statutory delinquent penalties.",
-  },
-  {
-    id: "up-2",
-    title: "Treasury Circular on Local Revenue Collections and Automation Protocols",
-    orderNo: "TC-2024-009",
-    seriesYear: 2024,
-    category: "Treasury Advisories",
-    clearance: "Public",
-    fileName: "tc-2024-009-revenue-collection.pdf",
-    fileSize: "2.3 MB",
-    pageCount: 16,
-    uploadedAt: "2024-08-24 11:42",
-    status: "Published",
-    version: "v1.0",
-    uploadedBy: {
-      name: "Engr. Juan Dela Cruz",
-      division: "Treasury Operations",
-      position: "Revenue Assessment Specialist",
-    },
-    versionHistory: [
-      {
-        version: "v1.0",
-        date: "2024-08-24 11:42",
-        fileName: "tc-2024-009-revenue-collection.pdf",
-        uploadedBy: "Engr. Juan Dela Cruz",
-        notes: "Initial document upload",
-      },
-    ],
-    shelfLocation: {
-      cabinet: "Cabinet B",
-      shelf: "Shelf 1",
-      binder: "Binder 12",
-      barcode: "R2-CAB-B-S1-B12",
-      tagged: true,
-    },
-    stages: {
-      upload: { status: "completed", timestamp: "2024-08-24 11:42", detail: "File verified." },
-      textExtraction: { status: "completed", timestamp: "2024-08-24 11:43", detail: "Text verified." },
-      indexing: { status: "completed", timestamp: "2024-08-24 11:44", detail: "Search ready." },
-      physicalTag: { status: "completed", timestamp: "2024-08-24 11:45", detail: "Cabinet B • Shelf 1 (Binder 12)." },
-      status: { status: "completed", timestamp: "2024-08-24 14:10", detail: "Published." },
-    },
-    extractedSummary:
-      "Directs provincial and municipal treasury collection units to interface electronic receipts with the central regional archival node.",
-  },
-  {
-    id: "up-3",
-    title: "Standard Operating Procedure for Physical Document Ingestion and Scanning",
-    orderNo: "SOP-DOC-2024-001",
-    seriesYear: 2024,
-    category: "Standard Procedures",
-    clearance: "Internal",
-    fileName: "sop-doc-2024-001-ingestion.pdf",
-    fileSize: "1.2 MB",
-    pageCount: 10,
-    uploadedAt: "2024-08-20 14:05",
-    status: "Published",
-    version: "v1.0",
-    uploadedBy: {
-      name: "Roberto Morales",
-      division: "Custodial Archives",
-      position: "Records Archivist",
-    },
-    versionHistory: [
-      {
-        version: "v1.0",
-        date: "2024-08-20 14:05",
-        fileName: "sop-doc-2024-001-ingestion.pdf",
-        uploadedBy: "Roberto Morales",
-        notes: "Initial SOP upload",
-      },
-    ],
-    shelfLocation: {
-      cabinet: "Cabinet A",
-      shelf: "Shelf 1",
-      binder: "Binder 01",
-      barcode: "R2-CAB-A-S1-B01",
-      tagged: true,
-    },
-    stages: {
-      upload: { status: "completed", timestamp: "2024-08-20 14:05", detail: "File verified." },
-      textExtraction: { status: "completed", timestamp: "2024-08-20 14:06", detail: "Text verified." },
-      indexing: { status: "completed", timestamp: "2024-08-20 14:07", detail: "Search ready." },
-      physicalTag: { status: "completed", timestamp: "2024-08-20 14:08", detail: "Cabinet A • Shelf 1 (Binder 01)." },
-      status: { status: "completed", timestamp: "2024-08-20 15:30", detail: "Published." },
-    },
-    extractedSummary:
-      "Step-by-step procedural manual for staff scanning operators on feeder calibration, page thresholding, and cabinet shelf tagging.",
-  },
-  {
-    id: "up-4",
-    title: "Inter-Agency Directives on Digital Land Titling and Tax Declaration Synchronization",
-    orderNo: "DO-2024-031",
-    seriesYear: 2024,
-    category: "Assessment Regulations",
-    clearance: "Public",
-    fileName: "do-2024-031-land-titling-sync.pdf",
-    fileSize: "5.6 MB",
-    pageCount: 34,
-    uploadedAt: "2024-09-19 10:15",
-    status: "Processing",
-    version: "v1.0",
-    uploadedBy: {
-      name: "Engr. Juan Dela Cruz",
-      division: "Assessments & Valuations Office",
-      position: "Valuation Specialist",
-    },
-    versionHistory: [
-      {
-        version: "v1.0",
-        date: "2024-09-19 10:15",
-        fileName: "do-2024-031-land-titling-sync.pdf",
-        uploadedBy: "Engr. Juan Dela Cruz",
-        notes: "Initial upload",
-      },
-    ],
-    shelfLocation: {
-      cabinet: "Cabinet A",
-      shelf: "Shelf 3",
-      binder: "Binder 07",
-      barcode: "R2-CAB-A-S3-B07",
-      tagged: true,
-    },
-    stages: {
-      upload: { status: "completed", timestamp: "2024-09-19 10:15", detail: "File received." },
-      textExtraction: { status: "processing", detail: "Extracting text..." },
-      indexing: { status: "pending", detail: "Queued." },
-      physicalTag: { status: "completed", detail: "Cabinet A • Shelf 3 (Binder 07)." },
-      status: { status: "pending", detail: "Pending verification." },
-    },
-    extractedSummary:
-      "Joint directive governing registry synchronization between land titles and assessor property declarations.",
-  },
-  {
-    id: "up-5",
-    title: "Regional Advisory on Delinquent Real Property Tax Amnesty and Settlement",
-    orderNo: "RA-2024-014",
-    seriesYear: 2024,
-    category: "Treasury Advisories",
-    clearance: "Public",
-    fileName: "ra-2024-014-tax-amnesty.pdf",
-    fileSize: "3.1 MB",
-    pageCount: 14,
-    uploadedAt: "2024-09-19 08:30",
-    status: "Processing",
-    version: "v1.0",
-    uploadedBy: {
-      name: "Maria Santos",
-      division: "Treasury Operations",
-      position: "Senior Revenue Clerk",
-    },
-    versionHistory: [
-      {
-        version: "v1.0",
-        date: "2024-09-19 08:30",
-        fileName: "ra-2024-014-tax-amnesty.pdf",
-        uploadedBy: "Maria Santos",
-        notes: "Initial upload",
-      },
-    ],
-    shelfLocation: {
-      cabinet: "Cabinet B",
-      shelf: "Shelf 3",
-      binder: "Binder 15",
-      barcode: "R2-CAB-B-S3-B15",
-      tagged: true,
-    },
-    stages: {
-      upload: { status: "completed", timestamp: "2024-09-19 08:30", detail: "File received." },
-      textExtraction: { status: "completed", timestamp: "2024-09-19 08:32", detail: "Text verified." },
-      indexing: { status: "processing", detail: "Indexing in search..." },
-      physicalTag: { status: "completed", detail: "Cabinet B • Shelf 3 (Binder 15)." },
-      status: { status: "pending", detail: "Pending." },
-    },
-    extractedSummary:
-      "Advisory clarifying penalty relief conditions, payment schedules, and settlement agreements for delinquent real property accounts.",
-  },
-  {
-    id: "up-6",
-    title: "Municipal Ordinance Compilation on Commercial Assessment Rates (Scanned Carbon Copy)",
-    orderNo: "MO-2023-088",
-    seriesYear: 2023,
-    category: "Legal Opinions",
-    clearance: "Internal",
-    fileName: "mo-2023-088-commercial-rates.pdf",
-    fileSize: "7.4 MB",
-    pageCount: 40,
-    uploadedAt: "2024-09-18 16:50",
-    status: "Needs Review",
-    version: "v1.0",
-    uploadedBy: {
-      name: "Atty. Karen Reyes",
-      division: "Legal Affairs & Rulings",
-      position: "Legal Counsel",
-    },
-    versionHistory: [
-      {
-        version: "v1.0",
-        date: "2024-09-18 16:50",
-        fileName: "mo-2023-088-commercial-rates.pdf",
-        uploadedBy: "Atty. Karen Reyes",
-        notes: "Carbon copy scan upload",
-      },
-    ],
-    shelfLocation: {
-      cabinet: "Cabinet C",
-      shelf: "Shelf 2",
-      binder: "Binder 03",
-      barcode: "R2-CAB-C-S2-B03",
-      tagged: true,
-    },
-    stages: {
-      upload: { status: "completed", timestamp: "2024-09-18 16:50", detail: "Carbon copy PDF received." },
-      textExtraction: { status: "completed", timestamp: "2024-09-18 16:54", detail: "Faded carbon text detected." },
-      indexing: { status: "pending", detail: "Awaiting staff check." },
-      physicalTag: { status: "completed", detail: "Cabinet C • Shelf 2 (Binder 03)." },
-      status: { status: "pending", detail: "Staff review required." },
-    },
-    extractedSummary:
-      "Historical compilation of municipal business taxation schedules. Carbon copy quality requires visual verification of table column figures.",
-  },
-];
-
-export default function MyUploadsPage(props: { disableCustomTheme?: boolean }) {
+export default function MyPersonalFilesPage(props: { disableCustomTheme?: boolean }) {
   const { user } = useAuth();
   const effectiveRole = getDefaultRole(user);
 
-  // States
-  const [uploadsList, setUploadsList] = useState<StaffUploadItem[]>(SEED_UPLOADS);
-  const [selectedCategoryName, setSelectedCategoryName] = useState<string | null>(null);
-  const [selectedDocId, setSelectedDocId] = useState<string | null>("up-1");
+  // Files Data State
+  const [files, setFiles] = useState<PersonalFileItem[]>(INITIAL_PERSONAL_FILES);
+
+  // Google Drive Account & Sync State
+  const isUserGoogle = user?.auth_provider === "google" || !!user?.google_id;
+  const [driveMeta, setDriveMeta] = useState<GoogleDriveAccountMeta>({
+    isConnected: isUserGoogle,
+    email: user?.google_email || user?.email || "user@organization.gov",
+    storageUsedFormatted: "4.2 GB",
+    storageTotalFormatted: "15 GB",
+    storagePercent: 28,
+    lastFullSync: "5m ago",
+    targetFolder: "My Drive / Intelligent Document Search / Personal Files",
+  });
+
+  // Sync state tracking if user auth changes
+  React.useEffect(() => {
+    if (isUserGoogle) {
+      setDriveMeta((prev) => ({
+        ...prev,
+        isConnected: true,
+        email: user?.google_email || user?.email || prev.email,
+      }));
+    }
+  }, [isUserGoogle, user]);
+
+  // View & Filter States
+  const [activeFilterTab, setActiveFilterTab] = useState<FilterTab>("all");
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
-  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
-  const [versionTargetDoc, setVersionTargetDoc] = useState<StaffUploadItem | null>(null);
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+
+  // Selection & Modal States
+  const [selectedFile, setSelectedFile] = useState<PersonalFileItem | null>(null);
+  const [isInspectorOpen, setIsInspectorOpen] = useState(false);
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [isDriveImportModalOpen, setIsDriveImportModalOpen] = useState(false);
+  const [isSyncingAll, setIsSyncingAll] = useState(false);
   const [notification, setNotification] = useState<string | null>(null);
 
-  // Metrics computation
-  const metrics: UploadMetrics = useMemo(() => {
-    const total = uploadsList.length;
-    const indexed = uploadsList.filter(
-      (d) => d.status === "Completed" || d.status === "Published"
-    ).length;
-    const processing = uploadsList.filter(
-      (d) => d.status === "Processing" || d.status === "OCR Processing" || d.status === "Vectorizing"
-    ).length;
-    const review = uploadsList.filter(
-      (d) => d.status === "Needs Review" || d.status === "Review Required"
-    ).length;
+  // Computed Metrics
+  const totalCount = files.length;
+  const syncedCount = useMemo(() => files.filter((f) => f.isGoogleDriveSynced).length, [files]);
+  const localCount = useMemo(() => files.filter((f) => !f.isGoogleDriveSynced).length, [files]);
+  const starredCount = useMemo(() => files.filter((f) => f.isStarred).length, [files]);
 
-    return {
-      totalUploads: total,
-      indexedCount: indexed,
-      processingCount: processing,
-      reviewRequiredCount: review,
-      categoriesCount: TEAMS_CATEGORIES.length,
-    };
-  }, [uploadsList]);
+  // Filtered Files Computation
+  const filteredFiles = useMemo(() => {
+    return files.filter((file) => {
+      // 1. Filter Tab
+      if (activeFilterTab === "gdrive" && !file.isGoogleDriveSynced) return false;
+      if (activeFilterTab === "local" && file.isGoogleDriveSynced) return false;
+      if (activeFilterTab === "starred" && !file.isStarred) return false;
 
-  // Find active category metadata if in detail view
-  const activeCategoryMeta: CategoryMeta | undefined = useMemo(() => {
-    if (!selectedCategoryName) return undefined;
-    return TEAMS_CATEGORIES.find((c) => c.name === selectedCategoryName);
-  }, [selectedCategoryName]);
+      // 2. Category Filter
+      if (selectedCategory !== "all" && file.category !== selectedCategory) return false;
 
-  // Documents inside active category
-  const activeCategoryDocs = useMemo(() => {
-    if (!selectedCategoryName) return [];
-    return uploadsList.filter((d) => d.category === selectedCategoryName);
-  }, [uploadsList, selectedCategoryName]);
+      // 3. Search Query
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase();
+        const matchesTitle = file.title.toLowerCase().includes(query);
+        const matchesFile = file.fileName.toLowerCase().includes(query);
+        const matchesCategory = file.category.toLowerCase().includes(query);
+        const matchesTags = file.tags.some((t) => t.toLowerCase().includes(query));
+        const matchesSummary = file.extractedSummary?.toLowerCase().includes(query);
+        if (!matchesTitle && !matchesFile && !matchesCategory && !matchesTags && !matchesSummary) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [files, activeFilterTab, selectedCategory, searchQuery]);
 
   // Handlers
-  const handleUploadSuccess = (item: StaffUploadItem) => {
-    if (versionTargetDoc) {
-      // Replace existing document with new version
-      setUploadsList((prev) =>
-        prev.map((doc) => (doc.id === item.id ? item : doc))
+  const handleToggleConnect = () => {
+    setDriveMeta((prev) => {
+      const nextConnected = !prev.isConnected;
+      setNotification(
+        nextConnected
+          ? "Extended Google Drive connected! You can now sync personal files to the cloud."
+          : "Google Drive link disconnected. Files remain saved in your local vault."
       );
-      setNotification(`New version ${item.version} uploaded for ${item.orderNo}.`);
-      setVersionTargetDoc(null);
-    } else {
-      // Add new document
-      setUploadsList((prev) => [item, ...prev]);
-      setNotification(`Document "${item.fileName}" uploaded to "${item.category}".`);
-    }
-    setSelectedDocId(item.id);
+      return {
+        ...prev,
+        isConnected: nextConnected,
+      };
+    });
   };
 
-  const handleOpenVersionModal = (doc: StaffUploadItem) => {
-    setVersionTargetDoc(doc);
-    setIsModalOpen(true);
+  const handleSyncAll = async () => {
+    setIsSyncingAll(true);
+    // Simulate cloud sync handshake
+    await new Promise((resolve) => setTimeout(resolve, 1400));
+    setFiles((prev) =>
+      prev.map((f) => ({
+        ...f,
+        isGoogleDriveSynced: true,
+        googleSyncStatus: "synced",
+        googleDriveWebViewLink:
+          f.googleDriveWebViewLink || `https://drive.google.com/file/d/sync_bulk_${f.id}/view`,
+        googleDriveFolder: "My Drive / Intelligent Document Search / Personal Files",
+        lastSyncedAt: "Just now",
+      }))
+    );
+    setIsSyncingAll(false);
+    setNotification("All local personal files successfully synchronized to Google Drive!");
   };
 
-  const handlePublishDoc = (docToPublish: StaffUploadItem) => {
-    setUploadsList((prev) =>
-      prev.map((d) =>
-        d.id === docToPublish.id
+  const handleSyncSingleFile = (file: PersonalFileItem) => {
+    setFiles((prev) =>
+      prev.map((f) =>
+        f.id === file.id
           ? {
-              ...d,
-              status: "Published",
-              stages: {
-                ...d.stages,
-                status: {
-                  status: "completed",
-                  timestamp: new Date().toISOString().substring(0, 16).replace("T", " "),
-                  detail: "Published to master regional archive.",
-                },
-              },
+              ...f,
+              isGoogleDriveSynced: true,
+              googleSyncStatus: "synced",
+              googleDriveFileId: `gdrive_${file.id}`,
+              googleDriveWebViewLink: `https://drive.google.com/file/d/gdrive_${file.id}/view`,
+              googleDriveFolder: "My Drive / Intelligent Document Search / Personal Files",
+              lastSyncedAt: "Just now",
             }
-          : d
+          : f
       )
     );
-    setNotification(
-      `Directive "${docToPublish.orderNo}" has been approved and published to the Master Document Archive.`
+    setNotification(`File "${file.title}" synced to your Google Drive folder.`);
+  };
+
+  const handleToggleStar = (fileId: string) => {
+    setFiles((prev) =>
+      prev.map((f) => (f.id === fileId ? { ...f, isStarred: !f.isStarred } : f))
     );
+  };
+
+  const handleDeleteFile = (fileId: string) => {
+    setFiles((prev) => prev.filter((f) => f.id !== fileId));
+    if (selectedFile?.id === fileId) {
+      setSelectedFile(null);
+      setIsInspectorOpen(false);
+    }
+    setNotification("Document removed from personal vault.");
+  };
+
+  const handleSelectFile = (file: PersonalFileItem) => {
+    setSelectedFile(file);
+    setIsInspectorOpen(true);
+  };
+
+  const handleUploadSuccess = (item: PersonalFileItem) => {
+    setFiles((prev) => [item, ...prev]);
+    setSelectedFile(item);
+    setIsInspectorOpen(true);
+    setNotification(
+      item.isGoogleDriveSynced
+        ? `Uploaded "${item.title}" and synced to Google Drive!`
+        : `Uploaded "${item.title}" to your local personal vault.`
+    );
+  };
+
+  const handleImportFiles = (newFiles: PersonalFileItem[]) => {
+    setFiles((prev) => [...newFiles, ...prev]);
+    setNotification(`Imported ${newFiles.length} file(s) from your Google Drive.`);
   };
 
   return (
@@ -397,7 +205,7 @@ export default function MyUploadsPage(props: { disableCustomTheme?: boolean }) {
       <Box sx={{ display: "flex", minHeight: "100vh", width: "100%", overflow: "hidden" }}>
         <SideMenu currentRole={effectiveRole} />
 
-        {/* Main Workspace */}
+        {/* Main Content Workspace */}
         <Box
           component="main"
           sx={(theme) => ({
@@ -414,149 +222,152 @@ export default function MyUploadsPage(props: { disableCustomTheme?: boolean }) {
             pt: { xs: 8, md: 1.5 },
           })}
         >
-          {/* Unified Navbar */}
-          <Box sx={{ flexShrink: 0, mb: 0.5 }}>
+          {/* Top Navbar */}
+          <Box sx={{ flexShrink: 0, mb: 1 }}>
             <DashboardNavbar currentRole={effectiveRole} />
           </Box>
 
-          {/* Top Bar: Title, Search, and Upload Action */}
+          {/* Page Header */}
           <Box
             sx={{
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
-              py: 1.5,
+              py: 1.25,
               borderBottom: "1px solid",
               borderColor: "divider",
-              flexWrap: "wrap",
-              gap: 1.5,
               flexShrink: 0,
+              gap: 1.5,
+              flexWrap: "wrap",
             }}
           >
             <Box>
               <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
                 <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                  My Uploads & Ingestion Workspace
+                  My Personal Files
                 </Typography>
                 <Chip
-                  label="Digitization & Versioning Hub"
+                  label="Extended Google Drive Workspace"
                   size="small"
                   color="primary"
                   variant="outlined"
-                  sx={{ height: 20, fontSize: "0.68rem", fontWeight: 700, borderRadius: 1 }}
+                  sx={{ height: 22, fontSize: "0.7rem", fontWeight: 700, borderRadius: 1.5 }}
                 />
               </Box>
               <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                Upload directives, track multi-stage AI text extraction, manage version revisions, and assign physical storage barcodes.
+                Manage your personal directives, reports, notes, and cloud synchronization with your Google Drive.
               </Typography>
             </Box>
-
-            <Box sx={{ display: "flex", gap: 1.5, alignItems: "center" }}>
-              <TextField
-                size="small"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search categories or directives..."
-                sx={{
-                  width: { xs: "180px", sm: "240px" },
-                  "& .MuiOutlinedInput-root": { borderRadius: 1, fontSize: "0.82rem" },
-                }}
-              />
-
-              <Button
-                variant="contained"
-                color="primary"
-                size="small"
-                onClick={() => {
-                  setVersionTargetDoc(null);
-                  setIsModalOpen(true);
-                }}
-                sx={{
-                  borderRadius: 1,
-                  textTransform: "none",
-                  fontWeight: 700,
-                  boxShadow: "none",
-                  px: 2.5,
-                  height: 36,
-                  whiteSpace: "nowrap",
-                }}
-              >
-                + Upload
-              </Button>
-            </Box>
           </Box>
 
-          {/* Notification Banner if active */}
-          {notification && (
-            <Paper
-              variant="outlined"
-              sx={{
-                mt: 1.5,
-                p: 1.25,
-                px: 2,
-                borderRadius: 1,
-                bgcolor: "action.selected",
-                borderColor: "primary.main",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                flexShrink: 0,
-              }}
-            >
-              <Typography variant="body2" sx={{ fontWeight: 600, color: "primary.main", fontSize: "0.82rem" }}>
-                {notification}
-              </Typography>
-              <Button
-                size="small"
-                onClick={() => setNotification(null)}
-                sx={{ fontSize: "0.72rem", textTransform: "none", p: 0, minWidth: "auto" }}
-              >
-                Dismiss
-              </Button>
-            </Paper>
-          )}
-
-          {/* Summary KPI Cards Strip */}
-          <Box sx={{ my: 1.5, flexShrink: 0 }}>
-            <UploadMetricsSummary metrics={metrics} />
-          </Box>
-
-          {/* Main Area: Either Teams Grid of Category Boxes OR Channel Detail View */}
-          <Box sx={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
-            {activeCategoryMeta ? (
-              <CategoryDetailView
-                category={activeCategoryMeta}
-                items={activeCategoryDocs}
-                selectedDocId={selectedDocId}
-                onSelectDoc={(doc) => setSelectedDocId(doc.id)}
-                onBackToGrid={() => setSelectedCategoryName(null)}
-                onOpenUploadModal={() => {
-                  setVersionTargetDoc(null);
-                  setIsModalOpen(true);
-                }}
-                onUploadNewVersion={handleOpenVersionModal}
-                onPublishDoc={handlePublishDoc}
-              />
-            ) : (
-              <TeamsCategoryGrid
-                items={uploadsList}
-                searchQuery={searchQuery}
-                onSelectCategory={(catName) => setSelectedCategoryName(catName)}
-              />
-            )}
-          </Box>
-
-          {/* Upload Modal (Handles both new upload and versioning) */}
-          <NewUploadModal
-            open={isModalOpen}
-            onClose={() => {
-              setIsModalOpen(false);
-              setVersionTargetDoc(null);
+          {/* Scrollable Main Area */}
+          <Box
+            sx={{
+              flex: 1,
+              minHeight: 0,
+              overflowY: "auto",
+              py: 2,
+              pr: { xs: 0, md: 1 },
             }}
-            onUploadSuccess={handleUploadSuccess}
-            versionTargetDoc={versionTargetDoc}
-            existingUploads={uploadsList}
+          >
+            <Stack spacing={2.5}>
+              {/* Google Drive Status & Sync Banner */}
+              <GoogleDriveSyncBanner
+                driveMeta={driveMeta}
+                onToggleConnect={handleToggleConnect}
+                onSyncAll={handleSyncAll}
+                isSyncingAll={isSyncingAll}
+                syncedCount={syncedCount}
+                totalCount={totalCount}
+              />
+
+              {/* Personal Files Toolbar */}
+              <PersonalFilesToolbar
+                searchQuery={searchQuery}
+                onSearchChange={setSearchQuery}
+                activeFilterTab={activeFilterTab}
+                onFilterTabChange={setActiveFilterTab}
+                selectedCategory={selectedCategory}
+                onCategoryChange={setSelectedCategory}
+                viewMode={viewMode}
+                onViewModeChange={setViewMode}
+                onOpenUploadModal={() => setIsUploadModalOpen(true)}
+                onOpenDriveImportModal={() => setIsDriveImportModalOpen(true)}
+                isDriveConnected={driveMeta.isConnected}
+                totalCount={totalCount}
+                syncedCount={syncedCount}
+                localCount={localCount}
+                starredCount={starredCount}
+              />
+
+              {/* Files View: Grid or List */}
+              {viewMode === "grid" ? (
+                <PersonalFilesGridView
+                  files={filteredFiles}
+                  selectedFileId={selectedFile?.id || null}
+                  onSelectFile={handleSelectFile}
+                  onToggleStar={handleToggleStar}
+                  onSyncToDrive={handleSyncSingleFile}
+                  onDeleteFile={handleDeleteFile}
+                  isDriveConnected={driveMeta.isConnected}
+                />
+              ) : (
+                <PersonalFilesListView
+                  files={filteredFiles}
+                  selectedFileId={selectedFile?.id || null}
+                  onSelectFile={handleSelectFile}
+                  onToggleStar={handleToggleStar}
+                  onSyncToDrive={handleSyncSingleFile}
+                  onDeleteFile={handleDeleteFile}
+                  isDriveConnected={driveMeta.isConnected}
+                />
+              )}
+            </Stack>
+          </Box>
+
+          {/* Slide-out Inspector Drawer */}
+          <PersonalFileInspectorDrawer
+            open={isInspectorOpen}
+            file={selectedFile}
+            onClose={() => setIsInspectorOpen(false)}
+            onToggleStar={handleToggleStar}
+            onSyncToDrive={handleSyncSingleFile}
+            onDeleteFile={handleDeleteFile}
+            isDriveConnected={driveMeta.isConnected}
           />
+
+          {/* Upload Dialog */}
+          <UploadPersonalFileDialog
+            open={isUploadModalOpen}
+            onClose={() => setIsUploadModalOpen(false)}
+            onUploadSuccess={handleUploadSuccess}
+            isDriveConnected={driveMeta.isConnected}
+          />
+
+          {/* Google Drive Import Dialog */}
+          <GoogleDriveImportDialog
+            open={isDriveImportModalOpen}
+            onClose={() => setIsDriveImportModalOpen(false)}
+            onImportFiles={handleImportFiles}
+            userEmail={driveMeta.email}
+          />
+
+          {/* Notification Toast */}
+          <Snackbar
+            open={Boolean(notification)}
+            autoHideDuration={3500}
+            onClose={() => setNotification(null)}
+            anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+          >
+            <Alert
+              onClose={() => setNotification(null)}
+              severity="success"
+              variant="filled"
+              sx={{ width: "100%", borderRadius: 2 }}
+            >
+              {notification}
+            </Alert>
+          </Snackbar>
         </Box>
       </Box>
     </AppTheme>

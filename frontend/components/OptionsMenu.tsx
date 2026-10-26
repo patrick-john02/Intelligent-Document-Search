@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import { styled } from "@mui/material/styles";
 import Divider, { dividerClasses } from "@mui/material/Divider";
 import Menu from "@mui/material/Menu";
@@ -21,6 +22,7 @@ const MenuItem = styled(MuiMenuItem)({
 });
 
 export default function OptionsMenu() {
+  const router = useRouter();
   const { logout } = useAuth();
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
@@ -31,6 +33,11 @@ export default function OptionsMenu() {
 
   const handleClose = () => {
     setAnchorEl(null);
+  };
+
+  const handleProfileClick = () => {
+    handleClose();
+    router.push("/profile");
   };
 
   const handleLogout = () => {
@@ -68,7 +75,7 @@ export default function OptionsMenu() {
           },
         }}
       >
-        <MenuItem onClick={handleClose}>
+        <MenuItem onClick={handleProfileClick}>
           <ListItemIcon>
             <PersonOutlineRoundedIcon fontSize="small" />
           </ListItemIcon>

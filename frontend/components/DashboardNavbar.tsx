@@ -44,6 +44,7 @@ const ROUTE_MAP: Record<string, RouteMeta> = {
   "/locator": { section: "Records & Search", page: "Physical Locator", title: "Physical Locator" },
   "/uploads": { section: "My Workspace", page: "My Uploads", title: "My Uploads" },
   "/bookmarks": { section: "My Workspace", page: "Saved Directives", title: "Saved Directives" },
+  "/profile": { section: "Account", page: "My Profile", title: "My Profile" },
   "/help": { section: "My Workspace", page: "Search Guide", title: "Search Guide" },
   "/admin/approvals": { section: "Administration", page: "Document Approvals", title: "Document Approvals" },
   "/admin/users": { section: "Administration", page: "User Management", title: "User Management" },

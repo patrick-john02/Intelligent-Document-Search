@@ -23,6 +23,10 @@ export interface BookmarkItem {
   pageCount: number;
   isPinned?: boolean;
   officialDate?: string;
+  // Google Drive & Cloud Extension
+  googleDriveLink?: string;
+  googleSyncStatus?: "synced" | "local_only" | "syncing";
+  extractedSummary?: string;
 }
 
 export interface BookmarkMetrics {
@@ -30,4 +34,5 @@ export interface BookmarkMetrics {
   collectionsCount: number;
   pinnedCount: number;
   physicalOnShelfCount: number;
+  withNotesCount?: number;
 }

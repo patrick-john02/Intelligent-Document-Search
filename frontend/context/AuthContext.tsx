@@ -9,7 +9,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { api, getStoredToken, removeStoredToken, setStoredToken } from "@/lib/api";
 
 //define
-export interface User{
+export interface User {
     username: string;
     first_name: string;
     middle_name: string;
@@ -21,6 +21,18 @@ export interface User{
     is_active: boolean;
     is_superuser: boolean;
     system_role_id?: number;
+    position?: string;
+    birth_date?: string;
+    created_at?: string;
+    last_login?: string;
+    account_status?: string;
+    // Google Auth & SSO extensions
+    picture?: string;
+    avatar_url?: string;
+    auth_provider?: "local" | "google";
+    google_id?: string;
+    google_email?: string;
+    email_verified?: boolean;
 }
 
 interface AuthContextType{

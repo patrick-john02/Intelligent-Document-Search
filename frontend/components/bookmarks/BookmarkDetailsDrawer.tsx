@@ -1,6 +1,7 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 import Box from "@mui/material/Box";
 import Drawer from "@mui/material/Drawer";
 import Typography from "@mui/material/Typography";
@@ -9,17 +10,21 @@ import Chip from "@mui/material/Chip";
 import Divider from "@mui/material/Divider";
 import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";
-import Paper from "@mui/material/Paper";
+import Tooltip from "@mui/material/Tooltip";
+import TextField from "@mui/material/TextField";
 import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
-import PushPinRoundedIcon from "@mui/icons-material/PushPinRounded";
-import PushPinOutlinedIcon from "@mui/icons-material/PushPinOutlined";
+import StarRoundedIcon from "@mui/icons-material/StarRounded";
+import StarBorderRoundedIcon from "@mui/icons-material/StarBorderRounded";
 import EditNoteRoundedIcon from "@mui/icons-material/EditNoteRounded";
-import BookmarkRemoveRoundedIcon from "@mui/icons-material/BookmarkRemoveRounded";
+import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded";
 import PlaceOutlinedIcon from "@mui/icons-material/PlaceOutlined";
 import AutoAwesomeOutlinedIcon from "@mui/icons-material/AutoAwesomeOutlined";
-import FolderOutlinedIcon from "@mui/icons-material/FolderOutlined";
-import Link from "next/link";
+import GoogleIcon from "@mui/icons-material/Google";
+import OpenInNewRoundedIcon from "@mui/icons-material/OpenInNewRounded";
+import NoteAltOutlinedIcon from "@mui/icons-material/NoteAltOutlined";
+import ContentCopyRoundedIcon from "@mui/icons-material/ContentCopyRounded";
 import { BookmarkItem } from "./types";
+import { getClearanceColor } from "./BookmarkCard";
 
 interface BookmarkDetailsDrawerProps {
   item: BookmarkItem | null;
@@ -27,6 +32,7 @@ interface BookmarkDetailsDrawerProps {
   onClose: () => void;
   onTogglePin: (id: string, e: React.MouseEvent) => void;
   onEditNote: (item: BookmarkItem) => void;
+  onSaveInlineNote: (id: string, note: string) => void;
   onRemove: (id: string, e: React.MouseEvent) => void;
 }
 
@@ -36,9 +42,24 @@ export default function BookmarkDetailsDrawer({
   onClose,
   onTogglePin,
   onEditNote,
+  onSaveInlineNote,
   onRemove,
 }: BookmarkDetailsDrawerProps) {
+  const router = useRouter();
+  const [isEditingInline, setIsEditingInline] = useState(false);
+  const [inlineNoteText, setInlineNoteText] = useState("");
+
   if (!item) return null;
+
+  const handleStartEdit = () => {
+    setInlineNoteText(item.personalNotes || "");
+    setIsEditingInline(true);
+  };
+
+  const handleSaveInline = () => {
+    onSaveInlineNote(item.id, inlineNoteText);
+    setIsEditingInline(false);
+  };
 
   return (
     <Drawer
@@ -48,350 +69,342 @@ export default function BookmarkDetailsDrawer({
       slotProps={{
         paper: {
           sx: {
-            width: { xs: "100%", sm: 460 },
+            width: { xs: "100%", sm: 480 },
             p: 3,
             bgcolor: "background.paper",
             display: "flex",
             flexDirection: "column",
-            justifyContent: "space-between",
           },
         },
       }}
     >
-      <Box sx={{ overflowY: "auto", pr: 0.5 }}>
-        {/* Top Controls: Directive No + Pin + Close */}
-        <Box
-          sx={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            mb: 2,
-          }}
-        >
-          <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
-            <Typography
-              variant="caption"
-              sx={{
-                fontFamily: "monospace",
-                fontWeight: 800,
-                color: "primary.main",
-                fontSize: "0.85rem",
-                bgcolor: (theme) =>
-                  theme.palette.mode === "dark"
-                    ? "rgba(59, 130, 246, 0.12)"
-                    : "rgba(37, 99, 235, 0.08)",
-                px: 1,
-                py: 0.25,
-                borderRadius: 1,
-                border: "1px solid",
-                borderColor: (theme) =>
-                  theme.palette.mode === "dark"
-                    ? "rgba(59, 130, 246, 0.25)"
-                    : "rgba(37, 99, 235, 0.2)",
-              }}
-            >
-              {item.orderNo}
-            </Typography>
+      {/* Top Header: Order No, Year, Clearance, Star Pin, Close */}
+      <Stack
+        direction="row"
+        spacing={1}
+        sx={{ alignItems: "center", justifyContent: "space-between", mb: 2 }}
+      >
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
+          <Typography
+            variant="caption"
+            sx={{
+              fontFamily: "monospace",
+              fontWeight: 700,
+              bgcolor: "action.hover",
+              px: 1,
+              py: 0.25,
+              borderRadius: 1.5,
+              border: "1px solid",
+              borderColor: "divider",
+            }}
+          >
+            {item.orderNo}
+          </Typography>
 
-            <Chip
-              label={`Series ${item.seriesYear}`}
-              size="small"
-              variant="outlined"
-              sx={{ borderRadius: 1, height: 22, fontSize: "0.72rem", fontWeight: 600 }}
-            />
-          </Stack>
+          <Chip
+            size="small"
+            label={item.seriesYear}
+            variant="outlined"
+            sx={{ height: 22, fontSize: "0.7rem", fontWeight: 700 }}
+          />
 
-          <Stack direction="row" spacing={0.5} sx={{ alignItems: "center" }}>
+          <Chip
+            size="small"
+            label={item.clearance}
+            color={getClearanceColor(item.clearance)}
+            sx={{ height: 20, fontSize: "0.68rem", fontWeight: 700 }}
+          />
+        </Box>
+
+        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+          <Tooltip title={item.isPinned ? "Unpin directive" : "Pin directive"}>
             <IconButton
               size="small"
               onClick={(e) => onTogglePin(item.id, e)}
-              sx={{ color: item.isPinned ? "primary.main" : "text.secondary" }}
+              sx={{ color: item.isPinned ? "#F59E0B" : "text.secondary" }}
             >
-              {item.isPinned ? (
-                <PushPinRoundedIcon sx={{ fontSize: 20 }} />
-              ) : (
-                <PushPinOutlinedIcon sx={{ fontSize: 20 }} />
-              )}
+              {item.isPinned ? <StarRoundedIcon /> : <StarBorderRoundedIcon />}
             </IconButton>
+          </Tooltip>
 
-            <IconButton size="small" onClick={onClose} sx={{ color: "text.secondary" }}>
-              <CloseRoundedIcon sx={{ fontSize: 20 }} />
-            </IconButton>
-          </Stack>
+          <IconButton size="small" onClick={onClose} sx={{ color: "text.secondary" }}>
+            <CloseRoundedIcon />
+          </IconButton>
         </Box>
+      </Stack>
 
-        {/* Title & Metadata Tags */}
-        <Typography variant="h6" sx={{ fontWeight: 800, fontSize: "1.05rem", lineHeight: 1.4, mb: 1.5 }}>
-          {item.title}
-        </Typography>
+      {/* Title & Metadata */}
+      <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1.35, mb: 1 }}>
+        {item.title}
+      </Typography>
 
-        <Stack direction="row" spacing={1} sx={{ mb: 2.5, flexWrap: "wrap", gap: 0.5 }}>
-          <Chip
-            label={item.category}
-            size="small"
-            variant="outlined"
-            sx={{ borderRadius: 1, fontSize: "0.72rem", fontWeight: 600 }}
-          />
-          <Chip
-            label={`Collection: ${item.collection}`}
-            size="small"
-            color="primary"
-            variant="outlined"
-            sx={{ borderRadius: 1, fontSize: "0.72rem", fontWeight: 600 }}
-          />
-          <Chip
-            label={item.clearance}
-            size="small"
-            color={
-              item.clearance === "Public"
-                ? "success"
-                : item.clearance === "Internal"
-                ? "info"
-                : "warning"
-            }
-            sx={{ borderRadius: 1, fontSize: "0.72rem", fontWeight: 600 }}
-          />
-        </Stack>
+      <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mb: 2 }}>
+        Collection: <strong>{item.collection}</strong> • Official Date: {item.officialDate || "N/A"} • Size: {item.fileSize} ({item.pageCount} pages)
+      </Typography>
 
-        <Divider sx={{ mb: 2.5 }} />
+      <Divider sx={{ mb: 2.5 }} />
 
-        {/* Personal Notes / Annotation Section */}
-        <Box sx={{ mb: 2.5 }}>
-          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 1 }}>
-            <Typography
-              variant="caption"
-              sx={{ fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "text.secondary" }}
+      {/* Scrollable Body */}
+      <Box sx={{ flex: 1, overflowY: "auto", pr: 0.5 }}>
+        <Stack spacing={2.5}>
+          {/* Section 1: Personal Study Notes & Annotations */}
+          <Box
+            sx={(theme) => ({
+              p: 2,
+              borderRadius: 2,
+              border: "1px solid",
+              borderColor: "rgba(245, 158, 11, 0.3)",
+              bgcolor: theme.vars
+                ? "rgba(245, 158, 11, 0.05)"
+                : "rgba(245, 158, 11, 0.05)",
+            })}
+          >
+            <Stack direction="row" spacing={1} sx={{ alignItems: "center", justifyContent: "space-between", mb: 1 }}>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+                <NoteAltOutlinedIcon sx={{ color: "#D97706", fontSize: 18 }} />
+                <Typography variant="subtitle2" sx={{ fontWeight: 700, color: "text.primary" }}>
+                  Personal Study Notes & Annotations
+                </Typography>
+              </Box>
+
+              {!isEditingInline && (
+                <Button
+                  size="small"
+                  onClick={handleStartEdit}
+                  startIcon={<EditNoteRoundedIcon sx={{ fontSize: 14 }} />}
+                  sx={{ fontSize: "0.72rem", textTransform: "none", p: 0.25 }}
+                >
+                  Edit Note
+                </Button>
+              )}
+            </Stack>
+
+            {isEditingInline ? (
+              <Stack spacing={1.5} sx={{ mt: 1 }}>
+                <TextField
+                  multiline
+                  rows={3}
+                  size="small"
+                  fullWidth
+                  value={inlineNoteText}
+                  onChange={(e) => setInlineNoteText(e.target.value)}
+                  placeholder="Enter personal observations, relevant sections, or hearing notes..."
+                  sx={{ bgcolor: "background.paper", borderRadius: 1 }}
+                />
+                <Stack direction="row" spacing={1} sx={{ justifyContent: "flex-end" }}>
+                  <Button
+                    size="small"
+                    onClick={() => setIsEditingInline(false)}
+                    sx={{ textTransform: "none", fontSize: "0.75rem" }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    size="small"
+                    variant="contained"
+                    onClick={handleSaveInline}
+                    sx={{ textTransform: "none", fontSize: "0.75rem" }}
+                  >
+                    Save Note
+                  </Button>
+                </Stack>
+              </Stack>
+            ) : (
+              <Typography variant="body2" sx={{ color: "text.primary", lineHeight: 1.5, fontSize: "0.82rem" }}>
+                {item.personalNotes || (
+                  <span style={{ fontStyle: "italic", color: "gray" }}>
+                    No personal notes recorded yet. Click &quot;Edit Note&quot; to add your annotations.
+                  </span>
+                )}
+              </Typography>
+            )}
+          </Box>
+
+          {/* Section 2: Physical Custody & Shelf Coordinates */}
+          <Box
+            sx={(theme) => ({
+              p: 2,
+              borderRadius: 2,
+              border: "1px solid",
+              borderColor: "divider",
+              bgcolor: theme.vars
+                ? `rgba(${theme.vars.palette.background.defaultChannel} / 0.6)`
+                : "action.hover",
+            })}
+          >
+            <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 1.5 }}>
+              <PlaceOutlinedIcon sx={{ color: "#10B981", fontSize: 18 }} />
+              <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                Physical Archival Coordinates
+              </Typography>
+            </Stack>
+
+            <Box
+              sx={{
+                p: 1.5,
+                borderRadius: 1.5,
+                bgcolor: "background.paper",
+                border: "1px solid",
+                borderColor: "divider",
+                mb: 1.5,
+              }}
             >
-              Personal Annotation / Notes
-            </Typography>
+              <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 600, display: "block" }}>
+                SHELF MAPPING & BARCODE
+              </Typography>
+              <Typography variant="body2" sx={{ fontWeight: 700, color: "text.primary", mt: 0.25 }}>
+                {item.shelfLocation.cabinet} • {item.shelfLocation.shelf} • {item.shelfLocation.binder}
+              </Typography>
+              <Typography variant="caption" sx={{ fontFamily: "monospace", color: "#10B981", fontWeight: 700, display: "block", mt: 0.25 }}>
+                BARCODE: {item.shelfLocation.barcode}
+              </Typography>
+            </Box>
+
             <Button
+              variant="outlined"
               size="small"
-              startIcon={<EditNoteRoundedIcon sx={{ fontSize: 16 }} />}
-              onClick={() => onEditNote(item)}
-              sx={{ textTransform: "none", fontSize: "0.75rem", p: 0.25 }}
+              fullWidth
+              startIcon={<PlaceOutlinedIcon />}
+              onClick={() => router.push(`/locator?barcode=${encodeURIComponent(item.shelfLocation.barcode)}`)}
+              sx={{
+                borderRadius: 2,
+                textTransform: "none",
+                fontWeight: 600,
+                color: "#10B981",
+                borderColor: "#10B981",
+                "&:hover": { borderColor: "#059669", bgcolor: "rgba(16, 185, 129, 0.05)" },
+              }}
             >
-              Edit Note
+              View on Physical Locator Map
             </Button>
           </Box>
 
-          <Paper
-            variant="outlined"
-            sx={{
+          {/* Section 3: AI Document Intelligence */}
+          <Box
+            sx={(theme) => ({
               p: 2,
-              borderRadius: 1,
-              bgcolor: (theme) =>
-                theme.palette.mode === "dark"
-                  ? "rgba(255, 255, 255, 0.02)"
-                  : "rgba(15, 23, 42, 0.02)",
-              borderLeft: "3px solid",
-              borderLeftColor: item.personalNotes ? "warning.main" : "divider",
-            }}
+              borderRadius: 2,
+              border: "1px solid",
+              borderColor: "divider",
+              bgcolor: theme.vars
+                ? `rgba(${theme.vars.palette.background.defaultChannel} / 0.6)`
+                : "action.hover",
+            })}
           >
-            {item.personalNotes ? (
-              <Typography variant="body2" sx={{ fontSize: "0.84rem", lineHeight: 1.5 }}>
-                {item.personalNotes}
+            <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 1 }}>
+              <AutoAwesomeOutlinedIcon sx={{ color: "primary.main", fontSize: 18 }} />
+              <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                AI Document Intelligence
               </Typography>
-            ) : (
-              <Typography variant="body2" sx={{ color: "text.secondary", fontSize: "0.82rem", fontStyle: "italic" }}>
-                No personal notes added yet. Click &apos;Edit Note&apos; to attach references or reminders.
+            </Stack>
+
+            {item.extractedSummary && (
+              <Typography variant="body2" sx={{ color: "text.secondary", fontSize: "0.82rem", mb: 1.5, lineHeight: 1.45 }}>
+                {item.extractedSummary}
               </Typography>
             )}
-          </Paper>
-        </Box>
 
-        {/* Physical Storage Coordinates */}
-        <Box sx={{ mb: 2.5 }}>
-          <Typography
-            variant="caption"
-            sx={{
-              fontWeight: 700,
-              textTransform: "uppercase",
-              letterSpacing: "0.05em",
-              color: "text.secondary",
-              display: "block",
-              mb: 1,
-            }}
-          >
-            Physical Archive Coordinates
-          </Typography>
-
-          <Paper
-            variant="outlined"
-            sx={{
-              p: 2,
-              borderRadius: 1,
-              display: "grid",
-              gridTemplateColumns: "repeat(2, 1fr)",
-              gap: 1.5,
-              bgcolor: "background.paper",
-            }}
-          >
-            <Box>
-              <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.7rem", display: "block" }}>
-                Cabinet
-              </Typography>
-              <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                {item.shelfLocation.cabinet}
-              </Typography>
-            </Box>
-
-            <Box>
-              <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.7rem", display: "block" }}>
-                Shelf
-              </Typography>
-              <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                {item.shelfLocation.shelf}
-              </Typography>
-            </Box>
-
-            <Box>
-              <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.7rem", display: "block" }}>
-                Hardcopy Binder
-              </Typography>
-              <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                {item.shelfLocation.binder}
-              </Typography>
-            </Box>
-
-            <Box>
-              <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.7rem", display: "block" }}>
-                Storage Barcode
-              </Typography>
-              <Typography variant="body2" sx={{ fontFamily: "monospace", fontWeight: 700, color: "primary.main" }}>
-                {item.shelfLocation.barcode}
-              </Typography>
-            </Box>
-          </Paper>
-        </Box>
-
-        {/* Directive Specifications */}
-        <Box sx={{ mb: 3 }}>
-          <Typography
-            variant="caption"
-            sx={{
-              fontWeight: 700,
-              textTransform: "uppercase",
-              letterSpacing: "0.05em",
-              color: "text.secondary",
-              display: "block",
-              mb: 1,
-            }}
-          >
-            Document Details
-          </Typography>
-
-          <Stack spacing={1}>
-            <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-              <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                Official Issuance Date:
-              </Typography>
-              <Typography variant="caption" sx={{ fontWeight: 600 }}>
-                {item.officialDate || "N/A"}
-              </Typography>
-            </Box>
-
-            <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-              <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                Bookmarked On:
-              </Typography>
-              <Typography variant="caption" sx={{ fontWeight: 600 }}>
-                {item.dateBookmarked}
-              </Typography>
-            </Box>
-
-            <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-              <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                Page Count & Size:
-              </Typography>
-              <Typography variant="caption" sx={{ fontWeight: 600 }}>
-                {item.pageCount} pages ({item.fileSize})
-              </Typography>
-            </Box>
-          </Stack>
-        </Box>
-
-        {/* Tags */}
-        {item.tags.length > 0 && (
-          <Box sx={{ mb: 3 }}>
-            <Typography
-              variant="caption"
+            <Button
+              variant="contained"
+              color="primary"
+              size="small"
+              fullWidth
+              startIcon={<AutoAwesomeOutlinedIcon />}
+              onClick={() => router.push(`/chat?directive=${encodeURIComponent(item.orderNo)}`)}
               sx={{
+                borderRadius: 2,
+                textTransform: "none",
                 fontWeight: 700,
-                textTransform: "uppercase",
-                letterSpacing: "0.05em",
-                color: "text.secondary",
-                display: "block",
-                mb: 1,
+                boxShadow: "none",
               }}
             >
-              Tags
-            </Typography>
-            <Stack direction="row" spacing={0.75} sx={{ flexWrap: "wrap", gap: 0.5 }}>
-              {item.tags.map((tag) => (
-                <Chip
-                  key={tag}
-                  label={`#${tag}`}
-                  size="small"
-                  variant="outlined"
-                  sx={{ borderRadius: 1, fontSize: "0.7rem" }}
-                />
-              ))}
-            </Stack>
+              Ask AI Assistant about this Directive
+            </Button>
           </Box>
-        )}
-      </Box>
 
-      {/* Footer Navigation Shortcuts */}
-      <Box sx={{ pt: 2, borderTop: "1px solid", borderColor: "divider" }}>
-        <Stack spacing={1}>
-          <Button
-            component={Link}
-            href={`/locator?highlight=${encodeURIComponent(item.shelfLocation.barcode)}`}
-            variant="outlined"
-            size="small"
-            startIcon={<PlaceOutlinedIcon sx={{ fontSize: 18 }} />}
-            sx={{ borderRadius: 1, textTransform: "none", fontWeight: 600 }}
-          >
-            Locate Physical Binder ({item.shelfLocation.barcode})
-          </Button>
+          {/* Section 4: Google Workspace Cloud Access */}
+          {item.googleDriveLink && (
+            <Box
+              sx={{
+                p: 2,
+                borderRadius: 2,
+                border: "1px solid",
+                borderColor: "rgba(66, 133, 244, 0.3)",
+                bgcolor: "rgba(66, 133, 244, 0.04)",
+              }}
+            >
+              <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 1 }}>
+                <GoogleIcon sx={{ color: "#4285F4", fontSize: 18 }} />
+                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                  Google Drive Cloud Copy
+                </Typography>
+              </Stack>
 
-          <Button
-            component={Link}
-            href={`/chat?query=${encodeURIComponent(`Explain ${item.orderNo}: ${item.title}`)}`}
-            variant="outlined"
-            size="small"
-            startIcon={<AutoAwesomeOutlinedIcon sx={{ fontSize: 18 }} />}
-            sx={{ borderRadius: 1, textTransform: "none", fontWeight: 600 }}
-          >
-            Ask AI Assistant About Directive
-          </Button>
+              <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mb: 1.5 }}>
+                This directive is synchronized with your Google Drive personal archive.
+              </Typography>
 
-          <Button
-            component={Link}
-            href={`/documents?q=${encodeURIComponent(item.orderNo)}`}
-            variant="outlined"
-            size="small"
-            startIcon={<FolderOutlinedIcon sx={{ fontSize: 18 }} />}
-            sx={{ borderRadius: 1, textTransform: "none", fontWeight: 600 }}
-          >
-            Open in Document Archive
-          </Button>
+              <Button
+                variant="outlined"
+                size="small"
+                fullWidth
+                component="a"
+                href={item.googleDriveLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                startIcon={<GoogleIcon sx={{ fontSize: "15px !important", color: "#4285F4" }} />}
+                endIcon={<OpenInNewRoundedIcon sx={{ fontSize: 14 }} />}
+                sx={{
+                  borderRadius: 2,
+                  textTransform: "none",
+                  fontWeight: 600,
+                  borderColor: "rgba(66, 133, 244, 0.4)",
+                  color: "#1976D2",
+                }}
+              >
+                Open in Google Drive / Docs
+              </Button>
+            </Box>
+          )}
 
-          <Button
-            variant="text"
-            color="error"
-            size="small"
-            onClick={(e) => {
-              onRemove(item.id, e);
-              onClose();
-            }}
-            startIcon={<BookmarkRemoveRoundedIcon sx={{ fontSize: 18 }} />}
-            sx={{ borderRadius: 1, textTransform: "none", fontWeight: 600, mt: 0.5 }}
-          >
-            Remove from Bookmarks
-          </Button>
+          {/* Tags */}
+          <Box>
+            <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 600, display: "block", mb: 0.75 }}>
+              TAGS & CITATIONS
+            </Typography>
+            <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.75 }}>
+              {item.tags.map((tag) => (
+                <Chip key={tag} label={`#${tag}`} size="small" sx={{ fontSize: "0.7rem", height: 22 }} />
+              ))}
+            </Box>
+          </Box>
         </Stack>
       </Box>
+
+      {/* Drawer Footer Actions */}
+      <Divider sx={{ my: 2 }} />
+      <Stack direction="row" spacing={1.5} sx={{ justifyContent: "space-between" }}>
+        <Button
+          variant="outlined"
+          color="error"
+          size="small"
+          startIcon={<DeleteOutlineRoundedIcon />}
+          onClick={(e) => onRemove(item.id, e)}
+          sx={{ borderRadius: 2, textTransform: "none", fontWeight: 600 }}
+        >
+          Remove Bookmark
+        </Button>
+
+        <Button
+          variant="contained"
+          size="small"
+          startIcon={<EditNoteRoundedIcon />}
+          onClick={() => onEditNote(item)}
+          sx={{ borderRadius: 2, textTransform: "none", fontWeight: 600 }}
+        >
+          Edit Note & Collection
+        </Button>
+      </Stack>
     </Drawer>
   );
 }

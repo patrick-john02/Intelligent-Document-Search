@@ -10,12 +10,17 @@ import Button from "@mui/material/Button";
 import FormControl from "@mui/material/FormControl";
 import Select from "@mui/material/Select";
 import MenuItem from "@mui/material/MenuItem";
-import Typography from "@mui/material/Typography";
+import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
+import ToggleButton from "@mui/material/ToggleButton";
+import Tooltip from "@mui/material/Tooltip";
 import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
 import GridViewRoundedIcon from "@mui/icons-material/GridViewRounded";
-import FormatListBulletedRoundedIcon from "@mui/icons-material/FormatListBulletedRounded";
-import PushPinRoundedIcon from "@mui/icons-material/PushPinRounded";
+import ViewListRoundedIcon from "@mui/icons-material/ViewListRounded";
+import StarRoundedIcon from "@mui/icons-material/StarRounded";
+import PlaceOutlinedIcon from "@mui/icons-material/PlaceOutlined";
 import AddRoundedIcon from "@mui/icons-material/AddRounded";
+import GoogleIcon from "@mui/icons-material/Google";
+import FileDownloadOutlinedIcon from "@mui/icons-material/FileDownloadOutlined";
 
 interface BookmarkFilterBarProps {
   searchQuery: string;
@@ -25,11 +30,14 @@ interface BookmarkFilterBarProps {
   onSelectCollection: (col: string) => void;
   onlyPinned: boolean;
   onTogglePinned: () => void;
+  onlyPhysical: boolean;
+  onTogglePhysical: () => void;
   sortBy: "date" | "year" | "order" | "title";
   onSortChange: (sort: "date" | "year" | "order" | "title") => void;
   viewMode: "grid" | "list";
   onViewModeChange: (mode: "grid" | "list") => void;
   onOpenNewCollection: () => void;
+  onOpenExportDialog: () => void;
 }
 
 export default function BookmarkFilterBar({
@@ -40,26 +48,36 @@ export default function BookmarkFilterBar({
   onSelectCollection,
   onlyPinned,
   onTogglePinned,
+  onlyPhysical,
+  onTogglePhysical,
   sortBy,
   onSortChange,
   viewMode,
   onViewModeChange,
   onOpenNewCollection,
+  onOpenExportDialog,
 }: BookmarkFilterBarProps) {
   return (
-    <Stack spacing={1.5}>
-      {/* Top Row: Search input + Sort + View Mode + Add Collection */}
+    <Stack spacing={2}>
+      {/* Top Row: Search input + Toggles + Sort + View Mode + Actions */}
       <Stack
-        direction={{ xs: "column", sm: "row" }}
+        direction={{ xs: "column", lg: "row" }}
         spacing={1.5}
-        sx={{ alignItems: "stretch", justifyContent: "space-between" }}
+        sx={{ alignItems: { xs: "stretch", lg: "center" }, justifyContent: "space-between" }}
       >
+        {/* Search */}
         <TextField
           size="small"
-          placeholder="Filter saved directives by title, order no, personal notes, or tags..."
+          placeholder="Search saved directives, order numbers, study notes, or tags..."
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
-          sx={{ flexGrow: 1, maxWidth: { sm: 540 } }}
+          sx={{
+            flex: { xs: "1 1 auto", lg: "0 1 420px" },
+            "& .MuiOutlinedInput-root": {
+              borderRadius: 2,
+              bgcolor: "background.paper",
+            },
+          }}
           slotProps={{
             input: {
               startAdornment: (
@@ -67,28 +85,64 @@ export default function BookmarkFilterBar({
                   <SearchRoundedIcon sx={{ fontSize: 18, color: "text.secondary" }} />
                 </InputAdornment>
               ),
-              sx: { borderRadius: 1, fontSize: "0.85rem" },
             },
           }}
         />
 
-        <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap" }}>
-          {/* Pinned filter toggle button */}
+        {/* Action and Filter Controls */}
+        <Stack
+          direction="row"
+          spacing={1}
+          sx={{ alignItems: "center", flexWrap: "wrap", gap: 1, justifyContent: { xs: "space-between", lg: "flex-end" } }}
+        >
+          {/* Pinned toggle */}
           <Button
             size="small"
             variant={onlyPinned ? "contained" : "outlined"}
             color={onlyPinned ? "primary" : "inherit"}
             onClick={onTogglePinned}
-            startIcon={<PushPinRoundedIcon sx={{ fontSize: 16 }} />}
+            startIcon={
+              <StarRoundedIcon
+                sx={{
+                  fontSize: 16,
+                  color: onlyPinned ? "#F59E0B" : "text.secondary",
+                }}
+              />
+            }
             sx={{
-              borderRadius: 1,
+              borderRadius: 2,
               textTransform: "none",
               fontSize: "0.8rem",
               fontWeight: 600,
-              minWidth: "fit-content",
+              height: 36,
             }}
           >
-            {onlyPinned ? "Pinned Only" : "All Items"}
+            Pinned Only
+          </Button>
+
+          {/* Physical records toggle */}
+          <Button
+            size="small"
+            variant={onlyPhysical ? "contained" : "outlined"}
+            color={onlyPhysical ? "primary" : "inherit"}
+            onClick={onTogglePhysical}
+            startIcon={
+              <PlaceOutlinedIcon
+                sx={{
+                  fontSize: 16,
+                  color: onlyPhysical ? "#10B981" : "text.secondary",
+                }}
+              />
+            }
+            sx={{
+              borderRadius: 2,
+              textTransform: "none",
+              fontSize: "0.8rem",
+              fontWeight: 600,
+              height: 36,
+            }}
+          >
+            On Shelf
           </Button>
 
           {/* Sort Selector */}
@@ -96,69 +150,69 @@ export default function BookmarkFilterBar({
             <Select
               value={sortBy}
               onChange={(e) => onSortChange(e.target.value as "date" | "year" | "order" | "title")}
-              sx={{ borderRadius: 1, fontSize: "0.8rem", height: 36 }}
+              sx={{ borderRadius: 2, fontSize: "0.82rem", bgcolor: "background.paper", height: 36 }}
             >
-              <MenuItem value="date">Sort: Saved Date</MenuItem>
-              <MenuItem value="year">Sort: Series Year</MenuItem>
-              <MenuItem value="order">Sort: Order No.</MenuItem>
-              <MenuItem value="title">Sort: Title</MenuItem>
+              <MenuItem value="date">Date Saved</MenuItem>
+              <MenuItem value="year">Series Year</MenuItem>
+              <MenuItem value="order">Directive No.</MenuItem>
+              <MenuItem value="title">Title (A-Z)</MenuItem>
             </Select>
           </FormControl>
 
-          {/* View Toggle Buttons */}
-          <Stack
-            direction="row"
-            sx={{
-              border: "1px solid",
-              borderColor: "divider",
-              borderRadius: 1,
-              overflow: "hidden",
-            }}
+          {/* Grid / List Switcher */}
+          <ToggleButtonGroup
+            value={viewMode}
+            exclusive
+            onChange={(_, next) => next && onViewModeChange(next)}
+            size="small"
+            sx={{ bgcolor: "background.paper", borderRadius: 2 }}
           >
-            <Button
-              size="small"
-              onClick={() => onViewModeChange("grid")}
-              variant={viewMode === "grid" ? "contained" : "text"}
-              color={viewMode === "grid" ? "primary" : "inherit"}
-              sx={{
-                minWidth: 36,
-                px: 1,
-                py: 0.5,
-                borderRadius: 0,
-                boxShadow: "none",
-              }}
-            >
-              <GridViewRoundedIcon sx={{ fontSize: 18 }} />
-            </Button>
-            <Button
-              size="small"
-              onClick={() => onViewModeChange("list")}
-              variant={viewMode === "list" ? "contained" : "text"}
-              color={viewMode === "list" ? "primary" : "inherit"}
-              sx={{
-                minWidth: 36,
-                px: 1,
-                py: 0.5,
-                borderRadius: 0,
-                boxShadow: "none",
-              }}
-            >
-              <FormatListBulletedRoundedIcon sx={{ fontSize: 18 }} />
-            </Button>
-          </Stack>
+            <Tooltip title="Card Grid View">
+              <ToggleButton value="grid" aria-label="grid view" sx={{ px: 1.25 }}>
+                <GridViewRoundedIcon fontSize="small" />
+              </ToggleButton>
+            </Tooltip>
+            <Tooltip title="Dense List View">
+              <ToggleButton value="list" aria-label="list view" sx={{ px: 1.25 }}>
+                <ViewListRoundedIcon fontSize="small" />
+              </ToggleButton>
+            </Tooltip>
+          </ToggleButtonGroup>
 
-          {/* Create Collection Button */}
+          {/* Export to Google Docs / Drive Button */}
           <Button
             size="small"
             variant="outlined"
-            onClick={onOpenNewCollection}
-            startIcon={<AddRoundedIcon sx={{ fontSize: 16 }} />}
+            onClick={onOpenExportDialog}
+            startIcon={<GoogleIcon sx={{ fontSize: "14px !important", color: "#4285F4" }} />}
             sx={{
-              borderRadius: 1,
+              borderRadius: 2,
               textTransform: "none",
               fontSize: "0.8rem",
               fontWeight: 600,
-              minWidth: "fit-content",
+              height: 36,
+              whiteSpace: "nowrap",
+            }}
+          >
+            Export to Drive
+          </Button>
+
+          {/* + New Collection button */}
+          <Button
+            size="small"
+            variant="contained"
+            color="primary"
+            onClick={onOpenNewCollection}
+            startIcon={<AddRoundedIcon sx={{ fontSize: 16 }} />}
+            sx={{
+              borderRadius: 2,
+              textTransform: "none",
+              fontSize: "0.8rem",
+              fontWeight: 700,
+              height: 36,
+              px: 1.75,
+              boxShadow: "none",
+              whiteSpace: "nowrap",
             }}
           >
             Collection
@@ -166,53 +220,41 @@ export default function BookmarkFilterBar({
         </Stack>
       </Stack>
 
-      {/* Bottom Row: Collection Pill Chips */}
-      <Stack
-        direction="row"
-        spacing={0.75}
+      {/* Collection Pills Bar */}
+      <Box
         sx={{
+          display: "flex",
+          alignItems: "center",
+          gap: 1,
           overflowX: "auto",
           pb: 0.5,
-          alignItems: "center",
           "&::-webkit-scrollbar": { height: 4 },
         }}
       >
-        <Typography
-          variant="caption"
-          sx={{
-            color: "text.secondary",
-            fontWeight: 700,
-            textTransform: "uppercase",
-            letterSpacing: "0.05em",
-            mr: 0.5,
-            fontSize: "0.72rem",
-            flexShrink: 0,
-          }}
-        >
-          Collections:
-        </Typography>
-
         {collections.map((col) => {
           const isSelected = selectedCollection === col;
           return (
             <Chip
               key={col}
               label={col}
-              size="small"
               onClick={() => onSelectCollection(col)}
-              variant={isSelected ? "filled" : "outlined"}
               color={isSelected ? "primary" : "default"}
+              variant={isSelected ? "filled" : "outlined"}
               sx={{
-                borderRadius: 1,
-                fontSize: "0.78rem",
                 fontWeight: isSelected ? 700 : 500,
+                fontSize: "0.78rem",
+                borderRadius: 2,
                 cursor: "pointer",
-                flexShrink: 0,
+                height: 28,
+                transition: "all 0.15s ease",
+                "&:hover": {
+                  borderColor: "primary.main",
+                },
               }}
             />
           );
         })}
-      </Stack>
+      </Box>
     </Stack>
   );
 }

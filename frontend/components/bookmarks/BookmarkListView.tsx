@@ -1,19 +1,35 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 import Box from "@mui/material/Box";
+import Table from "@mui/material/Table";
+import TableBody from "@mui/material/TableBody";
+import TableCell from "@mui/material/TableCell";
+import TableContainer from "@mui/material/TableContainer";
+import TableHead from "@mui/material/TableHead";
+import TableRow from "@mui/material/TableRow";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
-import Stack from "@mui/material/Stack";
 import Chip from "@mui/material/Chip";
 import IconButton from "@mui/material/IconButton";
-import Button from "@mui/material/Button";
 import Tooltip from "@mui/material/Tooltip";
-import PushPinRoundedIcon from "@mui/icons-material/PushPinRounded";
-import PushPinOutlinedIcon from "@mui/icons-material/PushPinOutlined";
-import BookmarkRemoveRoundedIcon from "@mui/icons-material/BookmarkRemoveRounded";
+import Menu from "@mui/material/Menu";
+import MenuItem from "@mui/material/MenuItem";
+import ListItemIcon from "@mui/material/ListItemIcon";
+import ListItemText from "@mui/material/ListItemText";
+import StarRoundedIcon from "@mui/icons-material/StarRounded";
+import StarBorderRoundedIcon from "@mui/icons-material/StarBorderRounded";
+import NoteAltOutlinedIcon from "@mui/icons-material/NoteAltOutlined";
+import PlaceOutlinedIcon from "@mui/icons-material/PlaceOutlined";
+import AutoAwesomeOutlinedIcon from "@mui/icons-material/AutoAwesomeOutlined";
+import GoogleIcon from "@mui/icons-material/Google";
+import MoreVertRoundedIcon from "@mui/icons-material/MoreVertRounded";
 import EditNoteRoundedIcon from "@mui/icons-material/EditNoteRounded";
+import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded";
+import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
 import { BookmarkItem } from "./types";
+import { getClearanceColor } from "./BookmarkCard";
 
 interface BookmarkListViewProps {
   items: BookmarkItem[];
@@ -32,241 +48,287 @@ export default function BookmarkListView({
   onEditNote,
   onRemove,
 }: BookmarkListViewProps) {
+  const router = useRouter();
+  const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
+  const [activeMenuFile, setActiveMenuFile] = useState<BookmarkItem | null>(null);
+
+  const handleOpenMenu = (e: React.MouseEvent<HTMLElement>, item: BookmarkItem) => {
+    e.stopPropagation();
+    setMenuAnchorEl(e.currentTarget);
+    setActiveMenuFile(item);
+  };
+
+  const handleCloseMenu = () => {
+    setMenuAnchorEl(null);
+    setActiveMenuFile(null);
+  };
+
   if (items.length === 0) {
     return null;
   }
 
   return (
-    <Paper
+    <TableContainer
+      component={Paper}
       variant="outlined"
       sx={{
-        borderRadius: 1,
-        overflow: "hidden",
-        border: "1px solid",
+        borderRadius: 2.5,
         borderColor: "divider",
+        overflow: "hidden",
       }}
     >
-      <Box sx={{ overflowX: "auto" }}>
-        <Box
-          component="table"
-          sx={{
-            width: "100%",
-            borderCollapse: "collapse",
-            textAlign: "left",
-            fontSize: "0.82rem",
-          }}
-        >
-          <Box
-            component="thead"
-            sx={{
-              bgcolor: (theme) =>
-                theme.palette.mode === "dark"
-                  ? "rgba(255, 255, 255, 0.04)"
-                  : "rgba(15, 23, 42, 0.03)",
-              borderBottom: "1px solid",
-              borderColor: "divider",
-            }}
-          >
-            <Box component="tr">
-              <Box component="th" sx={{ py: 1.25, px: 1.5, width: 44, textAlign: "center" }}>
-                Pin
-              </Box>
-              <Box component="th" sx={{ py: 1.25, px: 2, fontWeight: 700, color: "text.secondary" }}>
-                Directive & Title
-              </Box>
-              <Box component="th" sx={{ py: 1.25, px: 2, fontWeight: 700, color: "text.secondary" }}>
-                Collection
-              </Box>
-              <Box component="th" sx={{ py: 1.25, px: 2, fontWeight: 700, color: "text.secondary" }}>
-                Personal Notes
-              </Box>
-              <Box component="th" sx={{ py: 1.25, px: 2, fontWeight: 700, color: "text.secondary" }}>
-                Physical Location
-              </Box>
-              <Box component="th" sx={{ py: 1.25, px: 2, fontWeight: 700, color: "text.secondary" }}>
-                Date Saved
-              </Box>
-              <Box component="th" sx={{ py: 1.25, px: 2, textAlign: "right", fontWeight: 700, color: "text.secondary" }}>
-                Actions
-              </Box>
-            </Box>
-          </Box>
+      <Table size="small">
+        <TableHead sx={{ bgcolor: "action.hover" }}>
+          <TableRow>
+            <TableCell sx={{ width: 40, py: 1.25 }} />
+            <TableCell sx={{ fontWeight: 700, fontSize: "0.78rem", color: "text.secondary" }}>
+              DIRECTIVE & ORDER NO
+            </TableCell>
+            <TableCell sx={{ fontWeight: 700, fontSize: "0.78rem", color: "text.secondary" }}>
+              COLLECTION
+            </TableCell>
+            <TableCell sx={{ fontWeight: 700, fontSize: "0.78rem", color: "text.secondary" }}>
+              PERSONAL RESEARCH NOTES
+            </TableCell>
+            <TableCell sx={{ fontWeight: 700, fontSize: "0.78rem", color: "text.secondary" }}>
+              PHYSICAL SHELF & BARCODE
+            </TableCell>
+            <TableCell sx={{ fontWeight: 700, fontSize: "0.78rem", color: "text.secondary" }}>
+              DATE SAVED
+            </TableCell>
+            <TableCell align="right" sx={{ fontWeight: 700, fontSize: "0.78rem", color: "text.secondary" }}>
+              ACTIONS
+            </TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {items.map((item) => {
+            const isSelected = item.id === selectedId;
 
-          <Box component="tbody">
-            {items.map((item) => {
-              const isSelected = selectedId === item.id;
+            return (
+              <TableRow
+                key={item.id}
+                hover
+                onClick={() => onSelect(item)}
+                selected={isSelected}
+                sx={{
+                  cursor: "pointer",
+                  "&.Mui-selected": { bgcolor: "action.selected" },
+                }}
+              >
+                {/* Pin star */}
+                <TableCell sx={{ py: 1, px: 1 }}>
+                  <IconButton
+                    size="small"
+                    onClick={(e) => onTogglePin(item.id, e)}
+                    sx={{ color: item.isPinned ? "#F59E0B" : "text.disabled", p: 0.5 }}
+                  >
+                    {item.isPinned ? <StarRoundedIcon fontSize="small" /> : <StarBorderRoundedIcon fontSize="small" />}
+                  </IconButton>
+                </TableCell>
 
-              return (
-                <Box
-                  component="tr"
-                  key={item.id}
-                  onClick={() => onSelect(item)}
-                  sx={{
-                    borderBottom: "1px solid",
-                    borderColor: "divider",
-                    bgcolor: isSelected ? "action.selected" : "transparent",
-                    cursor: "pointer",
-                    transition: "background-color 0.12s ease",
-                    "&:hover": {
-                      bgcolor: isSelected ? "action.selected" : "action.hover",
-                    },
-                  }}
-                >
-                  {/* Pin Column */}
-                  <Box component="td" sx={{ py: 1.25, px: 1.5, textAlign: "center" }}>
-                    <IconButton
-                      size="small"
-                      onClick={(e) => onTogglePin(item.id, e)}
-                      sx={{
-                        p: 0.5,
-                        color: item.isPinned ? "primary.main" : "text.secondary",
-                      }}
-                    >
-                      {item.isPinned ? (
-                        <PushPinRoundedIcon sx={{ fontSize: 16 }} />
-                      ) : (
-                        <PushPinOutlinedIcon sx={{ fontSize: 16 }} />
-                      )}
-                    </IconButton>
-                  </Box>
-
-                  {/* Directive & Title Column */}
-                  <Box component="td" sx={{ py: 1.25, px: 2, maxWidth: 320 }}>
-                    <Stack spacing={0.5}>
-                      <Stack direction="row" spacing={0.75} sx={{ alignItems: "center" }}>
-                        <Typography
-                          variant="caption"
-                          sx={{
-                            fontFamily: "monospace",
-                            fontWeight: 800,
-                            color: "primary.main",
-                            fontSize: "0.78rem",
-                          }}
-                        >
-                          {item.orderNo}
-                        </Typography>
-                        <Chip
-                          label={item.clearance}
-                          size="small"
-                          color={
-                            item.clearance === "Public"
-                              ? "success"
-                              : item.clearance === "Internal"
-                              ? "info"
-                              : "warning"
-                          }
-                          sx={{ height: 18, fontSize: "0.65rem", fontWeight: 600, borderRadius: 1 }}
-                        />
-                      </Stack>
+                {/* Directive & Order No */}
+                <TableCell sx={{ py: 1 }}>
+                  <Box sx={{ maxWidth: 360 }}>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.25 }}>
                       <Typography
-                        variant="body2"
-                        noWrap
+                        variant="caption"
                         sx={{
-                          fontWeight: 600,
+                          fontFamily: "monospace",
+                          fontWeight: 700,
                           color: "text.primary",
-                          fontSize: "0.82rem",
+                          bgcolor: "action.hover",
+                          px: 0.75,
+                          py: 0.2,
+                          borderRadius: 1,
                         }}
                       >
-                        {item.title}
+                        {item.orderNo}
                       </Typography>
-                    </Stack>
+                      <Chip
+                        size="small"
+                        label={item.clearance}
+                        color={getClearanceColor(item.clearance)}
+                        sx={{ height: 18, fontSize: "0.65rem", fontWeight: 700 }}
+                      />
+                    </Box>
+                    <Typography
+                      variant="body2"
+                      noWrap
+                      sx={{ fontWeight: 600, color: "text.primary" }}
+                    >
+                      {item.title}
+                    </Typography>
                   </Box>
+                </TableCell>
 
-                  {/* Collection Column */}
-                  <Box component="td" sx={{ py: 1.25, px: 2 }}>
-                    <Chip
-                      label={item.collection}
-                      size="small"
-                      variant="outlined"
-                      sx={{ borderRadius: 1, fontSize: "0.72rem", fontWeight: 600 }}
-                    />
-                  </Box>
+                {/* Collection */}
+                <TableCell sx={{ py: 1 }}>
+                  <Chip
+                    size="small"
+                    label={item.collection}
+                    color="primary"
+                    variant="outlined"
+                    sx={{ height: 22, fontSize: "0.7rem", fontWeight: 600 }}
+                  />
+                </TableCell>
 
-                  {/* Personal Notes Column */}
-                  <Box component="td" sx={{ py: 1.25, px: 2, maxWidth: 240 }}>
-                    {item.personalNotes ? (
+                {/* Personal Notes */}
+                <TableCell sx={{ py: 1, maxWidth: 240 }}>
+                  {item.personalNotes ? (
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+                      <NoteAltOutlinedIcon sx={{ fontSize: 16, color: "#D97706", flexShrink: 0 }} />
                       <Typography
                         variant="caption"
                         noWrap
-                        sx={{
-                          display: "block",
-                          color: "text.secondary",
-                          fontStyle: "italic",
-                          fontSize: "0.76rem",
-                        }}
+                        sx={{ color: "text.primary", fontWeight: 500 }}
                       >
-                        “{item.personalNotes}”
+                        {item.personalNotes}
                       </Typography>
-                    ) : (
-                      <Typography variant="caption" sx={{ color: "text.disabled", fontSize: "0.74rem" }}>
-                        No notes added
+                    </Box>
+                  ) : (
+                    <Typography variant="caption" sx={{ color: "text.disabled", fontStyle: "italic" }}>
+                      No personal notes
+                    </Typography>
+                  )}
+                </TableCell>
+
+                {/* Physical Shelf Coordinates */}
+                <TableCell sx={{ py: 1 }}>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+                    <PlaceOutlinedIcon sx={{ fontSize: 15, color: "#10B981" }} />
+                    <Box>
+                      <Typography variant="caption" sx={{ color: "text.secondary", display: "block" }}>
+                        {item.shelfLocation.cabinet} • {item.shelfLocation.shelf}
                       </Typography>
-                    )}
+                      <Typography variant="caption" sx={{ fontFamily: "monospace", fontWeight: 600, fontSize: "0.7rem" }}>
+                        {item.shelfLocation.barcode}
+                      </Typography>
+                    </Box>
                   </Box>
+                </TableCell>
 
-                  {/* Physical Coordinates Column */}
-                  <Box component="td" sx={{ py: 1.25, px: 2 }}>
-                    <Typography variant="caption" sx={{ display: "block", fontWeight: 600, fontSize: "0.75rem" }}>
-                      {item.shelfLocation.cabinet} • {item.shelfLocation.shelf}
-                    </Typography>
-                    <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.7rem", fontFamily: "monospace" }}>
-                      {item.shelfLocation.barcode}
-                    </Typography>
-                  </Box>
+                {/* Date Saved */}
+                <TableCell sx={{ py: 1, color: "text.secondary", fontSize: "0.8rem" }}>
+                  {item.dateBookmarked}
+                </TableCell>
 
-                  {/* Date Saved Column */}
-                  <Box component="td" sx={{ py: 1.25, px: 2, whiteSpace: "nowrap" }}>
-                    <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.74rem" }}>
-                      {item.dateBookmarked}
-                    </Typography>
-                  </Box>
-
-                  {/* Actions Column */}
-                  <Box component="td" sx={{ py: 1.25, px: 2, textAlign: "right", whiteSpace: "nowrap" }}>
-                    <Stack direction="row" spacing={0.5} sx={{ justifyContent: "flex-end" }}>
-                      <Tooltip title="Edit Personal Notes" arrow>
-                        <IconButton
-                          size="small"
-                          onClick={(e) => onEditNote(item, e)}
-                          sx={{ color: "text.secondary", p: 0.5 }}
-                        >
-                          <EditNoteRoundedIcon sx={{ fontSize: 18 }} />
-                        </IconButton>
-                      </Tooltip>
-
-                      <Tooltip title="Remove Bookmark" arrow>
-                        <IconButton
-                          size="small"
-                          onClick={(e) => onRemove(item.id, e)}
-                          sx={{ color: "text.secondary", p: 0.5, "&:hover": { color: "error.main" } }}
-                        >
-                          <BookmarkRemoveRoundedIcon sx={{ fontSize: 18 }} />
-                        </IconButton>
-                      </Tooltip>
-
-                      <Button
+                {/* Action Buttons */}
+                <TableCell align="right" sx={{ py: 1 }}>
+                  <Box sx={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 0.5 }}>
+                    <Tooltip title="Ask AI about this directive">
+                      <IconButton
                         size="small"
-                        variant="outlined"
-                        onClick={() => onSelect(item)}
-                        sx={{
-                          borderRadius: 1,
-                          fontSize: "0.72rem",
-                          fontWeight: 600,
-                          textTransform: "none",
-                          py: 0.2,
-                          px: 0.75,
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          router.push(`/chat?directive=${encodeURIComponent(item.orderNo)}`);
                         }}
+                        sx={{ color: "text.secondary", "&:hover": { color: "primary.main" } }}
                       >
-                        Open
-                      </Button>
-                    </Stack>
+                        <AutoAwesomeOutlinedIcon sx={{ fontSize: 16 }} />
+                      </IconButton>
+                    </Tooltip>
+
+                    <Tooltip title="Locate on physical shelf">
+                      <IconButton
+                        size="small"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          router.push(`/locator?barcode=${encodeURIComponent(item.shelfLocation.barcode)}`);
+                        }}
+                        sx={{ color: "text.secondary", "&:hover": { color: "#10B981" } }}
+                      >
+                        <PlaceOutlinedIcon sx={{ fontSize: 16 }} />
+                      </IconButton>
+                    </Tooltip>
+
+                    {item.googleDriveLink && (
+                      <Tooltip title="Open in Google Drive">
+                        <IconButton
+                          size="small"
+                          component="a"
+                          href={item.googleDriveLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          sx={{ color: "#4285F4" }}
+                        >
+                          <GoogleIcon sx={{ fontSize: 15 }} />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+
+                    <IconButton
+                      size="small"
+                      onClick={(e) => handleOpenMenu(e, item)}
+                      sx={{ color: "text.secondary" }}
+                    >
+                      <MoreVertRoundedIcon fontSize="small" />
+                    </IconButton>
                   </Box>
-                </Box>
-              );
-            })}
-          </Box>
-        </Box>
-      </Box>
-    </Paper>
+                </TableCell>
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
+
+      {/* Context Menu */}
+      <Menu
+        anchorEl={menuAnchorEl}
+        open={Boolean(menuAnchorEl)}
+        onClose={handleCloseMenu}
+        slotProps={{ paper: { sx: { borderRadius: 2, minWidth: 180 } } }}
+      >
+        <MenuItem
+          onClick={() => {
+            if (activeMenuFile) onSelect(activeMenuFile);
+            handleCloseMenu();
+          }}
+        >
+          <ListItemIcon>
+            <VisibilityOutlinedIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>View Details Drawer</ListItemText>
+        </MenuItem>
+
+        <MenuItem
+          onClick={(e) => {
+            if (activeMenuFile) onEditNote(activeMenuFile, e);
+            handleCloseMenu();
+          }}
+        >
+          <ListItemIcon>
+            <EditNoteRoundedIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>Edit Personal Notes</ListItemText>
+        </MenuItem>
+
+        <MenuItem
+          onClick={(e) => {
+            if (activeMenuFile) onTogglePin(activeMenuFile.id, e);
+            handleCloseMenu();
+          }}
+        >
+          <ListItemIcon>
+            <StarRoundedIcon fontSize="small" sx={{ color: activeMenuFile?.isPinned ? "text.secondary" : "#F59E0B" }} />
+          </ListItemIcon>
+          <ListItemText>{activeMenuFile?.isPinned ? "Unpin Directive" : "Pin Directive"}</ListItemText>
+        </MenuItem>
+
+        <MenuItem
+          onClick={(e) => {
+            if (activeMenuFile) onRemove(activeMenuFile.id, e);
+            handleCloseMenu();
+          }}
+          sx={{ color: "error.main" }}
+        >
+          <ListItemIcon>
+            <DeleteOutlineRoundedIcon fontSize="small" color="error" />
+          </ListItemIcon>
+          <ListItemText>Remove Bookmark</ListItemText>
+        </MenuItem>
+      </Menu>
+    </TableContainer>
   );
 }
