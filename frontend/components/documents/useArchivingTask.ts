@@ -1,9 +1,25 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { ArchiveDocument, DocumentClearance, DocumentFileType } from "./types";
 import { uploadDocument, ClearanceLevelValue } from "@/lib/documentsApi";
 import { ApiError } from "@/lib/api";
+import { getLatestForVersion, ProposalStatus } from "@/lib/archiveReviewApi";
+
+// Alon's review of one uploaded file (filled by polling GET /archive/version/{id}/latest)
+export type AlonReview =
+  | { state: "waiting" }                                   // OCR / indexing / Alon still running
+  | {
+      state: "ready";
+      proposalId: number;
+      status: ProposalStatus;
+      title?: string;
+      documentType?: string;
+      issueCount: number;
+      needsReview: boolean;
+    }
+  | { state: "failed"; proposalId: number; error?: string } // Alon ran but failed (can be re-run)
+  | { state: "timeout" };                                  // still not done after the polling window
 
 export interface QueuedFile {
   id: string;
@@ -12,6 +28,8 @@ export interface QueuedFile {
   sizeFormatted: string;
   status: "pending" | "processing" | "completed" | "failed";
   error?: string;
+  versionId?: number;   // from the upload response, used to find Alon's proposal
+  alon?: AlonReview;
 }
 
 export interface ArchivingCabinetConfig {
@@ -25,12 +43,15 @@ export interface ArchivingCabinetConfig {
   departmentOrder: string;
 }
 
+// The real stages (no fake percentages): upload here, the rest runs in Celery on the server
 const AGENT_PIPELINE_STEPS = [
-  "Anydoc OCR & Table Structure Parsing",
-  "ML Entity Extraction & Document Title Discovery",
-  "Vector Embeddings & Semantic Indexing",
-  "Physical Cabinet Coordinate & Barcode Registration",
+  "Upload files",
+  "OCR, classification & indexing (background)",
+  "Alon's archive review (about 1–2 min per file)",
 ];
+
+const POLL_EVERY_MS = 5000;     // check for Alon's proposal every 5 s
+const POLL_MAX_MS = 5 * 60_000; // give up after 5 min (proposal still appears in Archive Review later)
 
 // Helper to format bytes
 export function formatFileSize(bytes: number): string {
@@ -112,6 +133,17 @@ export function useArchivingTask(
   const [processedDocs, setProcessedDocs] = useState<ArchiveDocument[]>([]);
   const [isFinished, setIsFinished] = useState(false);
 
+  // polling timer for Alon's proposals (cleared on dismiss / unmount)
+  const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const stopPolling = () => {
+    if (pollTimer.current) clearInterval(pollTimer.current);
+    pollTimer.current = null;
+  };
+  useEffect(() => stopPolling, []); // cleanup when the page unmounts
+
+  // true while at least one uploaded file is still waiting for Alon
+  const isReviewing = queuedFiles.some((q) => q.alon?.state === "waiting");
+
   const updateFile = (id: string, patch: Partial<QueuedFile>) =>
     setQueuedFiles((prev) => prev.map((q) => (q.id === id ? { ...q, ...patch } : q)));
 
@@ -137,6 +169,7 @@ export function useArchivingTask(
 
       const uploaded: ArchiveDocument[] = [];
       const failed: string[] = [];
+      const waiting: { fileId: string; versionId: number }[] = []; // files to poll for Alon
       const physicalShelfLocation = `${config.cabinet} • ${config.shelf} • ${config.folder}`;
 
       // Upload one at a time so the server and OCR queue aren't flooded
@@ -155,25 +188,75 @@ export function useArchivingTask(
             clearanceLevel: config.clearanceLevel,
           });
           uploaded.push(toArchiveDocument(q.file, res.id, config));
-          updateFile(q.id, { status: "completed" });
+          updateFile(q.id, {
+            status: "completed",
+            versionId: res.version_id ?? undefined,
+            alon: res.version_id ? { state: "waiting" } : undefined,
+          });
+          if (res.version_id) waiting.push({ fileId: q.id, versionId: res.version_id });
         } catch (err) {
           const msg = errorText(err);
           failed.push(`${q.name}: ${msg}`);
           updateFile(q.id, { status: "failed", error: msg });
         }
 
-        const pct = Math.round(((i + 1) / queue.length) * 100);
-        setProgress(Math.max(5, pct));
-        setStepIndex(Math.min(AGENT_PIPELINE_STEPS.length - 1, Math.floor((pct / 100) * AGENT_PIPELINE_STEPS.length)));
+        // progress bar = real upload progress only
+        setProgress(Math.max(5, Math.round(((i + 1) / queue.length) * 100)));
       }
 
       setProgress(100);
-      setStepIndex(AGENT_PIPELINE_STEPS.length - 1);
+      setStepIndex(waiting.length > 0 ? 1 : AGENT_PIPELINE_STEPS.length); // 1 = server processing
       setCurrentStep(
         failed.length === 0
-          ? `${uploaded.length} file(s) uploaded — indexing in background`
+          ? `${uploaded.length} file(s) uploaded — processing on the server`
           : `${uploaded.length} uploaded, ${failed.length} failed`
       );
+
+      // ---- Poll for Alon's real proposal for each uploaded version ----
+      stopPolling();
+      if (waiting.length > 0) {
+        const started = Date.now();
+        let pending = [...waiting];
+
+        pollTimer.current = setInterval(async () => {
+          const timedOut = Date.now() - started > POLL_MAX_MS;
+          const stillPending: typeof pending = [];
+
+          for (const w of pending) {
+            try {
+              const p = await getLatestForVersion(w.versionId);
+              setStepIndex(2); // at least one file reached Alon's stage
+              updateFile(w.fileId, {
+                alon:
+                  p.status === "failed" || !p.proposal
+                    ? { state: "failed", proposalId: p.id, error: p.error_message ?? undefined }
+                    : {
+                        state: "ready",
+                        proposalId: p.id,
+                        status: p.status,
+                        title: p.proposal.title,
+                        documentType: p.proposal.document_type,
+                        issueCount: p.proposal.issues.length,
+                        needsReview: p.needs_human_review,
+                      },
+              });
+            } catch (err) {
+              // 404 = no proposal yet (OCR/indexing/Alon still running): keep waiting.
+              // Other errors (network blips) are also retried until the time limit.
+              if (timedOut) updateFile(w.fileId, { alon: { state: "timeout" } });
+              else stillPending.push(w);
+              if (!(err instanceof ApiError && err.status === 404)) console.warn("[archiving] poll error", err);
+            }
+          }
+
+          pending = stillPending;
+          if (pending.length === 0) {
+            stopPolling();
+            setStepIndex(AGENT_PIPELINE_STEPS.length); // all stages done
+            setCurrentStep("Alon finished. Proposals are ready for your review.");
+          }
+        }, POLL_EVERY_MS);
+      }
       setProcessedDocs(uploaded);
       setIsFinished(true);
 
@@ -194,6 +277,7 @@ export function useArchivingTask(
   }, []);
 
   const dismiss = useCallback(() => {
+    stopPolling(); // proposals still appear in Archive Review; we just stop watching here
     setIsActive(false);
     setIsMinimized(false);
     setProgress(0);
@@ -210,7 +294,8 @@ export function useArchivingTask(
     steps: AGENT_PIPELINE_STEPS,
     queuedFiles,
     processedDocs,
-    isFinished,
+    isFinished,      // uploads done (the modal can be closed)
+    isReviewing,     // Alon still working on at least one file
     startArchiving,
     minimize,
     maximize,

@@ -264,63 +264,63 @@ async def _prepare_turn(payload:ChatSchema, db:AsyncSession, current_user:Users)
                 clearance_filter(allowed_levels),
             )
         )).scalars().all()
-        if len(found() != len(attachment_ids)):
+        if len(found) != len(attachment_ids):
                raise HTTPException(
                    status_code=status.HTTP_404_NOT_FOUND,
-                   detail="One ore more attachment were not found"
+                   detail="One or more attachments were not found."
                )
 
-        if payload.conversation_id:
-            conversation = (await db.execute(
-                select(Conversation).where(
-                    Conversation.id == payload.conversation_id,
-                    Conversation.user_id == current_user.id,
-                )
-            )).scalar_one_or_none()
-            if not conversation:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="Conversation not found"
-                )
-        else:
-            conversation = Conversation(
-                title=payload.title or (payload.content[:30] + "..."),
-                user_id=current_user.id,
-                created_at=datetime.now(timezone.utc).replace(tzinfo=None),
+    if payload.conversation_id:
+        conversation = (await db.execute(
+            select(Conversation).where(
+                Conversation.id == payload.conversation_id,
+                Conversation.user_id == current_user.id,
             )
-            db.add(conversation)
-            await db.commit()
-            await db.refresh(conversation)
-
-        user_message = ChatMessages(
-            conversation_id=conversation.id,
-            sender_type="user",
-            content=payload.content,
-            tokens_used=0,
-            task_type=TaskType.EXTRACTION,
+        )).scalar_one_or_none()
+        if not conversation:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Conversation not found"
+            )
+    else:
+        conversation = Conversation(
+            title=payload.title or (payload.content[:30] + "..."),
+            user_id=current_user.id,
             created_at=datetime.now(timezone.utc).replace(tzinfo=None),
         )
-        db.add(user_message)
+        db.add(conversation)
         await db.commit()
-        await db.refresh(user_message)
+        await db.refresh(conversation)
+
+    user_message = ChatMessages(
+        conversation_id=conversation.id,
+        sender_type="user",
+        content=payload.content,
+        tokens_used=0,
+        task_type=TaskType.EXTRACTION,
+        created_at=datetime.now(timezone.utc).replace(tzinfo=None),
+    )
+    db.add(user_message)
+    await db.commit()
+    await db.refresh(user_message)
 
 
-        initial_state={
-            "message": [HumanMessage(content=payload.content)],
-            "attachment_ids": attachment_ids,
-            "user_id": current_user.id,
-            "user_profile": {
-                "name": f"{current_user.first_name or ''} {current_user.last_name or ''}".strip(),
-                "position": current_user.position,
-                "office": current_user.office,
-            },
-        }
-        config = {
-            "configurable": {"thread_id": str(conversation.id)},
-            "recursion_limit": 20, #guardrail: max 20 graph steps per request
-        }
+    initial_state={
+        "messages": [HumanMessage(content=payload.content)],
+        "attachment_ids": attachment_ids,
+        "user_id": current_user.id,
+        "user_profile": {
+            "name": f"{current_user.first_name or ''} {current_user.last_name or ''}".strip(),
+            "position": current_user.position,
+            "office": current_user.office,
+        },
+    }
+    config = {
+        "configurable": {"thread_id": str(conversation.id)},
+        "recursion_limit": 20, #guardrail: max 20 graph steps per request
+    }
 
-        return conversation, user_message, initial_state, config, allowed_levels
+    return conversation, user_message, initial_state, config, allowed_levels
 
 async def _save_assistant_message(db: AsyncSession, conversation_id: int, content: str, tokens_used: int) -> ChatMessages:
     msg = ChatMessages(

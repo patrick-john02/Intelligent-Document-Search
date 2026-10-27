@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React from "react";
+import Link from "next/link";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
@@ -20,7 +21,6 @@ import CircularProgress from "@mui/material/CircularProgress";
 import { alpha } from "@mui/material/styles";
 
 // Icons
-import AutoAwesomeOutlinedIcon from "@mui/icons-material/AutoAwesomeOutlined";
 import CheckCircleRoundedIcon from "@mui/icons-material/CheckCircleRounded";
 import RemoveRoundedIcon from "@mui/icons-material/RemoveRounded";
 import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
@@ -38,7 +38,8 @@ interface ArchivingAgentModalProps {
   currentStep: string;
   steps: string[];
   queuedFiles: QueuedFile[];
-  isFinished: boolean;
+  isFinished: boolean;   // uploads done
+  isReviewing: boolean;  // Alon still reviewing at least one file
   onMinimize: () => void;
   onDismiss: () => void;
 }
@@ -51,21 +52,40 @@ export default function ArchivingAgentModal({
   steps,
   queuedFiles,
   isFinished,
+  isReviewing,
   onMinimize,
   onDismiss,
 }: ArchivingAgentModalProps) {
-  // Live Agent Thoughts Feed based on progress step
-  const activeFileName = queuedFiles.length > 0 ? queuedFiles[0].name : "document-scan.pdf";
+  const activeFileName =
+    queuedFiles.length === 1 ? queuedFiles[0].name : `${queuedFiles.length} files`;
 
-  const agentThoughtLogs = [
-    { agent: "ALON", text: `Ingesting binary stream for ${activeFileName}... Armed Anydoc OCR Engine.`, step: 0 },
-    { agent: "ALON", text: `OCR Parsing complete (99.2% clarity). Deriving official document title & series year...`, step: 1 },
-    { agent: "BAYANI", text: `Quality verification: 99.4% confidence score — Zero duplicate collisions detected.`, step: 1 },
-    { agent: "MUTYA", text: `Assigned archival coordinates & physical barcode register.`, step: 2 },
-    { agent: "ALON", text: `Generated 1536-dimensional embeddings. Registered to vector and relational catalogs.`, step: 3 },
-  ];
+  // Real activity log: built from each file's actual upload + Alon state (no made-up numbers)
+  type LogLine = { agent: "UPLOAD" | "ALON" | "ERROR"; text: string };
+  const visibleLogs: LogLine[] = queuedFiles.flatMap((q): LogLine[] => {
+    const lines: LogLine[] = [];
+    if (q.status === "processing") lines.push({ agent: "UPLOAD", text: `Uploading ${q.name}…` });
+    if (q.status === "failed") lines.push({ agent: "ERROR", text: `${q.name}: ${q.error ?? "upload failed"}` });
+    if (q.status === "completed") {
+      lines.push({ agent: "UPLOAD", text: `${q.name} uploaded${q.versionId ? ` (version #${q.versionId})` : ""}.` });
+      const a = q.alon;
+      if (a?.state === "waiting") lines.push({ agent: "ALON", text: `Waiting for OCR and indexing, then reviewing ${q.name}…` });
+      if (a?.state === "ready")
+        lines.push({
+          agent: "ALON",
+          text: `${q.name} → "${a.title}" (${a.documentType}) — ${a.issueCount} issue(s)${a.needsReview ? ", needs your review" : ""}.`,
+        });
+      if (a?.state === "failed") lines.push({ agent: "ERROR", text: `Alon could not review ${q.name}${a.error ? `: ${a.error}` : ""}. You can re-run it in Archive Review.` });
+      if (a?.state === "timeout") lines.push({ agent: "ALON", text: `${q.name} is taking longer than usual. Its proposal will appear in Archive Review.` });
+    }
+    return lines;
+  });
 
-  const visibleLogs = agentThoughtLogs.filter((log) => stepIndex >= log.step);
+  // "Review now" target: open the proposal directly if there's exactly one, otherwise the queue
+  const readyIds = queuedFiles.flatMap((q) =>
+    q.alon?.state === "ready" || q.alon?.state === "failed" ? [q.alon.proposalId] : []
+  );
+  const reviewHref = readyIds.length === 1 ? `/archive-review?proposal=${readyIds[0]}` : "/archive-review";
+  const uploadedCount = queuedFiles.filter((q) => q.status === "completed").length;
 
   return (
     <Dialog
@@ -143,19 +163,21 @@ export default function ArchivingAgentModal({
           <Box>
             <Stack direction="row" spacing={0.75} sx={{ alignItems: "center" }}>
               <Typography variant="subtitle1" sx={{ fontWeight: 800, lineHeight: 1.2, fontSize: "1rem" }}>
-                {isFinished ? "Archiving Complete" : "Alon is Archiving Your Records..."}
+                {!isFinished ? "Uploading your records…" : isReviewing ? "Uploaded — Alon is reviewing" : "Ready for review"}
               </Typography>
               <Chip
-                label={isFinished ? "Archived" : "Agent Active"}
+                label={!isFinished ? "Uploading" : isReviewing ? "Alon working" : "Done"}
                 size="small"
                 color={isFinished ? "success" : "info"}
                 sx={{ height: 20, fontSize: "0.68rem", fontWeight: 700, borderRadius: 1 }}
               />
             </Stack>
             <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.74rem" }}>
-              {isFinished
-                ? "All files cataloged with physical shelf coordinates and OCR indices"
-                : "Autonomous OCR extraction & ML entity classification in progress"}
+              {!isFinished
+                ? "Files are uploaded one at a time"
+                : isReviewing
+                ? "OCR, indexing and Alon's review run on the server. You can minimize this."
+                : "Alon's proposals are waiting in Archive Review"}
             </Typography>
           </Box>
         </Stack>
@@ -290,7 +312,7 @@ export default function ArchivingAgentModal({
                 <Stack direction="row" spacing={1} sx={{ alignItems: "center", mt: 0.5, flexWrap: "wrap", gap: 0.5 }}>
                   <Chip
                     size="small"
-                    label={isFinished ? "OCR Verified (99.4%)" : "Alon Waveform OCR Active..."}
+                    label={isFinished ? `${uploadedCount} of ${queuedFiles.length} uploaded` : "Uploading…"}
                     icon={
                       isFinished ? (
                         <VerifiedRoundedIcon sx={{ fontSize: "12px !important", color: "#10B981" }} />
@@ -308,11 +330,13 @@ export default function ArchivingAgentModal({
                       color: isFinished ? "success.main" : "#0284C7",
                     }}
                   />
-                  <Chip
-                    size="small"
-                    label="Assigned to Cabinet A"
-                    sx={{ height: 18, fontSize: "0.64rem", fontWeight: 700, bgcolor: "background.paper", border: "1px solid", borderColor: "divider" }}
-                  />
+                  {readyIds.length > 0 && (
+                    <Chip
+                      size="small"
+                      label={`${readyIds.length} proposal(s) ready`}
+                      sx={{ height: 18, fontSize: "0.64rem", fontWeight: 700, bgcolor: "background.paper", border: "1px solid", borderColor: "divider" }}
+                    />
+                  )}
                 </Stack>
               </Box>
             </Stack>
@@ -337,7 +361,7 @@ export default function ArchivingAgentModal({
             <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 1, pb: 0.5, borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
               <TerminalRoundedIcon sx={{ fontSize: 16, color: "#06B6D4" }} />
               <Typography variant="caption" sx={{ fontWeight: 800, letterSpacing: "0.05em", color: "#94A3B8", fontSize: "0.68rem" }}>
-                AGENT EXECUTION THOUGHT LOG
+                ACTIVITY LOG
               </Typography>
             </Stack>
 
@@ -352,7 +376,7 @@ export default function ArchivingAgentModal({
                       color:
                         log.agent === "ALON"
                           ? "#38BDF8"
-                          : log.agent === "BAYANI"
+                          : log.agent === "ERROR"
                           ? "#F87171"
                           : "#34D399",
                       flexShrink: 0,
@@ -365,11 +389,11 @@ export default function ArchivingAgentModal({
                   </Typography>
                 </Box>
               ))}
-              {!isFinished && (
+              {(!isFinished || isReviewing) && (
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1, pt: 0.25 }}>
                   <CircularProgress size={10} sx={{ color: "#38BDF8" }} />
                   <Typography variant="caption" sx={{ color: "#94A3B8", fontSize: "0.7rem", fontStyle: "italic" }}>
-                    Orchestrating agent pipeline handoff...
+                    {!isFinished ? "Uploading…" : "Checking for Alon's proposals every few seconds…"}
                   </Typography>
                 </Box>
               )}
@@ -398,13 +422,13 @@ export default function ArchivingAgentModal({
                 fontSize: "0.7rem",
               }}
             >
-              Multi-Agent Ingestion Milestones
+              Progress
             </Typography>
 
             <Stack spacing={1}>
               {steps.map((st, i) => {
-                const isStepDone = stepIndex > i || isFinished;
-                const isStepActive = stepIndex === i && !isFinished;
+                const isStepDone = stepIndex > i;
+                const isStepActive = stepIndex === i;
 
                 return (
                   <Stack
@@ -453,7 +477,7 @@ export default function ArchivingAgentModal({
         {!isFinished ? (
           <>
             <Typography variant="caption" sx={{ color: "text.secondary", fontStyle: "italic", fontSize: "0.74rem" }}>
-              Alon works in background. You can safely minimize.
+              Uploading… you can minimize and keep working.
             </Typography>
 
             <Button
@@ -472,24 +496,36 @@ export default function ArchivingAgentModal({
             </Button>
           </>
         ) : (
+          <Stack direction="row" spacing={1} sx={{ width: "100%" }}>
+          <Button
+            variant="outlined"
+            component={Link}
+            href={reviewHref}
+            onClick={onDismiss}
+            disabled={readyIds.length === 0}
+            sx={{ borderRadius: 1.5, textTransform: "none", fontWeight: 700, py: 1, flex: 1 }}
+          >
+            {readyIds.length === 0 ? "Waiting for Alon…" : "Review now"}
+          </Button>
           <Button
             variant="contained"
             color="primary"
-            fullWidth
             onClick={onDismiss}
             sx={{
               borderRadius: 1.5,
               textTransform: "none",
               fontWeight: 700,
               py: 1,
+              flex: 1,
               background: "linear-gradient(135deg, #10B981, #059669)",
               "&:hover": {
                 background: "linear-gradient(135deg, #059669, #047857)",
               },
             }}
           >
-            Done & View Cataloged Records
+            Close
           </Button>
+          </Stack>
         )}
       </DialogActions>
     </Dialog>

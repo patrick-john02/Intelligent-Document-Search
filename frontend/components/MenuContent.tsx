@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import List from "@mui/material/List";
@@ -14,6 +14,7 @@ import Chip from "@mui/material/Chip";
 import { useAuth } from "@/context/AuthContext";
 import { getDefaultRole, DashboardRole } from "./dashboard/types";
 import { MAIN_NAV_ITEMS, SECONDARY_NAV_ITEMS } from "./dashboard/navigationConfig";
+import { countPending, ARCHIVE_REVIEW_CHANGED } from "@/lib/archiveReviewApi";
 
 interface MenuContentProps {
   currentRole?: DashboardRole;
@@ -38,9 +39,25 @@ export default function MenuContent({ currentRole }: MenuContentProps) {
   const secondaryHeader =
     effectiveRole === "staff" ? "My Workspace" : "System & Settings";
 
-  // Filter items matching the effective role
+  // Real number of Alon proposals waiting for review (replaces the old hardcoded '3')
+  const [pendingCount, setPendingCount] = useState<number>(0);
+  const canReview = Boolean(user) && (effectiveRole === "staff" || effectiveRole === "admin");
+
+  useEffect(() => {
+    if (!canReview) return;
+    const refresh = () => countPending().then(setPendingCount).catch(() => setPendingCount(0));
+    refresh();                                                   // on load and on every page change
+    window.addEventListener(ARCHIVE_REVIEW_CHANGED, refresh);    // right after accept/reject/rerun
+    return () => window.removeEventListener(ARCHIVE_REVIEW_CHANGED, refresh);
+  }, [canReview, pathname]);
+
+  // Filter items matching the effective role (+ live badge on "Archive Review")
   const visiblePrimary = MAIN_NAV_ITEMS.filter((item) =>
     item.roles.includes(effectiveRole)
+  ).map((item) =>
+    item.path === "/archive-review"
+      ? { ...item, badge: pendingCount > 0 ? String(pendingCount) : undefined }
+      : item
   );
 
   const visibleSecondary = SECONDARY_NAV_ITEMS.filter((item) =>

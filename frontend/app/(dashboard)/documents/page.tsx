@@ -190,6 +190,7 @@ export default function DocumentArchivePage(props: { disableCustomTheme?: boolea
     steps: agentSteps,
     queuedFiles: agentQueuedFiles,
     isFinished: isAgentFinished,
+    isReviewing: isAgentReviewing,
     startArchiving,
     minimize: minimizeAgent,
     maximize: maximizeAgent,
@@ -467,6 +468,7 @@ export default function DocumentArchivePage(props: { disableCustomTheme?: boolea
           steps={agentSteps}
           queuedFiles={agentQueuedFiles}
           isFinished={isAgentFinished}
+          isReviewing={isAgentReviewing}
           onMinimize={minimizeAgent}
           onDismiss={dismissAgent}
         />

@@ -37,7 +37,8 @@ export const MAIN_NAV_ITEMS: NavItem[] = [
   { text: 'Physical Locator', icon: <PlaceOutlinedIcon fontSize="small" />, path: '/locator', roles: ['staff', 'admin'] },
 
   // Admin Management
-  { text: 'Document Approvals', icon: <FactCheckOutlinedIcon fontSize="small" />, path: '/admin/approvals', badge: '3', roles: ['admin'] },
+  // Alon's proposals waiting for a human (owners review their own documents, admins review all)
+  { text: 'Archive Review', icon: <FactCheckOutlinedIcon fontSize="small" />, path: '/archive-review', roles: ['staff', 'admin'] },
   { text: 'User Management', icon: <PeopleAltOutlinedIcon fontSize="small" />, path: '/admin/users', roles: ['admin'] },
   { text: 'Audit & Compliance', icon: <SecurityOutlinedIcon fontSize="small" />, path: '/admin/audit', roles: ['admin'] },
   { text: 'Usage Analytics', icon: <InsightsOutlinedIcon fontSize="small" />, path: '/admin/analytics', roles: ['admin'] },
