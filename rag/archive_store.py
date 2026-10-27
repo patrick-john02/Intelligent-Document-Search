@@ -78,8 +78,10 @@ async def save_alon_result(document_version_id:int, result)->int:
         )
 
         session.add(row)
-        session.commit()
-        return row.id
+        await session.flush()      # assigns row.id
+        proposal_id = row.id       # read before commit (expired attributes can't lazy-load in async)
+        await session.commit()
+        return proposal_id
     
 
 

@@ -127,10 +127,10 @@ async def _archive_review(document_version_id: int)->int:
     try:
         levels = await get_uploader_clearance(document_version_id)
         result = await run_alon(document_version_id, levels)
-        proposal_id = save_alon_result(document_version_id, result)
+        proposal_id = await save_alon_result(document_version_id, result)
         logger.info(
             f"[archive_review] version {document_version_id}:proposal {proposal_id}"
-            f'{{"pending" if result.proposal else "failed"}} in {result.elapsed_ms / 1000:.1f}s'   
+            f' {"pending" if result.proposal else "failed"} in {result.elapsed_ms / 1000:.1f}s'   
         )
     except Exception:
         logger.exception(f"[archive_review] Alon could not run/save for version {document_version_id}; continuing")
