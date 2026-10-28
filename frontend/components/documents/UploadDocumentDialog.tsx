@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
@@ -14,142 +14,175 @@ import IconButton from "@mui/material/IconButton";
 import Chip from "@mui/material/Chip";
 import Divider from "@mui/material/Divider";
 import Avatar from "@mui/material/Avatar";
-import Badge from "@mui/material/Badge";
 import Tooltip from "@mui/material/Tooltip";
-import Grid from "@mui/material/Grid";
 import TextField from "@mui/material/TextField";
 import MenuItem from "@mui/material/MenuItem";
 import Alert from "@mui/material/Alert";
+import ToggleButton from "@mui/material/ToggleButton";
+import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
+import LinearProgress from "@mui/material/LinearProgress";
 import { alpha } from "@mui/material/styles";
 
-// Clean MUI Icons (Zero Emojis)
+// MUI Icons
 import CloudUploadOutlinedIcon from "@mui/icons-material/CloudUploadOutlined";
-import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
 import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded";
 import AutoAwesomeOutlinedIcon from "@mui/icons-material/AutoAwesomeOutlined";
-import SaveOutlinedIcon from "@mui/icons-material/SaveOutlined";
 import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 import PictureAsPdfRoundedIcon from "@mui/icons-material/PictureAsPdfRounded";
 import TableChartRoundedIcon from "@mui/icons-material/TableChartRounded";
 import ArticleRoundedIcon from "@mui/icons-material/ArticleRounded";
-import PlaceOutlinedIcon from "@mui/icons-material/PlaceOutlined";
-import VerifiedRoundedIcon from "@mui/icons-material/VerifiedRounded";
-import WavesRoundedIcon from "@mui/icons-material/WavesRounded";
+import InsertDriveFileRoundedIcon from "@mui/icons-material/InsertDriveFileRounded";
+import FolderOutlinedIcon from "@mui/icons-material/FolderOutlined";
 import CheckCircleRoundedIcon from "@mui/icons-material/CheckCircleRounded";
+import WarningAmberRoundedIcon from "@mui/icons-material/WarningAmberRounded";
+import TuneRoundedIcon from "@mui/icons-material/TuneRounded";
+import SmartToyOutlinedIcon from "@mui/icons-material/SmartToyOutlined";
 
 import CabinetSelectDropdown from "./CabinetSelectDropdown";
-import { formatFileSize, ArchivingCabinetConfig } from "./useArchivingTask";
-import { listCategories, CLEARANCE_OPTIONS, ClearanceLevelValue, DocumentCategory } from "@/lib/documentsApi";
+import {
+  formatFileSize,
+  titleFromFileName,
+  ArchivingCabinetConfig,
+  StagedUploadItem,
+} from "./useArchivingTask";
+import {
+  listCategories,
+  CLEARANCE_OPTIONS,
+  ClearanceLevelValue,
+  DocumentCategory,
+} from "@/lib/documentsApi";
+import { ArchiveDocument, ArchiveFolder } from "./types";
+
+export const MAX_BULK_FILES = 25;
+
+export interface StagedItem {
+  id: string;
+  file: File;
+  title: string;
+  departmentOrder: string;
+  seriesDate: string;
+}
 
 interface UploadDocumentDialogProps {
   open: boolean;
   onClose: () => void;
-  onStartArchiving: (files: File[], config: ArchivingCabinetConfig) => void;
+  onStartArchiving: (
+    files: (File | StagedUploadItem)[],
+    config: ArchivingCabinetConfig
+  ) => void;
+  currentFolder?: ArchiveFolder | null;
+  breadcrumbTrail?: { id: string | null; name: string }[];
+  initialFiles?: File[];
+  existingDocuments?: ArchiveDocument[];
 }
-
-export const MAX_BULK_FILES = 25;
-
-const ALON_SPEECH_TEXT =
-  "Drop any municipal scan, ordinance, or assessment register. I will autonomously parse high-resolution OCR, extract circular order codes, and index them into the archive.";
 
 export default function UploadDocumentDialog({
   open,
   onClose,
   onStartArchiving,
+  currentFolder,
+  breadcrumbTrail,
+  initialFiles = [],
+  existingDocuments = [],
 }: UploadDocumentDialogProps) {
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [cabinet, setCabinet] = useState("Cabinet A");
-  const [shelf, setShelf] = useState("Shelf 1");
-  const [folder, setFolder] = useState("Binder 01");
+  // Mode: "autonomous" (Alon AI extracts metadata) vs "precision" (Manual metadata override)
+  const [ingestionMode, setIngestionMode] = useState<"autonomous" | "precision">("autonomous");
+
+  const [stagedFiles, setStagedFiles] = useState<StagedItem[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Metadata required by POST /api/documents/upload (applied to every file in this batch)
+  // Metadata
   const [categories, setCategories] = useState<DocumentCategory[]>([]);
   const [categoriesError, setCategoriesError] = useState<string | null>(null);
+  const [isLoadingCategories, setIsLoadingCategories] = useState(false);
   const [categoryId, setCategoryId] = useState<number | "">("");
   const [clearanceLevel, setClearanceLevel] = useState<ClearanceLevelValue>("public");
-  const [seriesDate, setSeriesDate] = useState(() => new Date().toISOString().split("T")[0]);
-  const [departmentOrder, setDepartmentOrder] = useState("");
+  const [bulkSeriesDate, setBulkSeriesDate] = useState(() =>
+    new Date().toISOString().split("T")[0]
+  );
+  const [bulkDepartmentOrder, setBulkDepartmentOrder] = useState("");
 
+  // Physical storage coordinates
+  const [cabinet, setCabinet] = useState("Cabinet A");
+  const [shelf, setShelf] = useState("Shelf 1");
+  const [folder, setFolder] = useState("Folder 01");
+
+  // Load Categories on Open
   useEffect(() => {
     if (!open) return;
+    setIsLoadingCategories(true);
     listCategories()
       .then((data) => {
         setCategoriesError(null);
         setCategories(data);
         setCategoryId((prev) => (prev === "" && data.length > 0 ? data[0].id : prev));
       })
-      .catch((err) => setCategoriesError(err?.message || "Could not load categories"));
+      .catch((err) => setCategoriesError(err?.message || "Could not load categories"))
+      .finally(() => setIsLoadingCategories(false));
   }, [open]);
 
-  const canSubmit =
-    selectedFiles.length > 0 && categoryId !== "" && departmentOrder.trim() !== "" && seriesDate !== "";
-
-  // Alon Typewriter Effect
-  const [typedContent, setTypedContent] = useState("");
-  const [isTyping, setIsTyping] = useState(false);
-
+  // Sync initialFiles (e.g. from workspace drag-and-drop)
   useEffect(() => {
     if (!open) {
-      setTypedContent("");
-      setIsTyping(false);
+      setStagedFiles([]);
       return;
     }
+    if (initialFiles && initialFiles.length > 0) {
+      const today = new Date().toISOString().split("T")[0];
+      const items: StagedItem[] = initialFiles.slice(0, MAX_BULK_FILES).map((f, i) => ({
+        id: `init-${Date.now()}-${i}-${f.name}`,
+        file: f,
+        title: titleFromFileName(f.name),
+        departmentOrder: "",
+        seriesDate: today,
+      }));
+      setStagedFiles(items);
+    }
+  }, [open, initialFiles]);
 
-    setTypedContent("");
-    setIsTyping(true);
-    let currentIndex = 0;
-
-    const interval = setInterval(() => {
-      currentIndex += 1;
-      setTypedContent(ALON_SPEECH_TEXT.slice(0, currentIndex));
-      if (currentIndex >= ALON_SPEECH_TEXT.length) {
-        setIsTyping(false);
-        clearInterval(interval);
-      }
-    }, 16);
-
-    return () => clearInterval(interval);
-  }, [open]);
-
-  const fillPercent = Math.min(100, Math.round((selectedFiles.length / MAX_BULK_FILES) * 100));
-  const isCapacityFull = selectedFiles.length >= MAX_BULK_FILES;
-
-  // Dynamic wave fill scaling: Each dropped file visibly raises the water line
-  // Progresses smoothly from resting tide to ~32% for 1 file, scaling progressively to 100%
-  const dropWavePercent =
-    selectedFiles.length === 0
-      ? 0
-      : isCapacityFull
-      ? 100
-      : Math.min(98, Math.round(24 + Math.pow(selectedFiles.length / MAX_BULK_FILES, 0.72) * 74));
-
-  // Determine current wave height: Surges dramatically on drag-over and rises with dropped files
-  const currentWaveHeight = isCapacityFull
-    ? "100%"
-    : isDragOver
-    ? `${selectedFiles.length === 0 ? 74 : Math.min(95, Math.max(74, dropWavePercent + 32))}%`
-    : selectedFiles.length === 0
-    ? "28px"
-    : `${dropWavePercent}%`;
-
-  const handleFilesAdded = (files: FileList | null) => {
+  const handleFilesAdded = (files: FileList | File[] | null) => {
     if (!files || files.length === 0) return;
-    const newArr = Array.from(files);
-    setSelectedFiles((prev) => {
-      const combined = [...prev, ...newArr];
-      if (combined.length > MAX_BULK_FILES) {
-        return combined.slice(0, MAX_BULK_FILES);
-      }
-      return combined;
+    const incoming = Array.from(files);
+    const today = bulkSeriesDate || new Date().toISOString().split("T")[0];
+
+    setStagedFiles((prev) => {
+      const remainingSlots = MAX_BULK_FILES - prev.length;
+      if (remainingSlots <= 0) return prev;
+      const validToAdd = incoming.slice(0, remainingSlots);
+
+      const mapped: StagedItem[] = validToAdd.map((f, i) => ({
+        id: `staged-${Date.now()}-${i}-${f.name}`,
+        file: f,
+        title: titleFromFileName(f.name),
+        departmentOrder: bulkDepartmentOrder || "",
+        seriesDate: today,
+      }));
+      return [...prev, ...mapped];
     });
   };
 
-  const handleRemoveFile = (index: number) => {
-    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+  const handleRemoveFile = (id: string) => {
+    setStagedFiles((prev) => prev.filter((item) => item.id !== id));
   };
 
+  const handleUpdateItem = (id: string, patch: Partial<StagedItem>) => {
+    setStagedFiles((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, ...patch } : item))
+    );
+  };
+
+  const handleApplyBulkOrderNo = () => {
+    if (!bulkDepartmentOrder.trim()) return;
+    setStagedFiles((prev) =>
+      prev.map((item) => ({
+        ...item,
+        departmentOrder: bulkDepartmentOrder.trim(),
+      }))
+    );
+  };
+
+  // Drag-and-drop inside the dialog zone
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragOver(true);
@@ -168,27 +201,52 @@ export default function UploadDocumentDialog({
     }
   };
 
+  // Validation
+  const isCapacityFull = stagedFiles.length >= MAX_BULK_FILES;
+  const totalBytes = stagedFiles.reduce((acc, f) => acc + f.file.size, 0);
+
+  const canSubmit = useMemo(() => {
+    if (stagedFiles.length === 0 || categoryId === "") return false;
+    if (ingestionMode === "precision") {
+      // In precision mode, ensure each item or bulk order has an order number
+      return stagedFiles.every(
+        (f) => f.departmentOrder.trim() !== "" || bulkDepartmentOrder.trim() !== ""
+      );
+    }
+    // In autonomous mode, Alon extracts missing metadata
+    return true;
+  }, [stagedFiles, categoryId, ingestionMode, bulkDepartmentOrder]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!canSubmit) return;
 
-    onStartArchiving(selectedFiles, {
+    const payload: StagedUploadItem[] = stagedFiles.map((item) => ({
+      file: item.file,
+      customTitle: item.title.trim() || titleFromFileName(item.file.name),
+      customDepartmentOrder:
+        item.departmentOrder.trim() ||
+        bulkDepartmentOrder.trim() ||
+        (ingestionMode === "autonomous" ? "AUTO_EXTRACT" : "UNASSIGNED"),
+      customSeriesDate: item.seriesDate || bulkSeriesDate,
+    }));
+
+    onStartArchiving(payload, {
       cabinet,
       shelf,
       folder,
-      categoryId,
-      categoryName: categories.find((c) => c.id === categoryId)?.name ?? "",
+      categoryId: Number(categoryId),
+      categoryName: categories.find((c) => c.id === categoryId)?.name ?? "General",
       clearanceLevel,
-      seriesDate,
-      departmentOrder: departmentOrder.trim(),
+      seriesDate: bulkSeriesDate,
+      departmentOrder:
+        bulkDepartmentOrder.trim() ||
+        (ingestionMode === "autonomous" ? "AUTO_EXTRACT" : "UNASSIGNED"),
     });
 
-    // Reset and close upload modal
-    setSelectedFiles([]);
+    setStagedFiles([]);
     onClose();
   };
-
-  const totalBytes = selectedFiles.reduce((acc, f) => acc + f.size, 0);
 
   const getFileIcon = (fileName: string) => {
     const ext = fileName.split(".").pop()?.toLowerCase();
@@ -198,14 +256,32 @@ export default function UploadDocumentDialog({
     if (ext === "docx" || ext === "doc") {
       return <ArticleRoundedIcon sx={{ fontSize: 20, color: "#3B82F6" }} />;
     }
-    return <PictureAsPdfRoundedIcon sx={{ fontSize: 20, color: "#EF4444" }} />;
+    if (ext === "pdf") {
+      return <PictureAsPdfRoundedIcon sx={{ fontSize: 20, color: "#EF4444" }} />;
+    }
+    return <InsertDriveFileRoundedIcon sx={{ fontSize: 20, color: "text.secondary" }} />;
   };
+
+  // Check duplicate filename against existing document catalog
+  const checkDuplicate = (filename: string) => {
+    const clean = filename.toLowerCase();
+    return existingDocuments.some(
+      (doc) => doc.fileName?.toLowerCase() === clean || doc.title?.toLowerCase() === clean
+    );
+  };
+
+  const destinationPath = useMemo(() => {
+    if (breadcrumbTrail && breadcrumbTrail.length > 0) {
+      return breadcrumbTrail.map((b) => b.name).join(" / ");
+    }
+    return currentFolder ? currentFolder.name : "Archive Root";
+  }, [breadcrumbTrail, currentFolder]);
 
   return (
     <Dialog
       open={open}
       onClose={onClose}
-      maxWidth="lg"
+      maxWidth="md"
       fullWidth
       slotProps={{
         paper: {
@@ -213,29 +289,27 @@ export default function UploadDocumentDialog({
             borderRadius: 3,
             overflow: "hidden",
             width: "100%",
-            maxWidth: { xs: "95vw", sm: 880, md: 1040, lg: 1120 },
-            height: { xs: "92vh", sm: 760, md: 780 },
-            maxHeight: "92vh",
+            maxHeight: "90vh",
             display: "flex",
             flexDirection: "column",
             boxShadow: (theme) =>
               theme.palette.mode === "dark"
-                ? "0 0 40px rgba(0,0,0,0.85)"
-                : "0 16px 48px rgba(6, 182, 212, 0.14)",
+                ? "0 12px 40px rgba(0, 0, 0, 0.85)"
+                : "0 12px 40px rgba(15, 23, 42, 0.12)",
           },
         },
       }}
     >
-      {/* Top Cyan Gradient Accent Bar */}
+      {/* Top Accent Strip */}
       <Box
         sx={{
-          height: 3.5,
+          height: 3,
           background: "linear-gradient(90deg, #06B6D4, #3B82F6, #10B981)",
           flexShrink: 0,
         }}
       />
 
-      {/* Clean Header (Zero header circles, ready for 3D spotlight below) */}
+      {/* Header Bar */}
       <DialogTitle
         sx={{
           py: 2,
@@ -243,56 +317,89 @@ export default function UploadDocumentDialog({
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          bgcolor: (theme) =>
-            theme.palette.mode === "dark"
-              ? "rgba(6, 182, 212, 0.05)"
-              : "rgba(6, 182, 212, 0.03)",
           borderBottom: "1px solid",
           borderColor: "divider",
+          bgcolor: (theme) =>
+            theme.palette.mode === "dark"
+              ? alpha(theme.palette.background.paper, 0.8)
+              : alpha("#06B6D4", 0.02),
           flexShrink: 0,
         }}
       >
-        <Box>
+        <Stack spacing={0.5}>
           <Stack direction="row" spacing={1.25} sx={{ alignItems: "center" }}>
-            <Typography variant="subtitle1" sx={{ fontWeight: 800, fontSize: "1.1rem", lineHeight: 1.2 }}>
-              Upload Documents
+            <Typography variant="h6" sx={{ fontWeight: 800, fontSize: "1.15rem", lineHeight: 1.2 }}>
+              Upload Records & Scans
             </Typography>
             <Chip
-              avatar={
-                <Avatar
-                  src="/alon.png"
-                  alt="Alon"
-                  sx={{
-                    width: "18px !important",
-                    height: "18px !important",
-                    bgcolor: "#FFFFFF",
-                  }}
-                />
-              }
-              label="Alon (Archiving Agent)"
+              icon={<FolderOutlinedIcon sx={{ fontSize: "14px !important" }} />}
+              label={destinationPath}
               size="small"
+              variant="outlined"
               sx={{
                 height: 24,
                 fontSize: "0.72rem",
-                fontWeight: 700,
-                bgcolor: alpha("#06B6D4", 0.12),
-                color: "#0284C7",
-                border: "1px solid",
-                borderColor: alpha("#06B6D4", 0.3),
-                borderRadius: 1.5,
-                pl: 0.35,
+                fontWeight: 600,
+                borderColor: alpha("#06B6D4", 0.35),
+                bgcolor: alpha("#06B6D4", 0.05),
               }}
             />
           </Stack>
-        </Box>
+          <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.76rem" }}>
+            Ingest official documents, scanned ordinances, executive orders, and vouchers.
+          </Typography>
+        </Stack>
 
-        <Tooltip title="Close">
-          <IconButton size="small" onClick={onClose} sx={{ color: "text.secondary" }}>
-            <CloseRoundedIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
+        <Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
+          {/* Mode Switcher */}
+          <ToggleButtonGroup
+            value={ingestionMode}
+            exclusive
+            onChange={(_, val) => val && setIngestionMode(val)}
+            size="small"
+            sx={{
+              bgcolor: (theme) => alpha(theme.palette.divider, 0.1),
+              borderRadius: 2,
+              p: 0.25,
+              "& .MuiToggleButton-root": {
+                py: 0.4,
+                px: 1.2,
+                fontSize: "0.72rem",
+                fontWeight: 700,
+                textTransform: "none",
+                borderRadius: 1.5,
+                border: "none",
+                "&.Mui-selected": {
+                  bgcolor: "background.paper",
+                  boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
+                  color: "primary.main",
+                },
+              },
+            }}
+          >
+            <ToggleButton value="autonomous">
+              <Stack direction="row" spacing={0.6} sx={{ alignItems: "center" }}>
+                <SmartToyOutlinedIcon sx={{ fontSize: 14, color: "#06B6D4" }} />
+                <span>Autonomous (Alon AI)</span>
+              </Stack>
+            </ToggleButton>
+            <ToggleButton value="precision">
+              <Stack direction="row" spacing={0.6} sx={{ alignItems: "center" }}>
+                <TuneRoundedIcon sx={{ fontSize: 14 }} />
+                <span>Manual Indexing</span>
+              </Stack>
+            </ToggleButton>
+          </ToggleButtonGroup>
+
+          <Tooltip title="Close">
+            <IconButton size="small" onClick={onClose} sx={{ color: "text.secondary" }}>
+              <CloseRoundedIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </Stack>
       </DialogTitle>
 
+      {/* Main Form Content */}
       <Box
         component="form"
         onSubmit={handleSubmit}
@@ -305,650 +412,545 @@ export default function UploadDocumentDialog({
         }}
       >
         <DialogContent sx={{ p: 3, flex: 1, minHeight: 0, overflowY: "auto" }}>
-          <Stack spacing={3}>
-            {/* Assistant Welcome Card featuring 3D Spotlight Container & Typewriter Effect */}
+          <Stack spacing={2.5}>
+            {/* Alon Agent Telemetry Banner */}
             <Paper
               elevation={0}
               sx={{
-                p: 2.25,
-                borderRadius: 2.5,
+                p: 1.5,
+                px: 2,
+                borderRadius: 2,
+                border: "1px solid",
+                borderColor: alpha("#06B6D4", 0.25),
                 bgcolor: (theme) =>
                   theme.palette.mode === "dark"
                     ? alpha("#06B6D4", 0.08)
                     : alpha("#06B6D4", 0.04),
-                border: "1.5px solid",
-                borderColor: alpha("#06B6D4", 0.25),
-                position: "relative",
-                overflow: "hidden",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 2,
               }}
             >
-              <Stack direction={{ xs: "column", sm: "row" }} spacing={2.25} sx={{ alignItems: { sm: "center" } }}>
-                {/* Profile Spotlight Slot for Alon */}
-                <Box
+              <Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
+                <Avatar
+                  src="/alon.png"
+                  alt="Agent Alon"
                   sx={{
-                    width: { xs: 78, sm: 88 },
-                    height: { xs: 78, sm: 88 },
-                    borderRadius: "50%",
-                    p: 0.5,
+                    width: 34,
+                    height: 34,
                     bgcolor: "#FFFFFF",
-                    border: "2.5px solid",
-                    borderColor: "#06B6D4",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexShrink: 0,
-                    position: "relative",
-                    boxShadow: "0 4px 18px rgba(6, 182, 212, 0.28)",
-                    background:
-                      "radial-gradient(circle, rgba(6,182,212,0.2) 0%, rgba(255,255,255,1) 85%)",
+                    border: "1.5px solid #06B6D4",
+                    boxShadow: "0 2px 6px rgba(6,182,212,0.25)",
+                    "& img": { objectFit: "contain", p: 0.25 },
                   }}
-                >
-                  <Avatar
-                    src="/alon.png"
-                    alt="Agent Alon Profile"
-                    sx={{
-                      width: "100%",
-                      height: "100%",
-                      bgcolor: "#FFFFFF",
-                      "& img": {
-                        objectFit: "contain",
-                        p: 0.25,
-                      },
-                    }}
-                  />
-                  {/* Identifier Badge */}
-                  <Box
-                    sx={{
-                      position: "absolute",
-                      bottom: -7,
-                      px: 0.85,
-                      py: 0.2,
-                      bgcolor: "#06B6D4",
-                      color: "#FFFFFF",
-                      borderRadius: 1,
-                      fontSize: "0.6rem",
-                      fontWeight: 800,
-                      letterSpacing: "0.05em",
-                      boxShadow: "0 2px 6px rgba(6, 182, 212, 0.4)",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    AGENT ALON
-                  </Box>
-                </Box>
-
-                {/* Typewriter Speech Area */}
-                <Box sx={{ flex: 1, minWidth: 0 }}>
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      fontSize: "0.86rem",
-                      lineHeight: 1.6,
-                      color: "text.primary",
-                      minHeight: 48,
-                    }}
-                  >
-                    <strong>Alon&apos;s Ingestion Assistant:</strong> {typedContent}
-                    {isTyping && (
-                      <Box
-                        component="span"
-                        sx={{
-                          display: "inline-block",
-                          width: "2px",
-                          height: "1em",
-                          bgcolor: "#06B6D4",
-                          ml: 0.5,
-                          verticalAlign: "text-bottom",
-                          animation: "cursorBlink 0.8s infinite",
-                          "@keyframes cursorBlink": {
-                            "0%, 100%": { opacity: 1 },
-                            "50%": { opacity: 0 },
-                          },
-                        }}
-                      />
-                    )}
+                />
+                <Box>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 800, fontSize: "0.82rem", lineHeight: 1.2 }}>
+                    Agent Alon • Archiving Ingestion Pipeline
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.74rem" }}>
+                    {ingestionMode === "autonomous"
+                      ? "Autonomous mode: Drops are auto-parsed with high-resolution OCR, circular code extraction, and draft proposals."
+                      : "Precision mode: Explicitly define department orders and shelf coordinates per document."}
                   </Typography>
                 </Box>
               </Stack>
+
+              <Chip
+                label={`${stagedFiles.length}/${MAX_BULK_FILES} records`}
+                size="small"
+                color={isCapacityFull ? "success" : "default"}
+                sx={{
+                  fontWeight: 700,
+                  fontSize: "0.72rem",
+                  fontFamily: "monospace",
+                  bgcolor: (theme) => alpha(theme.palette.text.primary, 0.05),
+                }}
+              />
             </Paper>
 
-            {/* Interactive Drag & Drop Water Tank Zone (Alon Wave Motif) */}
+            {/* Drop Zone */}
             <Paper
               variant="outlined"
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
               onClick={() => {
-                if (!isCapacityFull) {
-                  fileInputRef.current?.click();
-                }
+                if (!isCapacityFull) fileInputRef.current?.click();
               }}
               sx={{
-                p: { xs: 3, sm: 4 },
-                minHeight: 210,
+                p: 3,
+                textAlign: "center",
                 borderRadius: 2.5,
                 border: "2px dashed",
                 borderColor: isCapacityFull
                   ? "success.main"
                   : isDragOver
-                  ? "#06B6D4"
-                  : selectedFiles.length > 0
-                  ? "primary.light"
+                  ? "primary.main"
+                  : stagedFiles.length > 0
+                  ? alpha("#06B6D4", 0.4)
                   : "divider",
                 bgcolor: isCapacityFull
-                  ? alpha("#10B981", 0.05)
+                  ? alpha("#10B981", 0.04)
                   : isDragOver
-                  ? alpha("#06B6D4", 0.09)
-                  : "background.default",
-                boxShadow: isDragOver
-                  ? "0 0 28px rgba(6, 182, 212, 0.32), inset 0 0 20px rgba(6, 182, 212, 0.12)"
-                  : isCapacityFull
-                  ? "0 0 20px rgba(16, 185, 129, 0.2)"
-                  : "none",
-                textAlign: "center",
+                  ? alpha("#06B6D4", 0.08)
+                  : (theme) => alpha(theme.palette.background.default, 0.5),
                 cursor: isCapacityFull ? "default" : "pointer",
-                position: "relative",
-                overflow: "hidden",
-                transition: "all 0.3s cubic-bezier(0.25, 1, 0.5, 1)",
+                transition: "all 0.2s ease-in-out",
                 "&:hover": {
                   borderColor: isCapacityFull ? "success.main" : "primary.main",
-                  bgcolor: isCapacityFull ? alpha("#10B981", 0.06) : alpha("#06B6D4", 0.03),
-                },
-                "@keyframes alonWaveMove": {
-                  "0%": { transform: "translateX(0)" },
-                  "100%": { transform: "translateX(-50%)" },
-                },
-                "@keyframes alonWaveMoveReverse": {
-                  "0%": { transform: "translateX(-50%)" },
-                  "100%": { transform: "translateX(0)" },
+                  bgcolor: alpha("#06B6D4", 0.03),
                 },
               }}
             >
-              {/* Dynamic Fluid Ocean Wave rising inside the tank */}
-              <Box
-                sx={{
-                  position: "absolute",
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
-                  height: currentWaveHeight,
-                  transition: "height 0.55s cubic-bezier(0.34, 1.25, 0.64, 1)",
-                  pointerEvents: "none",
-                  display: "flex",
-                  flexDirection: "column",
-                  overflow: "hidden",
-                  zIndex: 1,
-                }}
-              >
-                {/* Multi-Layered Fluid Wave Crest SVGs with parallax counter-motion */}
-                <Box
-                  sx={{
-                    width: "100%",
-                    height: isDragOver ? 54 : 44,
-                    flexShrink: 0,
-                    overflow: "hidden",
-                    position: "relative",
-                    transition: "height 0.4s ease",
-                    opacity: isCapacityFull ? 0.96 : 0.9,
-                  }}
-                >
-                  {/* Rear Secondary Wave (Offset counter-motion, richer depth) */}
-                  <Box
-                    sx={{
-                      position: "absolute",
-                      top: 0,
-                      left: 0,
-                      width: "100%",
-                      height: "100%",
-                      overflow: "hidden",
-                    }}
-                  >
-                    <svg
-                      viewBox="0 0 1200 120"
-                      preserveAspectRatio="none"
-                      style={{
-                        width: "200%",
-                        height: "100%",
-                        animation: isDragOver
-                          ? "alonWaveMoveReverse 2.2s linear infinite"
-                          : "alonWaveMoveReverse 5s linear infinite",
-                      }}
-                    >
-                      <path
-                        d="M0,55 C200,105 400,15 600,65 C800,115 1000,25 1200,70 L1200,120 L0,120 Z"
-                        fill={
-                          isCapacityFull
-                            ? "rgba(5, 150, 105, 0.52)"
-                            : isDragOver
-                            ? "rgba(2, 132, 199, 0.52)"
-                            : "rgba(2, 132, 199, 0.4)"
-                        }
-                      />
-                    </svg>
-                  </Box>
-
-                  {/* Front Primary Wave (Fast forward rolling ocean wave crest) */}
-                  <Box
-                    sx={{
-                      position: "absolute",
-                      top: 0,
-                      left: 0,
-                      width: "100%",
-                      height: "100%",
-                      overflow: "hidden",
-                    }}
-                  >
-                    <svg
-                      viewBox="0 0 1200 120"
-                      preserveAspectRatio="none"
-                      style={{
-                        width: "200%",
-                        height: "100%",
-                        animation: isDragOver
-                          ? "alonWaveMove 1.6s linear infinite"
-                          : "alonWaveMove 3.6s linear infinite",
-                      }}
-                    >
-                      <path
-                        d="M0,35 C150,85 350,5 500,50 C650,95 900,15 1200,55 L1200,120 L0,120 Z"
-                        fill={
-                          isCapacityFull
-                            ? "rgba(16, 185, 129, 0.44)"
-                            : isDragOver
-                            ? "rgba(6, 182, 212, 0.46)"
-                            : "rgba(6, 182, 212, 0.34)"
-                        }
-                      />
-                    </svg>
-                  </Box>
-                </Box>
-
-                {/* Submerged Water Body filling the bottom */}
-                <Box
-                  sx={{
-                    width: "100%",
-                    flex: 1,
-                    background: isCapacityFull
-                      ? "linear-gradient(180deg, rgba(16, 185, 129, 0.28) 0%, rgba(5, 150, 105, 0.52) 100%)"
-                      : isDragOver
-                      ? "linear-gradient(180deg, rgba(6, 182, 212, 0.32) 0%, rgba(2, 132, 199, 0.46) 55%, rgba(3, 105, 161, 0.6) 100%)"
-                      : selectedFiles.length > 0
-                      ? "linear-gradient(180deg, rgba(6, 182, 212, 0.22) 0%, rgba(2, 132, 199, 0.38) 100%)"
-                      : "linear-gradient(180deg, rgba(6, 182, 212, 0.16) 0%, rgba(2, 132, 199, 0.28) 100%)",
-                    transition: "background 0.3s ease",
-                  }}
-                />
-              </Box>
-
               <input
                 ref={fileInputRef}
                 type="file"
                 multiple
                 hidden
-                accept=".pdf,.doc,.docx,.tiff,.png,.jpg,.xlsx,.xls"
+                accept=".pdf,.doc,.docx,.tiff,.png,.jpg,.jpeg,.xlsx,.xls"
                 disabled={isCapacityFull}
                 onChange={(e) => handleFilesAdded(e.target.files)}
               />
 
-              {/* Tank Foreground Content */}
-              <Box sx={{ position: "relative", zIndex: 2 }}>
-                <Box
-                  sx={{
-                    width: 52,
-                    height: 52,
-                    borderRadius: "50%",
-                    bgcolor: isCapacityFull
-                      ? alpha("#10B981", 0.14)
-                      : isDragOver
-                      ? alpha("#06B6D4", 0.22)
-                      : (theme) => alpha(theme.palette.primary.main, 0.1),
-                    color: isCapacityFull
-                      ? "success.main"
-                      : isDragOver
-                      ? "#0284C7"
-                      : "primary.main",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    mx: "auto",
-                    mb: 1.25,
-                    transform: isDragOver ? "scale(1.12) translateY(-3px)" : "scale(1)",
-                    transition: "all 0.25s ease",
-                    boxShadow: isDragOver ? "0 4px 18px rgba(6, 182, 212, 0.35)" : "none",
-                  }}
-                >
-                  {isCapacityFull ? (
-                    <CheckCircleRoundedIcon sx={{ fontSize: 30 }} />
-                  ) : (
-                    <CloudUploadOutlinedIcon sx={{ fontSize: 30 }} />
-                  )}
-                </Box>
-
-                <Typography variant="subtitle1" sx={{ fontWeight: 800, fontSize: "1.05rem" }}>
-                  {isCapacityFull ? (
-                    <Box component="span" sx={{ color: "success.main" }}>
-                      Bulk Capacity Reached ({selectedFiles.length}/{MAX_BULK_FILES})
-                    </Box>
-                  ) : isDragOver ? (
-                    <Box component="span" sx={{ color: "#0284C7", fontWeight: 900 }}>
-                      Release to Drop Records into Water Tank
-                    </Box>
-                  ) : (
-                    <>
-                      Drag and drop records here, or{" "}
-                      <Box component="span" sx={{ color: "primary.main", textDecoration: "underline" }}>
-                        browse files
-                      </Box>
-                    </>
-                  )}
-                </Typography>
-
-                <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: 0.5, fontSize: "0.8rem" }}>
-                  Supports PDF, DOCX, XLSX, Scanned TIF and JPG vouchers
-                </Typography>
-
-                {/* Metric Display inside the tank: {number}/25 */}
-                <Box sx={{ mt: 1.5 }}>
-                  <Chip
-                    icon={
-                      isDragOver ? (
-                        <WavesRoundedIcon sx={{ fontSize: "14px !important", color: "#0284C7" }} />
-                      ) : undefined
-                    }
-                    label={
-                      isDragOver
-                        ? "Alon is Active Drop here to ingest"
-                        : `${selectedFiles.length}/${MAX_BULK_FILES}`
-                    }
-                    color={
-                      isCapacityFull
-                        ? "success"
-                        : isDragOver
-                        ? "info"
-                        : selectedFiles.length > 0
-                        ? "primary"
-                        : "default"
-                    }
-                    size="small"
-                    sx={{
-                      fontWeight: 800,
-                      fontSize: isDragOver ? "0.75rem" : "0.84rem",
-                      fontFamily: isDragOver ? "inherit" : "monospace",
-                      letterSpacing: "0.04em",
-                      height: 26,
-                      px: 0.5,
-                      boxShadow: isCapacityFull
-                        ? "0 2px 8px rgba(16, 185, 129, 0.25)"
-                        : isDragOver
-                        ? "0 2px 10px rgba(6, 182, 212, 0.35)"
-                        : "none",
-                      transition: "all 0.25s ease",
-                    }}
-                  />
-                </Box>
+              <Box
+                sx={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: "50%",
+                  bgcolor: isCapacityFull
+                    ? alpha("#10B981", 0.12)
+                    : isDragOver
+                    ? alpha("#06B6D4", 0.16)
+                    : alpha("#06B6D4", 0.08),
+                  color: isCapacityFull ? "success.main" : "primary.main",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  mx: "auto",
+                  mb: 1,
+                  transform: isDragOver ? "scale(1.1)" : "scale(1)",
+                  transition: "all 0.2s ease",
+                }}
+              >
+                {isCapacityFull ? (
+                  <CheckCircleRoundedIcon sx={{ fontSize: 26 }} />
+                ) : (
+                  <CloudUploadOutlinedIcon sx={{ fontSize: 26 }} />
+                )}
               </Box>
+
+              <Typography variant="subtitle2" sx={{ fontWeight: 800, fontSize: "0.95rem" }}>
+                {isCapacityFull ? (
+                  "Batch capacity reached (25 files)"
+                ) : isDragOver ? (
+                  "Drop files here to stage for archiving"
+                ) : (
+                  <>
+                    Drag & drop files here, or{" "}
+                    <Box component="span" sx={{ color: "primary.main", textDecoration: "underline" }}>
+                      browse computer
+                    </Box>
+                  </>
+                )}
+              </Typography>
+              <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: 0.5, fontSize: "0.76rem" }}>
+                Supports PDF, DOCX, XLSX, Scanned TIFF and JPEG vouchers (up to 100MB each)
+              </Typography>
             </Paper>
 
-            {/* Standard, Clean Staged Files List (Pre-reserved slot so dialog never jumps or adjusts) */}
-            <Box>
-              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
-                <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
-                  <Typography variant="caption" sx={{ fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", color: "text.secondary" }}>
-                    Staged Records ({selectedFiles.length}/{MAX_BULK_FILES})
-                  </Typography>
-                  {selectedFiles.length > 0 && (
+            {/* Staged Records Section */}
+            {stagedFiles.length > 0 && (
+              <Box>
+                <Box
+                  sx={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    mb: 1,
+                  }}
+                >
+                  <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        fontWeight: 800,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.05em",
+                        color: "text.secondary",
+                      }}
+                    >
+                      Staged Records ({stagedFiles.length})
+                    </Typography>
                     <Chip
                       size="small"
                       label={formatFileSize(totalBytes)}
                       variant="outlined"
                       sx={{ height: 20, fontSize: "0.68rem", fontWeight: 700 }}
                     />
-                  )}
-                </Stack>
+                  </Stack>
 
-                {selectedFiles.length > 0 && (
                   <Button
                     size="small"
                     color="inherit"
-                    onClick={() => setSelectedFiles([])}
+                    onClick={() => setStagedFiles([])}
                     sx={{
                       textTransform: "none",
                       fontSize: "0.74rem",
                       fontWeight: 600,
                       color: "text.secondary",
-                      minWidth: "auto",
                       p: 0,
+                      minWidth: "auto",
                       "&:hover": { color: "error.main" },
                     }}
                   >
                     Clear all
                   </Button>
-                )}
-              </Box>
-
-              {selectedFiles.length > 0 ? (
-                <Box
-                  sx={{
-                    display: "grid",
-                    gridTemplateColumns: {
-                      xs: "1fr",
-                      sm: "repeat(2, 1fr)",
-                      md: "repeat(3, 1fr)",
-                    },
-                    gap: 1,
-                    maxHeight: 180,
-                    overflowY: "auto",
-                    pr: 0.5,
-                  }}
-                >
-                  {selectedFiles.map((file, idx) => (
-                    <Paper
-                      key={`${file.name}-${idx}`}
-                      variant="outlined"
-                      sx={{
-                        p: 1.25,
-                        px: 1.5,
-                        borderRadius: 2,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        bgcolor: "background.paper",
-                        border: "1px solid",
-                        borderColor: "divider",
-                        transition: "border-color 0.15s ease, box-shadow 0.15s ease",
-                        "&:hover": {
-                          borderColor: "primary.main",
-                          boxShadow: "0 2px 8px rgba(6, 182, 212, 0.12)",
-                        },
-                      }}
-                    >
-                      <Stack
-                        direction="row"
-                        spacing={1}
-                        sx={{ alignItems: "center", overflow: "hidden", minWidth: 0, flex: 1, mr: 0.5 }}
-                      >
-                        <Box sx={{ flexShrink: 0, display: "flex", alignItems: "center" }}>
-                          {getFileIcon(file.name)}
-                        </Box>
-                        <Box sx={{ overflow: "hidden", minWidth: 0 }}>
-                          <Typography
-                            variant="body2"
-                            noWrap
-                            sx={{ fontWeight: 600, fontSize: "0.79rem", lineHeight: 1.25 }}
-                          >
-                            {file.name}
-                          </Typography>
-                          <Typography
-                            variant="caption"
-                            sx={{ color: "text.secondary", fontSize: "0.68rem", display: "block" }}
-                          >
-                            {formatFileSize(file.size)}
-                          </Typography>
-                        </Box>
-                      </Stack>
-
-                      <Tooltip title="Remove file">
-                        <IconButton
-                          size="small"
-                          onClick={() => handleRemoveFile(idx)}
-                          sx={{
-                            color: "text.secondary",
-                            flexShrink: 0,
-                            p: 0.5,
-                            "&:hover": { color: "error.main" },
-                          }}
-                        >
-                          <DeleteOutlineRoundedIcon sx={{ fontSize: 16 }} />
-                        </IconButton>
-                      </Tooltip>
-                    </Paper>
-                  ))}
                 </Box>
-              ) : (
+
+                {/* Staged Items Table / List */}
                 <Paper
                   variant="outlined"
                   sx={{
-                    py: 1.75,
-                    px: 2,
+                    maxHeight: 220,
+                    overflowY: "auto",
                     borderRadius: 2,
-                    borderStyle: "dashed",
-                    borderColor: "divider",
-                    bgcolor: (theme) => alpha(theme.palette.text.primary, 0.015),
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
+                    p: 0.5,
                   }}
                 >
-                  <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.76rem" }}>
-                    No files staged yet — records dropped into the water tank will appear here
-                  </Typography>
+                  <Stack spacing={0.75}>
+                    {stagedFiles.map((item) => {
+                      const isDup = checkDuplicate(item.file.name);
+                      return (
+                        <Paper
+                          key={item.id}
+                          elevation={0}
+                          sx={{
+                            p: 1.25,
+                            px: 1.5,
+                            borderRadius: 1.5,
+                            border: "1px solid",
+                            borderColor: isDup ? "warning.light" : "divider",
+                            bgcolor: isDup
+                              ? alpha("#F59E0B", 0.04)
+                              : "background.paper",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 1.5,
+                            transition: "all 0.15s ease",
+                            "&:hover": {
+                              borderColor: "primary.main",
+                              boxShadow: "0 2px 8px rgba(6,182,212,0.08)",
+                            },
+                          }}
+                        >
+                          {/* File Icon */}
+                          <Box sx={{ flexShrink: 0, display: "flex", alignItems: "center" }}>
+                            {getFileIcon(item.file.name)}
+                          </Box>
+
+                          {/* File Name & Size */}
+                          <Box sx={{ minWidth: 160, flex: 1 }}>
+                            <Tooltip title={item.file.name}>
+                              <Typography
+                                variant="body2"
+                                noWrap
+                                sx={{ fontWeight: 700, fontSize: "0.8rem", lineHeight: 1.3 }}
+                              >
+                                {item.file.name}
+                              </Typography>
+                            </Tooltip>
+                            <Stack direction="row" spacing={1} sx={{ alignItems: "center", mt: 0.25 }}>
+                              <Typography
+                                variant="caption"
+                                sx={{ color: "text.secondary", fontSize: "0.7rem" }}
+                              >
+                                {formatFileSize(item.file.size)}
+                              </Typography>
+                              {isDup && (
+                                <Chip
+                                  size="small"
+                                  icon={<WarningAmberRoundedIcon sx={{ fontSize: "11px !important" }} />}
+                                  label="Potential Duplicate"
+                                  color="warning"
+                                  variant="outlined"
+                                  sx={{ height: 18, fontSize: "0.62rem", fontWeight: 700 }}
+                                />
+                              )}
+                            </Stack>
+                          </Box>
+
+                          {/* Per-file inputs depending on mode */}
+                          {ingestionMode === "precision" ? (
+                            <Stack direction="row" spacing={1} sx={{ flex: 1.4, minWidth: 0 }}>
+                              <TextField
+                                size="small"
+                                placeholder="Document Title"
+                                value={item.title}
+                                onChange={(e) =>
+                                  handleUpdateItem(item.id, { title: e.target.value })
+                                }
+                                sx={{
+                                  flex: 1,
+                                  "& .MuiInputBase-input": {
+                                    fontSize: "0.76rem",
+                                    py: 0.6,
+                                    px: 1,
+                                  },
+                                }}
+                              />
+                              <TextField
+                                size="small"
+                                placeholder="Order No (e.g. PAO-2024)"
+                                value={item.departmentOrder}
+                                onChange={(e) =>
+                                  handleUpdateItem(item.id, { departmentOrder: e.target.value })
+                                }
+                                sx={{
+                                  width: 140,
+                                  "& .MuiInputBase-input": {
+                                    fontSize: "0.76rem",
+                                    py: 0.6,
+                                    px: 1,
+                                  },
+                                }}
+                              />
+                            </Stack>
+                          ) : (
+                            <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+                              <Chip
+                                size="small"
+                                icon={<AutoAwesomeOutlinedIcon sx={{ fontSize: "11px !important", color: "#06B6D4" }} />}
+                                label="Alon Auto-Extract"
+                                sx={{
+                                  height: 22,
+                                  fontSize: "0.68rem",
+                                  fontWeight: 700,
+                                  bgcolor: alpha("#06B6D4", 0.08),
+                                  color: "#0284C7",
+                                }}
+                              />
+                            </Stack>
+                          )}
+
+                          {/* Remove Button */}
+                          <Tooltip title="Remove record">
+                            <IconButton
+                              size="small"
+                              onClick={() => handleRemoveFile(item.id)}
+                              sx={{
+                                color: "text.secondary",
+                                flexShrink: 0,
+                                p: 0.5,
+                                "&:hover": { color: "error.main" },
+                              }}
+                            >
+                              <DeleteOutlineRoundedIcon sx={{ fontSize: 16 }} />
+                            </IconButton>
+                          </Tooltip>
+                        </Paper>
+                      );
+                    })}
+                  </Stack>
                 </Paper>
-              )}
-            </Box>
+              </Box>
+            )}
 
             <Divider />
 
-            {/* Document Details (sent to the upload endpoint) */}
-            <Box>
-              <Typography
-                variant="caption"
-                sx={{ fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", color: "text.secondary", display: "block", mb: 1.25 }}
-              >
-                Document Details
-              </Typography>
-
-              {categoriesError && (
-                <Alert severity="error" sx={{ mb: 1.5, fontSize: "0.8rem" }}>
-                  {categoriesError}
-                </Alert>
-              )}
-              {!categoriesError && open && categories.length === 0 && (
-                <Alert severity="warning" sx={{ mb: 1.5, fontSize: "0.8rem" }}>
-                  No document categories yet. Create one first before uploading.
-                </Alert>
-              )}
-
-              <Box
-                sx={{
-                  display: "grid",
-                  gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", md: "repeat(4, 1fr)" },
-                  gap: 1.5,
-                }}
-              >
-                <TextField
-                  select
-                  required
-                  size="small"
-                  label="Category"
-                  value={categoryId}
-                  onChange={(e) => setCategoryId(Number(e.target.value))}
-                  disabled={categories.length === 0}
+            {/* Metadata & Storage Settings (2 Columns) */}
+            <Box
+              sx={{
+                display: "grid",
+                gridTemplateColumns: { xs: "1fr", md: "1.2fr 1fr" },
+                gap: 2.5,
+              }}
+            >
+              {/* Left Column: Classification & Security */}
+              <Box>
+                <Typography
+                  variant="caption"
+                  sx={{
+                    fontWeight: 800,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.05em",
+                    color: "text.secondary",
+                    display: "block",
+                    mb: 1.25,
+                  }}
                 >
-                  {categories.map((c) => (
-                    <MenuItem key={c.id} value={c.id}>
-                      {c.name}
-                    </MenuItem>
-                  ))}
-                </TextField>
+                  Classification & Security
+                </Typography>
 
-                <TextField
-                  select
-                  required
-                  size="small"
-                  label="Clearance Level"
-                  value={clearanceLevel}
-                  onChange={(e) => setClearanceLevel(e.target.value as ClearanceLevelValue)}
-                >
-                  {CLEARANCE_OPTIONS.map((o) => (
-                    <MenuItem key={o.value} value={o.value}>
-                      {o.label}
-                    </MenuItem>
-                  ))}
-                </TextField>
+                {categoriesError && (
+                  <Alert severity="error" sx={{ mb: 1.5, fontSize: "0.78rem" }}>
+                    {categoriesError}
+                  </Alert>
+                )}
 
-                <TextField
-                  required
-                  size="small"
-                  label="Department / Order No."
-                  placeholder="e.g. PAO-2024-001"
-                  value={departmentOrder}
-                  onChange={(e) => setDepartmentOrder(e.target.value)}
-                />
+                <Stack spacing={1.5}>
+                  <Box
+                    sx={{
+                      display: "grid",
+                      gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
+                      gap: 1.5,
+                    }}
+                  >
+                    <TextField
+                      select
+                      required
+                      size="small"
+                      label="Document Category"
+                      value={categoryId}
+                      onChange={(e) => setCategoryId(Number(e.target.value))}
+                      disabled={isLoadingCategories || categories.length === 0}
+                    >
+                      {categories.map((c) => (
+                        <MenuItem key={c.id} value={c.id}>
+                          {c.name}
+                        </MenuItem>
+                      ))}
+                    </TextField>
 
-                <TextField
-                  required
-                  size="small"
-                  type="date"
-                  label="Series Date"
-                  value={seriesDate}
-                  onChange={(e) => setSeriesDate(e.target.value)}
-                  slotProps={{ inputLabel: { shrink: true } }}
+                    <TextField
+                      select
+                      required
+                      size="small"
+                      label="Clearance Level"
+                      value={clearanceLevel}
+                      onChange={(e) => setClearanceLevel(e.target.value as ClearanceLevelValue)}
+                    >
+                      {CLEARANCE_OPTIONS.map((o) => (
+                        <MenuItem key={o.value} value={o.value}>
+                          {o.label}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                  </Box>
+
+                  <Box
+                    sx={{
+                      display: "grid",
+                      gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
+                      gap: 1.5,
+                    }}
+                  >
+                    <TextField
+                      size="small"
+                      type="date"
+                      label="Series Date"
+                      value={bulkSeriesDate}
+                      onChange={(e) => setBulkSeriesDate(e.target.value)}
+                      slotProps={{ inputLabel: { shrink: true } }}
+                    />
+
+                    <TextField
+                      size="small"
+                      label={
+                        ingestionMode === "autonomous"
+                          ? "Default Order No (Optional)"
+                          : "Batch Department / Order No"
+                      }
+                      placeholder={
+                        ingestionMode === "autonomous"
+                          ? "Leave blank for Alon OCR"
+                          : "e.g. PAO-2024-001"
+                      }
+                      value={bulkDepartmentOrder}
+                      onChange={(e) => setBulkDepartmentOrder(e.target.value)}
+                    />
+                  </Box>
+
+                  {ingestionMode === "precision" && bulkDepartmentOrder && (
+                    <Button
+                      size="small"
+                      variant="text"
+                      onClick={handleApplyBulkOrderNo}
+                      sx={{
+                        fontSize: "0.72rem",
+                        textTransform: "none",
+                        alignSelf: "flex-start",
+                        p: 0,
+                      }}
+                    >
+                      Apply &quot;{bulkDepartmentOrder}&quot; to all staged records
+                    </Button>
+                  )}
+                </Stack>
+              </Box>
+
+              {/* Right Column: Physical Coordinates */}
+              <Box>
+                <CabinetSelectDropdown
+                  cabinet={cabinet}
+                  onCabinetChange={setCabinet}
+                  shelf={shelf}
+                  onShelfChange={setShelf}
+                  folder={folder}
+                  onFolderChange={setFolder}
                 />
               </Box>
-              <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: 0.75, fontSize: "0.74rem" }}>
-                These details apply to every staged file. Each file&apos;s title is taken from its file name.
-              </Typography>
-            </Box>
-
-            <Divider />
-
-            {/* Physical Storage Coordinates Dropdown */}
-            <Box>
-              <CabinetSelectDropdown
-                cabinet={cabinet}
-                onCabinetChange={setCabinet}
-                shelf={shelf}
-                onShelfChange={setShelf}
-                folder={folder}
-                onFolderChange={setFolder}
-              />
-              <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: 0.75, fontSize: "0.74rem" }}>
-                Alon will bind physical shelf coordinates ({cabinet} • {shelf} • {folder}) to the digital index upon archiving.
-              </Typography>
             </Box>
           </Stack>
         </DialogContent>
 
-        <DialogActions sx={{ p: 2, px: 3, borderTop: "1px solid", borderColor: "divider", flexShrink: 0 }}>
-          <Button
-            onClick={onClose}
-            color="inherit"
-            sx={{ textTransform: "none", fontWeight: 600 }}
+        {/* Dialog Actions */}
+        <DialogActions
+          sx={{
+            py: 1.75,
+            px: 3,
+            borderTop: "1px solid",
+            borderColor: "divider",
+            bgcolor: (theme) =>
+              theme.palette.mode === "dark"
+                ? alpha(theme.palette.background.paper, 0.8)
+                : alpha(theme.palette.background.default, 0.5),
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            flexShrink: 0,
+          }}
+        >
+          <Typography
+            variant="caption"
+            sx={{ color: "text.secondary", fontSize: "0.75rem", display: "flex", alignItems: "center", gap: 0.5 }}
           >
-            Cancel
-          </Button>
+            <AutoAwesomeOutlinedIcon sx={{ fontSize: 14, color: "#06B6D4" }} />
+            Ingestion runs non-blocking in the background.
+          </Typography>
 
-          {/* Standard normal button color */}
-          <Button
-            type="submit"
-            variant="contained"
-            color="primary"
-            disabled={!canSubmit}
-            startIcon={<SaveOutlinedIcon />}
-            sx={{ textTransform: "none", fontWeight: 600, px: 3 }}
-          >
-            Save
-          </Button>
+          <Stack direction="row" spacing={1.5}>
+            <Button
+              onClick={onClose}
+              color="inherit"
+              size="small"
+              sx={{ textTransform: "none", fontWeight: 600, fontSize: "0.82rem" }}
+            >
+              Cancel
+            </Button>
+
+            <Button
+              type="submit"
+              variant="contained"
+              color="primary"
+              size="small"
+              disabled={!canSubmit}
+              startIcon={<CloudUploadOutlinedIcon />}
+              sx={{
+                textTransform: "none",
+                fontWeight: 700,
+                fontSize: "0.82rem",
+                px: 2.5,
+                borderRadius: 1.75,
+                boxShadow: "0 2px 8px rgba(6, 182, 212, 0.25)",
+              }}
+            >
+              {stagedFiles.length > 0
+                ? `Ingest & Archive (${stagedFiles.length})`
+                : "Ingest & Archive"}
+            </Button>
+          </Stack>
         </DialogActions>
       </Box>
     </Dialog>

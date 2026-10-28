@@ -13,6 +13,7 @@ import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
 import Chip from "@mui/material/Chip";
 import IconButton from "@mui/material/IconButton";
+import Checkbox from "@mui/material/Checkbox";
 import Tooltip from "@mui/material/Tooltip";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
@@ -28,13 +29,19 @@ import MoreVertRoundedIcon from "@mui/icons-material/MoreVertRounded";
 import EditNoteRoundedIcon from "@mui/icons-material/EditNoteRounded";
 import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded";
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
+import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
 import { BookmarkItem } from "./types";
 import { getClearanceColor } from "./BookmarkCard";
 
 interface BookmarkListViewProps {
   items: BookmarkItem[];
   selectedId?: string;
+  selectedIds?: Set<string>;
+  onToggleCheck?: (id: string, e: React.MouseEvent) => void;
+  onSelectAll?: () => void;
+  onClearSelection?: () => void;
   onSelect: (item: BookmarkItem) => void;
+  onPreview?: (item: BookmarkItem, e: React.MouseEvent) => void;
   onTogglePin: (id: string, e: React.MouseEvent) => void;
   onEditNote: (item: BookmarkItem, e: React.MouseEvent) => void;
   onRemove: (id: string, e: React.MouseEvent) => void;
@@ -43,7 +50,12 @@ interface BookmarkListViewProps {
 export default function BookmarkListView({
   items,
   selectedId,
+  selectedIds = new Set(),
+  onToggleCheck,
+  onSelectAll,
+  onClearSelection,
   onSelect,
+  onPreview,
   onTogglePin,
   onEditNote,
   onRemove,
@@ -63,6 +75,9 @@ export default function BookmarkListView({
     setActiveMenuFile(null);
   };
 
+  const isAllSelected = items.length > 0 && items.every((i) => selectedIds.has(i.id));
+  const isSomeSelected = items.some((i) => selectedIds.has(i.id)) && !isAllSelected;
+
   if (items.length === 0) {
     return null;
   }
@@ -80,7 +95,27 @@ export default function BookmarkListView({
       <Table size="small">
         <TableHead sx={{ bgcolor: "action.hover" }}>
           <TableRow>
-            <TableCell sx={{ width: 40, py: 1.25 }} />
+            {/* Batch Select Checkbox */}
+            {onToggleCheck && (
+              <TableCell sx={{ width: 44, py: 1.25, px: 1 }}>
+                <Checkbox
+                  size="small"
+                  checked={isAllSelected}
+                  indeterminate={isSomeSelected}
+                  onChange={() => {
+                    if (isAllSelected) {
+                      onClearSelection?.();
+                    } else {
+                      onSelectAll?.();
+                    }
+                  }}
+                  sx={{ p: 0.5 }}
+                />
+              </TableCell>
+            )}
+
+            <TableCell sx={{ width: 36, py: 1.25, px: 0.5 }} />
+
             <TableCell sx={{ fontWeight: 700, fontSize: "0.78rem", color: "text.secondary" }}>
               DIRECTIVE & ORDER NO
             </TableCell>
@@ -103,21 +138,37 @@ export default function BookmarkListView({
         </TableHead>
         <TableBody>
           {items.map((item) => {
-            const isSelected = item.id === selectedId;
+            const isDrawerOpen = item.id === selectedId;
+            const isChecked = selectedIds.has(item.id);
 
             return (
               <TableRow
                 key={item.id}
                 hover
                 onClick={() => onSelect(item)}
-                selected={isSelected}
+                selected={isDrawerOpen || isChecked}
                 sx={{
                   cursor: "pointer",
                   "&.Mui-selected": { bgcolor: "action.selected" },
                 }}
               >
+                {/* Checkbox column */}
+                {onToggleCheck && (
+                  <TableCell sx={{ py: 1, px: 1 }}>
+                    <Checkbox
+                      size="small"
+                      checked={isChecked}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onToggleCheck(item.id, e);
+                      }}
+                      sx={{ p: 0.5 }}
+                    />
+                  </TableCell>
+                )}
+
                 {/* Pin star */}
-                <TableCell sx={{ py: 1, px: 1 }}>
+                <TableCell sx={{ py: 1, px: 0.5 }}>
                   <IconButton
                     size="small"
                     onClick={(e) => onTogglePin(item.id, e)}
@@ -216,6 +267,20 @@ export default function BookmarkListView({
                 {/* Action Buttons */}
                 <TableCell align="right" sx={{ py: 1 }}>
                   <Box sx={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 0.5 }}>
+                    <Tooltip title="Preview document">
+                      <IconButton
+                        size="small"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (onPreview) onPreview(item, e);
+                          else onSelect(item);
+                        }}
+                        sx={{ color: "text.secondary", "&:hover": { color: "primary.main" } }}
+                      >
+                        <DescriptionOutlinedIcon sx={{ fontSize: 16 }} />
+                      </IconButton>
+                    </Tooltip>
+
                     <Tooltip title="Ask AI about this directive">
                       <IconButton
                         size="small"
@@ -273,13 +338,28 @@ export default function BookmarkListView({
         </TableBody>
       </Table>
 
-      {/* Context Menu */}
+      {/* Row context menu */}
       <Menu
         anchorEl={menuAnchorEl}
         open={Boolean(menuAnchorEl)}
         onClose={handleCloseMenu}
-        slotProps={{ paper: { sx: { borderRadius: 2, minWidth: 180 } } }}
+        slotProps={{ paper: { sx: { borderRadius: 2, minWidth: 170 } } }}
       >
+        <MenuItem
+          onClick={(e) => {
+            if (activeMenuFile) {
+              if (onPreview) onPreview(activeMenuFile, e);
+              else onSelect(activeMenuFile);
+            }
+            handleCloseMenu();
+          }}
+        >
+          <ListItemIcon>
+            <DescriptionOutlinedIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>Preview Document</ListItemText>
+        </MenuItem>
+
         <MenuItem
           onClick={() => {
             if (activeMenuFile) onSelect(activeMenuFile);
@@ -311,7 +391,10 @@ export default function BookmarkListView({
           }}
         >
           <ListItemIcon>
-            <StarRoundedIcon fontSize="small" sx={{ color: activeMenuFile?.isPinned ? "text.secondary" : "#F59E0B" }} />
+            <StarRoundedIcon
+              fontSize="small"
+              sx={{ color: activeMenuFile?.isPinned ? "text.secondary" : "#F59E0B" }}
+            />
           </ListItemIcon>
           <ListItemText>{activeMenuFile?.isPinned ? "Unpin Directive" : "Pin Directive"}</ListItemText>
         </MenuItem>

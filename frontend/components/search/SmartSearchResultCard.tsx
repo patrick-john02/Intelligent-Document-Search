@@ -23,6 +23,7 @@ import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
 
 import Highlighter from "./Highlighter";
 import { SearchResultItem } from "./types";
+import { useBookmarks } from "@/context/BookmarkContext";
 
 export type SmartSearchResultItem = SearchResultItem;
 
@@ -41,7 +42,8 @@ export default function SmartSearchResultCard({
   onPreview,
   onAskAi,
 }: SmartSearchResultCardProps) {
-  const [isBookmarked, setIsBookmarked] = useState(false);
+  const { isBookmarked: checkIsBookmarked, toggleBookmark } = useBookmarks();
+  const isBookmarked = checkIsBookmarked(item.id || item.orderNo);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const matchPercentage =
@@ -58,9 +60,9 @@ export default function SmartSearchResultCard({
 
   const handleToggleBookmark = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setIsBookmarked((prev) => !prev);
+    const added = toggleBookmark(item);
     setToastMessage(
-      !isBookmarked
+      added
         ? "Document saved to your bookmarks"
         : "Document removed from bookmarks"
     );

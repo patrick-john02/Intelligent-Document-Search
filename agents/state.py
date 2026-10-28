@@ -19,3 +19,4 @@ class SupervisorState(TypedDict, total=False):
 
     # every document attached in this conversation, oldest first
     attachment_ids: Annotated[List[int], merge_ids]
+    target_ids:List[int]

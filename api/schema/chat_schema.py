@@ -30,6 +30,18 @@ class ChatSchema(BaseModel):
     title: Optional[str] = None
     attachment_ids: list[int] = []
 
+class MentionableDocumentOut(BaseModel):
+    """A document the user can target with @ in chat (small: only what the dropdown shows)."""
+    id: int                          # document id -> sent back as attachment_ids
+    version_id: int
+    title: str
+    file_name: str
+    doc_type: Optional[str] = None
+    series_year: Optional[int] = None
+    shelf_location: Optional[str] = None
+    clearance: str
+
+
 class ConvSchema(BaseModel):
     title:str
     

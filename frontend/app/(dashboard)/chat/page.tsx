@@ -22,7 +22,7 @@ import ChatMessageItem, { ChatMessage, ReferencedDoc } from "@/components/chat/C
 import ChatEmptyState from "@/components/chat/ChatEmptyState";
 import ChatThinkingIndicator from "@/components/chat/ChatThinkingIndicator";
 import ChatSkeleton from "@/components/chat/ChatSkeleton";
-import { MentionableDocument } from "@/components/chat/DocumentMentionDropdown";
+import type { MentionableDocument } from "@/lib/chatApi";
 
 export type { ReferencedDoc, ChatMessage };
 
@@ -211,7 +211,8 @@ export default function ChatPage(props: { disableCustomTheme?: boolean }) {
   };
 
   // Streams the supervisor's reply (POST /chat/talk/stream): live status, then the answer word by word
-  const sendPrompt = async (prompt: string, activeDoc?: MentionableDocument | null) => {
+  const sendPrompt = async (prompt: string, activeDocs: MentionableDocument[] = []) => {
+    const targetedDocs = activeDocs.length > 0 ? activeDocs : undefined; // for the UI chips
     const sentConvId = activeConvId;
     const tempId = `temp-${Date.now()}`;
     const aiTempId = `ai-${Date.now()}`;
@@ -220,7 +221,7 @@ export default function ChatPage(props: { disableCustomTheme?: boolean }) {
 
     setMessages((prev) => [
       ...prev,
-      { id: tempId, sender: "user", timestamp: "Just now", text: prompt, targetedDoc: activeDoc || undefined },
+      { id: tempId, sender: "user", timestamp: "Just now", text: prompt, targetedDocs },
     ]);
     setIsGenerating(true);
     setStreamStatus(undefined);
@@ -236,18 +237,22 @@ export default function ChatPage(props: { disableCustomTheme?: boolean }) {
       setMessages((prev) =>
         prev.some((m) => m.id === aiTempId)
           ? prev.map((m) => (m.id === aiTempId ? { ...m, text } : m))
-          : [...prev, { id: aiTempId, sender: "assistant", timestamp: "Just now", text, feedback: null, targetedDoc: activeDoc || undefined }]
+          : [...prev, { id: aiTempId, sender: "assistant", timestamp: "Just now", text, feedback: null, targetedDocs }]
       );
 
     try {
       await streamApi(
         "/chat/talk/stream",
-        { content: prompt, conversation_id: sentConvId ? Number(sentConvId) : null },
+        {
+          content: prompt,
+          conversation_id: sentConvId ? Number(sentConvId) : null,
+          attachment_ids: activeDocs.map((d) => d.id), // documents targeted with @ (validated by clearance on the server)
+        },
         (event, data) => {
           if (event === "meta") {
             convId = String(data.conversation_id);
             if (activeConvRef.current !== sentConvId) return;
-            const userMsg = { ...toChatMessage(data.chat), targetedDoc: activeDoc || undefined };
+            const userMsg = { ...toChatMessage(data.chat), targetedDocs };
             setMessages((prev) => prev.map((m) => (m.id === tempId ? userMsg : m)));
             if (!sentConvId) {
               activeConvRef.current = convId;
@@ -272,9 +277,15 @@ export default function ChatPage(props: { disableCustomTheme?: boolean }) {
               if (visible) showAiText(visible);
               break;
             }
+            case "error": // backend couldn't save the reply
+              setMessages((prev) => [
+                ...prev.filter((m) => m.id !== aiTempId),
+                { id: `err-${Date.now()}`, sender: "assistant", timestamp: "Just now", text: `⚠️ ${data.message}`, feedback: null },
+              ]);
+              break;
             case "done": {
               // swap the temporary bubble for the saved message (real id -> feedback works)
-              const aiMsg = { ...toChatMessage(data.assistant_message), targetedDoc: activeDoc || undefined };
+              const aiMsg = { ...toChatMessage(data.assistant_message), targetedDocs };
               setMessages((prev) =>
                 prev.some((m) => m.id === aiTempId)
                   ? prev.map((m) => (m.id === aiTempId ? aiMsg : m))
@@ -324,7 +335,7 @@ export default function ChatPage(props: { disableCustomTheme?: boolean }) {
     if (isGenerating) return;
     const idx = messages.findIndex((m) => m.id === msgId);
     const question = [...messages.slice(0, idx)].reverse().find((m) => m.sender === "user");
-    if (question) sendPrompt(question.text, question.targetedDoc);
+    if (question) sendPrompt(question.text, question.targetedDocs ?? []);
   };
 
   return (

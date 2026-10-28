@@ -23,6 +23,8 @@ import InsertDriveFileRoundedIcon from "@mui/icons-material/InsertDriveFileRound
 import ExpandMoreRoundedIcon from "@mui/icons-material/ExpandMoreRounded";
 import ChevronRightRoundedIcon from "@mui/icons-material/ChevronRightRounded";
 import ChevronLeftRoundedIcon from "@mui/icons-material/ChevronLeftRounded";
+import MenuRoundedIcon from "@mui/icons-material/MenuRounded";
+import MenuOpenRoundedIcon from "@mui/icons-material/MenuOpenRounded";
 import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
 import PictureAsPdfRoundedIcon from "@mui/icons-material/PictureAsPdfRounded";
 import TableChartRoundedIcon from "@mui/icons-material/TableChartRounded";
@@ -345,7 +347,7 @@ export default function FileExplorerSidebar({
                 "&:hover": { bgcolor: "action.hover", borderColor: "primary.main" },
               }}
             >
-              <ChevronRightRoundedIcon fontSize="small" />
+              <MenuRoundedIcon fontSize="small" />
             </IconButton>
           </Tooltip>
 
@@ -434,9 +436,9 @@ export default function FileExplorerSidebar({
               </Typography>
             </Box>
 
-            <Tooltip title="Hide file directory">
+            <Tooltip title="Collapse file directory">
               <IconButton size="small" onClick={onToggleOpen} sx={{ p: 0.5 }}>
-                <ChevronLeftRoundedIcon fontSize="small" />
+                <MenuOpenRoundedIcon fontSize="small" />
               </IconButton>
             </Tooltip>
           </Box>

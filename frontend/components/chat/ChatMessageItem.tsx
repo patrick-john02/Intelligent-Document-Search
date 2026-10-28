@@ -28,7 +28,8 @@ import PersonOutlineRoundedIcon from "@mui/icons-material/PersonOutlineRounded";
 
 // Subcomponents
 import MultiAgentStepper, { PipelineStep } from "@/components/chat/MultiAgentStepper";
-import { MentionableDocument } from "@/components/chat/DocumentMentionDropdown";
+import type { MentionableDocument } from "@/lib/chatApi";
+import MarkdownMessage from "@/components/chat/MarkdownMessage";
 
 export interface ReferencedDoc {
   id: string;
@@ -48,7 +49,7 @@ export interface ChatMessage {
   referencedDocs?: ReferencedDoc[];
   feedback?: "liked" | "disliked" | null;
   pipelineSteps?: PipelineStep[];
-  targetedDoc?: MentionableDocument;
+  targetedDocs?: MentionableDocument[]; // documents targeted with @
 }
 
 interface ChatMessageItemProps {
@@ -217,32 +218,27 @@ export default function ChatMessageItem({
       )}
 
       {/* Targeted Directive Indicator */}
-      {message.targetedDoc && (
-        <Box sx={{ mb: 1.5 }}>
-          <Chip
-            icon={<AutoAwesomeRoundedIcon sx={{ fontSize: "13px !important" }} />}
-            label={`Targeted Agent Directive: ${message.targetedDoc.orderNo} (${message.targetedDoc.shelfLocation})`}
-            size="small"
-            color="primary"
-            variant="outlined"
-            sx={{ height: 22, fontSize: "0.72rem", fontWeight: 700 }}
-          />
+      {message.targetedDocs && message.targetedDocs.length > 0 && (
+        <Box sx={{ mb: 1.5, display: "flex", gap: 0.75, flexWrap: "wrap" }}>
+          {message.targetedDocs.map((doc) => (
+            <Chip
+              key={doc.id}
+              icon={<AutoAwesomeRoundedIcon sx={{ fontSize: "13px !important" }} />}
+              label={`Targeted: ${doc.label}${doc.shelfLocation ? ` (${doc.shelfLocation})` : ""}`}
+              title={doc.title}
+              size="small"
+              color="primary"
+              variant="outlined"
+              sx={{ height: 22, fontSize: "0.72rem", fontWeight: 700 }}
+            />
+          ))}
         </Box>
       )}
 
       {/* Response Text */}
-      <Typography
-        variant="body2"
-        sx={{
-          color: "text.primary",
-          lineHeight: 1.68,
-          fontSize: "0.9rem",
-          mb: message.referencedDocs && message.referencedDocs.length > 0 ? 2 : 1,
-          whiteSpace: "pre-line",
-        }}
-      >
-        {renderMessageContent(message.text)}
-      </Typography>
+      <Box sx={{ mb: message.referencedDocs && message.referencedDocs.length > 0 ? 2 : 1 }}>
+        <MarkdownMessage text={message.text} />
+      </Box>
 
       {/* Referenced Documents List */}
       {message.referencedDocs && message.referencedDocs.length > 0 && (
@@ -363,7 +359,7 @@ export default function ChatMessageItem({
                         Exact Document Excerpt:
                       </Typography>
                       <Typography variant="body2" sx={{ fontSize: "0.82rem", lineHeight: 1.55, fontStyle: "italic", color: "text.primary" }}>
-                        "{doc.excerpt}"
+                        &ldquo;{doc.excerpt}&rdquo;
                       </Typography>
                     </Paper>
                   </Collapse>

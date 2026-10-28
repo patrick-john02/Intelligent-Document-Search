@@ -8,7 +8,7 @@ import { getLatestForVersion, ProposalStatus } from "@/lib/archiveReviewApi";
 
 // Alon's review of one uploaded file (filled by polling GET /archive/version/{id}/latest)
 export type AlonReview =
-  | { state: "waiting" }                                   // OCR / indexing / Alon still running
+  | { state: "waiting" } // OCR / indexing / Alon still running
   | {
       state: "ready";
       proposalId: number;
@@ -19,7 +19,14 @@ export type AlonReview =
       needsReview: boolean;
     }
   | { state: "failed"; proposalId: number; error?: string } // Alon ran but failed (can be re-run)
-  | { state: "timeout" };                                  // still not done after the polling window
+  | { state: "timeout" }; // still not done after the polling window
+
+export interface StagedUploadItem {
+  file: File;
+  customTitle?: string;
+  customDepartmentOrder?: string;
+  customSeriesDate?: string;
+}
 
 export interface QueuedFile {
   id: string;
@@ -28,8 +35,11 @@ export interface QueuedFile {
   sizeFormatted: string;
   status: "pending" | "processing" | "completed" | "failed";
   error?: string;
-  versionId?: number;   // from the upload response, used to find Alon's proposal
+  versionId?: number; // from the upload response, used to find Alon's proposal
   alon?: AlonReview;
+  customTitle?: string;
+  customDepartmentOrder?: string;
+  customSeriesDate?: string;
 }
 
 export interface ArchivingCabinetConfig {
@@ -39,18 +49,18 @@ export interface ArchivingCabinetConfig {
   categoryId: number;
   categoryName: string;
   clearanceLevel: ClearanceLevelValue;
-  seriesDate: string; // YYYY-MM-DD
-  departmentOrder: string;
+  seriesDate?: string; // YYYY-MM-DD
+  departmentOrder?: string;
 }
 
-// The real stages (no fake percentages): upload here, the rest runs in Celery on the server
+// The real stages: upload here, the rest runs in background / Celery
 const AGENT_PIPELINE_STEPS = [
   "Upload files",
   "OCR, classification & indexing (background)",
   "Alon's archive review (about 1–2 min per file)",
 ];
 
-const POLL_EVERY_MS = 5000;     // check for Alon's proposal every 5 s
+const POLL_EVERY_MS = 5000; // check for Alon's proposal every 5 s
 const POLL_MAX_MS = 5 * 60_000; // give up after 5 min (proposal still appears in Archive Review later)
 
 // Helper to format bytes
@@ -78,32 +88,36 @@ const UI_CLEARANCE: Record<ClearanceLevelValue, DocumentClearance> = {
 function toArchiveDocument(
   file: File,
   uploadedId: number,
-  config: ArchivingCabinetConfig
+  config: ArchivingCabinetConfig,
+  overrides?: { title?: string; orderNo?: string; seriesDate?: string }
 ): ArchiveDocument {
   const ext = file.name.split(".").pop()?.toLowerCase();
   const fileType: DocumentFileType =
     ext === "xlsx" || ext === "xls" ? "xlsx" : ext === "docx" || ext === "doc" ? "docx" : "pdf";
   const shelfLocation = `${config.cabinet} • ${config.shelf} • ${config.folder}`;
+  const seriesYear = Number(
+    (overrides?.seriesDate || config.seriesDate || new Date().toISOString()).slice(0, 4)
+  );
 
   return {
     id: uploadedId,
-    title: titleFromFileName(file.name),
-    orderNo: config.departmentOrder,
-    seriesYear: Number(config.seriesDate.slice(0, 4)),
+    title: overrides?.title?.trim() || titleFromFileName(file.name),
+    orderNo: overrides?.orderNo?.trim() || config.departmentOrder?.trim() || "Pending Review",
+    seriesYear: isNaN(seriesYear) ? new Date().getFullYear() : seriesYear,
     category: config.categoryName,
     clearance: UI_CLEARANCE[config.clearanceLevel],
     cabinet: config.cabinet,
     shelf: config.shelf,
     folder: config.folder,
     shelfLocation,
-    ocrAccuracy: 0, // filled in by the ingestion pipeline
+    ocrAccuracy: 0,
     fileSize: formatFileSize(file.size),
     pageCount: 0,
     fileType,
     fileName: file.name,
     version: "v1.0",
     ingestedDate: new Date().toISOString().split("T")[0],
-    status: "Processing", // OCR / chunking / embedding run in Celery after upload
+    status: "Processing",
     tags: [],
     summary: `Uploaded ${file.name}. OCR, classification and indexing are running in the background.`,
   };
@@ -111,7 +125,6 @@ function toArchiveDocument(
 
 function errorText(err: unknown): string {
   if (err instanceof ApiError) {
-    // FastAPI 422 returns detail as a list of validation errors
     if (Array.isArray(err.data?.detail)) {
       return err.data.detail.map((d: { msg?: string }) => d.msg).filter(Boolean).join("; ");
     }
@@ -125,7 +138,7 @@ export function useArchivingTask(
   onError?: (message: string) => void
 ) {
   const [isActive, setIsActive] = useState(false);
-  const [isMinimized, setIsMinimized] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(true);
   const [progress, setProgress] = useState(0);
   const [stepIndex, setStepIndex] = useState(0);
   const [currentStep, setCurrentStep] = useState(AGENT_PIPELINE_STEPS[0]);
@@ -133,35 +146,49 @@ export function useArchivingTask(
   const [processedDocs, setProcessedDocs] = useState<ArchiveDocument[]>([]);
   const [isFinished, setIsFinished] = useState(false);
 
-  // polling timer for Alon's proposals (cleared on dismiss / unmount)
+  // Polling timer for Alon's proposals (cleared on dismiss / unmount)
   const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const stopPolling = () => {
     if (pollTimer.current) clearInterval(pollTimer.current);
     pollTimer.current = null;
   };
-  useEffect(() => stopPolling, []); // cleanup when the page unmounts
+  useEffect(() => stopPolling, []);
 
-  // true while at least one uploaded file is still waiting for Alon
+  // True while at least one uploaded file is still waiting for Alon
   const isReviewing = queuedFiles.some((q) => q.alon?.state === "waiting");
 
   const updateFile = (id: string, patch: Partial<QueuedFile>) =>
     setQueuedFiles((prev) => prev.map((q) => (q.id === id ? { ...q, ...patch } : q)));
 
   const startArchiving = useCallback(
-    async (files: File[], config: ArchivingCabinetConfig) => {
+    async (
+      files: (File | StagedUploadItem)[],
+      config: ArchivingCabinetConfig,
+      options?: { startMinimized?: boolean }
+    ) => {
       if (files.length === 0) return;
 
-      const queue: QueuedFile[] = files.map((f, i) => ({
-        id: `f-${Date.now()}-${i}`,
-        file: f,
-        name: f.name,
-        sizeFormatted: formatFileSize(f.size),
-        status: "pending",
-      }));
+      const queue: QueuedFile[] = files.map((item, i) => {
+        const f = item instanceof File ? item : item.file;
+        const customTitle = item instanceof File ? undefined : item.customTitle;
+        const customDepartmentOrder = item instanceof File ? undefined : item.customDepartmentOrder;
+        const customSeriesDate = item instanceof File ? undefined : item.customSeriesDate;
+
+        return {
+          id: `f-${Date.now()}-${i}`,
+          file: f,
+          name: f.name,
+          sizeFormatted: formatFileSize(f.size),
+          status: "pending",
+          customTitle,
+          customDepartmentOrder,
+          customSeriesDate,
+        };
+      });
 
       setQueuedFiles(queue);
       setIsActive(true);
-      setIsMinimized(false);
+      setIsMinimized(options?.startMinimized ?? true);
       setProgress(5);
       setStepIndex(0);
       setCurrentStep(AGENT_PIPELINE_STEPS[0]);
@@ -169,25 +196,41 @@ export function useArchivingTask(
 
       const uploaded: ArchiveDocument[] = [];
       const failed: string[] = [];
-      const waiting: { fileId: string; versionId: number }[] = []; // files to poll for Alon
+      const waiting: { fileId: string; versionId: number }[] = [];
       const physicalShelfLocation = `${config.cabinet} • ${config.shelf} • ${config.folder}`;
 
-      // Upload one at a time so the server and OCR queue aren't flooded
+      // Upload sequentially so server and worker queues aren't overwhelmed
       for (let i = 0; i < queue.length; i++) {
         const q = queue[i];
         updateFile(q.id, { status: "processing" });
         setCurrentStep(`Uploading ${q.name} (${i + 1}/${queue.length})`);
 
+        const uploadTitle = q.customTitle?.trim() || titleFromFileName(q.name);
+        const uploadDeptOrder =
+          q.customDepartmentOrder?.trim() ||
+          config.departmentOrder?.trim() ||
+          "PENDING_EXTRACTION";
+        const uploadSeriesDate =
+          q.customSeriesDate?.trim() ||
+          config.seriesDate?.trim() ||
+          new Date().toISOString().split("T")[0];
+
         try {
           const res = await uploadDocument(q.file, {
-            title: titleFromFileName(q.name),
-            departmentOrder: config.departmentOrder,
-            seriesDate: config.seriesDate,
+            title: uploadTitle,
+            departmentOrder: uploadDeptOrder,
+            seriesDate: uploadSeriesDate,
             physicalShelfLocation,
             categoryId: config.categoryId,
             clearanceLevel: config.clearanceLevel,
           });
-          uploaded.push(toArchiveDocument(q.file, res.id, config));
+          uploaded.push(
+            toArchiveDocument(q.file, res.id, config, {
+              title: uploadTitle,
+              orderNo: uploadDeptOrder,
+              seriesDate: uploadSeriesDate,
+            })
+          );
           updateFile(q.id, {
             status: "completed",
             versionId: res.version_id ?? undefined,
@@ -200,19 +243,18 @@ export function useArchivingTask(
           updateFile(q.id, { status: "failed", error: msg });
         }
 
-        // progress bar = real upload progress only
         setProgress(Math.max(5, Math.round(((i + 1) / queue.length) * 100)));
       }
 
       setProgress(100);
-      setStepIndex(waiting.length > 0 ? 1 : AGENT_PIPELINE_STEPS.length); // 1 = server processing
+      setStepIndex(waiting.length > 0 ? 1 : AGENT_PIPELINE_STEPS.length);
       setCurrentStep(
         failed.length === 0
-          ? `${uploaded.length} file(s) uploaded — processing on the server`
+          ? `${uploaded.length} file(s) uploaded — processing on server`
           : `${uploaded.length} uploaded, ${failed.length} failed`
       );
 
-      // ---- Poll for Alon's real proposal for each uploaded version ----
+      // Poll for Alon's real proposal for each uploaded version
       stopPolling();
       if (waiting.length > 0) {
         const started = Date.now();
@@ -225,7 +267,7 @@ export function useArchivingTask(
           for (const w of pending) {
             try {
               const p = await getLatestForVersion(w.versionId);
-              setStepIndex(2); // at least one file reached Alon's stage
+              setStepIndex(2);
               updateFile(w.fileId, {
                 alon:
                   p.status === "failed" || !p.proposal
@@ -241,8 +283,6 @@ export function useArchivingTask(
                       },
               });
             } catch (err) {
-              // 404 = no proposal yet (OCR/indexing/Alon still running): keep waiting.
-              // Other errors (network blips) are also retried until the time limit.
               if (timedOut) updateFile(w.fileId, { alon: { state: "timeout" } });
               else stillPending.push(w);
               if (!(err instanceof ApiError && err.status === 404)) console.warn("[archiving] poll error", err);
@@ -252,8 +292,8 @@ export function useArchivingTask(
           pending = stillPending;
           if (pending.length === 0) {
             stopPolling();
-            setStepIndex(AGENT_PIPELINE_STEPS.length); // all stages done
-            setCurrentStep("Alon finished. Proposals are ready for your review.");
+            setStepIndex(AGENT_PIPELINE_STEPS.length);
+            setCurrentStep("Alon finished. Proposals are ready for review.");
           }
         }, POLL_EVERY_MS);
       }
@@ -277,9 +317,9 @@ export function useArchivingTask(
   }, []);
 
   const dismiss = useCallback(() => {
-    stopPolling(); // proposals still appear in Archive Review; we just stop watching here
+    stopPolling();
     setIsActive(false);
-    setIsMinimized(false);
+    setIsMinimized(true);
     setProgress(0);
     setIsFinished(false);
     setQueuedFiles([]);
@@ -294,8 +334,8 @@ export function useArchivingTask(
     steps: AGENT_PIPELINE_STEPS,
     queuedFiles,
     processedDocs,
-    isFinished,      // uploads done (the modal can be closed)
-    isReviewing,     // Alon still working on at least one file
+    isFinished,
+    isReviewing,
     startArchiving,
     minimize,
     maximize,

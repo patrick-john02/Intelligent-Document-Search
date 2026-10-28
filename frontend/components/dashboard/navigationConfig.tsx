@@ -14,6 +14,7 @@ import SecurityOutlinedIcon from '@mui/icons-material/SecurityOutlined';
 import TerminalOutlinedIcon from '@mui/icons-material/TerminalOutlined';
 import StorageOutlinedIcon from '@mui/icons-material/StorageOutlined';
 import MemoryOutlinedIcon from '@mui/icons-material/MemoryOutlined';
+import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 
 import { DashboardRole } from './types';
 
@@ -42,6 +43,7 @@ export const MAIN_NAV_ITEMS: NavItem[] = [
   { text: 'User Management', icon: <PeopleAltOutlinedIcon fontSize="small" />, path: '/admin/users', roles: ['admin'] },
   { text: 'Audit & Compliance', icon: <SecurityOutlinedIcon fontSize="small" />, path: '/admin/audit', roles: ['admin'] },
   { text: 'Usage Analytics', icon: <InsightsOutlinedIcon fontSize="small" />, path: '/admin/analytics', roles: ['admin'] },
+  { text: 'Office Settings', icon: <SettingsOutlinedIcon fontSize="small" />, path: '/settings', roles: ['admin', 'developer'] },
 
   // Developer & System Engineering
   { text: 'OCR & Task Pipeline', icon: <MemoryOutlinedIcon fontSize="small" />, path: '/developer/tasks', roles: ['developer'] },
@@ -57,5 +59,5 @@ export const SECONDARY_NAV_ITEMS: NavItem[] = [
   { text: 'Search Guide', icon: <HelpOutlineRoundedIcon fontSize="small" />, path: '/help', roles: ['staff', 'admin'] },
 
   // Admin / Dev Workspace
-  { text: 'System Config', icon: <TerminalOutlinedIcon fontSize="small" />, path: '/settings/system', roles: ['admin', 'developer'] },
+  { text: 'Office Settings', icon: <SettingsOutlinedIcon fontSize="small" />, path: '/settings', roles: ['admin', 'developer'] },
 ];

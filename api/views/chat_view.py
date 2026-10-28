@@ -1,5 +1,8 @@
 
+import asyncio
 import logging
+
+import anyio
 import json
 
 from datetime import datetime, timezone
@@ -9,14 +12,14 @@ from langchain_core.callbacks import get_usage_metadata_callback
 from langgraph.errors import GraphRecursionError
 
 from tools.access.permissions import get_user_clearance_levels, clearance_filter, current_allowed_clearance
-from api.models.document import DocumentModel
+from api.models.document import DocumentModel, DocumentVersion
 
 from fastapi.responses import StreamingResponse
 from fastapi import(
-    status, HTTPException, APIRouter, Depends
+    status, HTTPException, APIRouter, Depends, Query
 )
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, or_
 
 
 from api.models.conversations import(
@@ -25,7 +28,7 @@ from api.models.conversations import(
 )
 from api.schema.chat_schema import (
     ConversationsResponse, ChatMessagesResponse,
-    ChatSchema, ConvSchema, ChatRating,
+    ChatSchema, ConvSchema, MentionableDocumentOut, ChatRating,
     ReportResponseSchema, ReportCreateSchema,
 )
 from api.models.enums.conv import TaskType
@@ -41,6 +44,64 @@ from agents.graph import app as agent_app
 logger=logging.getLogger(__name__)
 
 router = APIRouter(prefix="/chat", tags=["Chat App"])
+
+
+@router.get("/mentionable-documents", status_code=status.HTTP_200_OK, response_model=list[MentionableDocumentOut])
+async def mentionable_documents(
+    q: str | None = Query(default=None, max_length=100, description="Search in title, file name, department, type"),
+    limit: int = Query(default=8, ge=1, le=20),
+    db: AsyncSession = Depends(get_db),
+    current_user: Users = Depends(get_current_active_user),
+):
+    """Documents the user can target with "@" in chat.
+
+    Same visibility rule as the attachment check in _prepare_turn (not deleted + within the user's
+    clearance), so anything picked here is accepted when sent. Only current, indexed versions:
+    the agents can't read a document that hasn't finished processing.
+    """
+    levels = [lvl.lower() for lvl in get_user_clearance_levels(current_user)]
+
+    query = (
+        select(DocumentModel, DocumentVersion)
+        .join(DocumentVersion, DocumentVersion.document_id == DocumentModel.id)
+        .where(
+            DocumentModel.is_deleted.is_(False),
+            clearance_filter(levels),
+            DocumentVersion.is_current.is_(True),
+            DocumentVersion.status == "indexed",
+        )
+    )
+
+    term = (q or "").strip()
+    if term:
+        # escape LIKE wildcards so "%" or "_" in the search (common in file names) match literally
+        safe = term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        like = f"%{safe}%"
+        query = query.where(or_(
+            DocumentModel.title.ilike(like, escape="\\"),
+            DocumentModel.department_order.ilike(like, escape="\\"),
+            DocumentVersion.file_name.ilike(like, escape="\\"),
+            DocumentVersion.doc_type.ilike(like, escape="\\"),
+        ))
+
+    query = query.order_by(
+        func.coalesce(DocumentModel.updated_at, DocumentModel.created_at).desc()
+    ).limit(limit)
+
+    rows = (await db.execute(query)).all()
+    return [
+        MentionableDocumentOut(
+            id=doc.id,
+            version_id=version.id,
+            title=doc.title,
+            file_name=version.file_name,
+            doc_type=version.doc_type,
+            series_year=doc.series_years.year if doc.series_years else None,
+            shelf_location=doc.physical_shelf_location,
+            clearance=getattr(doc.clearance_level, "value", str(doc.clearance_level)),
+        )
+        for doc, version in rows
+    ]
 
 
 @router.get("/list", status_code=status.HTTP_200_OK, response_model=list[ConversationsResponse])
@@ -223,6 +284,8 @@ async def view_chats(
 
 
 
+AGENT_TIMEOUT_SECONDS = 120   # an answer that takes longer is stopped with a clear message (never hangs forever)
+
 STATUS_LABELS = {
     "ask_researcher": "Searching the archive...",
     "ask_doc_analyst": "Analyzing the document...",
@@ -233,7 +296,10 @@ STATUS_LABELS = {
 def _total_tokens(usage_cb)->int:
     if not usage_cb:
         return 0
-    return sum(int(u.gt("total_tokens", 0)) for u in usage_cb.usage_metadata.values())
+    try:
+        return sum(int(u.get("total_tokens", 0)) for u in usage_cb.usage_metadata.values())
+    except Exception:
+        return 0   # never let bookkeeping break saving the reply
 
 #Collect the cited sources from THIS turn only (tool results after the last human message).
 #Purpose: return the documents the answer was based on, as structured data.
@@ -308,6 +374,7 @@ async def _prepare_turn(payload:ChatSchema, db:AsyncSession, current_user:Users)
     initial_state={
         "messages": [HumanMessage(content=payload.content)],
         "attachment_ids": attachment_ids,
+        "target_ids": attachment_ids,
         "user_id": current_user.id,
         "user_profile": {
             "name": f"{current_user.first_name or ''} {current_user.last_name or ''}".strip(),
@@ -351,11 +418,15 @@ async def talk_to_ai(
     sources: list[dict] = []
     usage_cb = None
     try:
-        with get_usage_metadata_callback() as usage_cb:   # counts supervisor + specialists
-            agent_output = await agent_app.ainvoke(initial_state, config=config)
+        async with asyncio.timeout(AGENT_TIMEOUT_SECONDS):
+            with get_usage_metadata_callback() as usage_cb:   # counts supervisor + specialists
+                agent_output = await agent_app.ainvoke(initial_state, config=config)
         msgs = agent_output.get("messages", [])
         ai_content = (msgs[-1].text if msgs else "") or "No response generated."
         sources = _turn_sources(msgs)
+    except TimeoutError:
+        logger.warning("[Chat] Agent timed out (conversation_id=%s)", conversation.id)
+        ai_content = "Sorry, that took too long. Please try a more specific question."
     except GraphRecursionError:
         ai_content = "Sorry, that request needed too many steps. Please make it more specific."
     except Exception:
@@ -392,57 +463,82 @@ async def talk_to_ai_stream(
 
     async def event_stream():
         token = current_allowed_clearance.set(allowed_levels)
-        final_text, sources, usage_cb = "", [], None
-
-        yield _sse("meta", {"conversation_id": conversation_id, "chat": user_message_out})
+        final_text, streamed_text, sources, usage_cb = "", "", [], None
+        ai_content: str | None = None        # stays None if the stream is interrupted
+        assistant_message = None
+        tokens_used = 0
 
         try:
-            with get_usage_metadata_callback() as usage_cb:
-                async for mode, chunk in agent_app.astream(
-                    initial_state, config=config, stream_mode=["messages", "updates"]
-                ):
-                    if mode == "messages":
-                        msg_chunk, meta = chunk
-                        # only the supervisor's own words; sub-agent tokens are skipped
-                        if meta.get("langgraph_node") == "agent_node" and msg_chunk.text:
-                            yield _sse("token", {"text": msg_chunk.text})
+            yield _sse("meta", {"conversation_id": conversation_id, "chat": user_message_out})
 
-                    elif mode == "updates":
-                        for node, update in chunk.items():
-                            for m in (update or {}).get("messages", []):
-                                if node == "agent_node" and isinstance(m, AIMessage):
-                                    if m.tool_calls:
-                                        yield _sse("reset", {})
-                                        for tc in m.tool_calls:
-                                            yield _sse("status", {"text": STATUS_LABELS.get(tc["name"], "Working…")})
-                                    else:
-                                        final_text = m.text
-                                elif node == "tools" and isinstance(m, ToolMessage) and isinstance(m.artifact, list):
-                                    sources.extend(m.artifact)
+            try:
+                async with asyncio.timeout(AGENT_TIMEOUT_SECONDS):   # never hang forever
+                    with get_usage_metadata_callback() as usage_cb:
+                        async for mode, chunk in agent_app.astream(
+                            initial_state, config=config, stream_mode=["messages", "updates"]
+                        ):
+                            if mode == "messages":
+                                msg_chunk, meta = chunk
+                                # only the supervisor's own words; sub-agent tokens are skipped
+                                if meta.get("langgraph_node") == "agent_node" and msg_chunk.text:
+                                    streamed_text += msg_chunk.text
+                                    yield _sse("token", {"text": msg_chunk.text})
 
-            ai_content = final_text or "No response generated."
-        except GraphRecursionError:
-            ai_content = "Sorry, that request needed too many steps. Please make it more specific."
-        except Exception:
-            logger.exception("[Chat/stream] Agent failed (conversation_id=%s)", conversation_id)
-            ai_content = "Sorry, I couldn't process that request right now. Please try again in a moment."
+                            elif mode == "updates":
+                                for node, update in chunk.items():
+                                    for m in (update or {}).get("messages", []):
+                                        if node == "agent_node" and isinstance(m, AIMessage):
+                                            if m.tool_calls:
+                                                streamed_text = ""   # supervisor is delegating: drop partial text
+                                                yield _sse("reset", {})
+                                                for tc in m.tool_calls:
+                                                    yield _sse("status", {"text": STATUS_LABELS.get(tc["name"], "Working…")})
+                                            else:
+                                                final_text = m.text
+                                        elif node == "tools" and isinstance(m, ToolMessage) and isinstance(m.artifact, list):
+                                            sources.extend(m.artifact)
+
+                ai_content = final_text or streamed_text or "No response generated."
+            except TimeoutError:
+                logger.warning("[Chat/stream] Agent timed out (conversation_id=%s)", conversation_id)
+                ai_content = "Sorry, that took too long. Please try a more specific question."
+            except GraphRecursionError:
+                ai_content = "Sorry, that request needed too many steps. Please make it more specific."
+            except Exception:
+                logger.exception("[Chat/stream] Agent failed (conversation_id=%s)", conversation_id)
+                ai_content = "Sorry, I couldn't process that request right now. Please try again in a moment."
+
         finally:
+            # Runs on success, error AND interruption (client closed the page / pressed Stop).
             try:
                 current_allowed_clearance.reset(token)
             except ValueError:
                 pass  # generator closed from another context (client disconnected)
 
-        tokens_used = _total_tokens(usage_cb)
-        # the request's db session may be closed while streaming -> use a fresh one
-        async with SessionLocal() as session:
-            assistant_message = await _save_assistant_message(session, conversation_id, ai_content, tokens_used)
+            if ai_content is None:   # interrupted: keep whatever was produced
+                partial = final_text or streamed_text
+                ai_content = (partial + "\n\n" if partial else "") + "_(This answer was interrupted before it finished.)_"
 
-        yield _sse("done", {
-            "assistant_message": ChatMessagesResponse.model_validate(assistant_message).model_dump(mode="json"),
-            "content": ai_content,
-            "sources": sources,
-            "tokens_used": tokens_used,
-        })
+            # ALWAYS save the reply. Shielded: if the client disconnected, this task is being
+            # cancelled, and without the shield the save itself would be cancelled too.
+            with anyio.CancelScope(shield=True):
+                try:
+                    tokens_used = _total_tokens(usage_cb)
+                    async with SessionLocal() as session:   # fresh session (request session may be closed)
+                        assistant_message = await _save_assistant_message(session, conversation_id, ai_content, tokens_used)
+                except Exception:
+                    logger.exception("[Chat/stream] Could not save the reply (conversation_id=%s)", conversation_id)
+
+        # only reached when the stream was NOT interrupted
+        if assistant_message is not None:
+            yield _sse("done", {
+                "assistant_message": ChatMessagesResponse.model_validate(assistant_message).model_dump(mode="json"),
+                "content": ai_content,
+                "sources": sources,
+                "tokens_used": tokens_used,
+            })
+        else:
+            yield _sse("error", {"message": "The answer could not be saved. Please try again."})
 
     return StreamingResponse(
         event_stream(),

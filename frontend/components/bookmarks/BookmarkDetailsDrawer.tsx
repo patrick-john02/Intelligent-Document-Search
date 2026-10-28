@@ -23,6 +23,7 @@ import GoogleIcon from "@mui/icons-material/Google";
 import OpenInNewRoundedIcon from "@mui/icons-material/OpenInNewRounded";
 import NoteAltOutlinedIcon from "@mui/icons-material/NoteAltOutlined";
 import ContentCopyRoundedIcon from "@mui/icons-material/ContentCopyRounded";
+import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
 import { BookmarkItem } from "./types";
 import { getClearanceColor } from "./BookmarkCard";
 
@@ -30,6 +31,7 @@ interface BookmarkDetailsDrawerProps {
   item: BookmarkItem | null;
   open: boolean;
   onClose: () => void;
+  onPreview?: (item: BookmarkItem) => void;
   onTogglePin: (id: string, e: React.MouseEvent) => void;
   onEditNote: (item: BookmarkItem) => void;
   onSaveInlineNote: (id: string, note: string) => void;
@@ -40,6 +42,7 @@ export default function BookmarkDetailsDrawer({
   item,
   open,
   onClose,
+  onPreview,
   onTogglePin,
   onEditNote,
   onSaveInlineNote,
@@ -59,6 +62,11 @@ export default function BookmarkDetailsDrawer({
   const handleSaveInline = () => {
     onSaveInlineNote(item.id, inlineNoteText);
     setIsEditingInline(false);
+  };
+
+  const handleCopyCitation = () => {
+    const citation = `${item.orderNo}: "${item.title}" (Series ${item.seriesYear}). Category: ${item.category}.`;
+    navigator.clipboard.writeText(citation);
   };
 
   return (
@@ -139,8 +147,42 @@ export default function BookmarkDetailsDrawer({
       </Typography>
 
       <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mb: 2 }}>
-        Collection: <strong>{item.collection}</strong> • Official Date: {item.officialDate || "N/A"} • Size: {item.fileSize} ({item.pageCount} pages)
+        Collection: <strong>{item.collection}</strong> • Promulgated: {item.officialDate || "2024"} • Size: {item.fileSize} ({item.pageCount} pages)
       </Typography>
+
+      {/* Main Document Viewer Action */}
+      <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
+        <Button
+          variant="contained"
+          color="primary"
+          fullWidth
+          startIcon={<DescriptionOutlinedIcon />}
+          onClick={() => onPreview?.(item)}
+          sx={{
+            borderRadius: 2,
+            textTransform: "none",
+            fontWeight: 700,
+            py: 0.9,
+            boxShadow: "none",
+          }}
+        >
+          Open Document Viewer
+        </Button>
+
+        <Tooltip title="Copy formal citation to clipboard">
+          <IconButton
+            onClick={handleCopyCitation}
+            sx={{
+              borderRadius: 2,
+              border: "1px solid",
+              borderColor: "divider",
+              px: 1.5,
+            }}
+          >
+            <ContentCopyRoundedIcon sx={{ fontSize: 18 }} />
+          </IconButton>
+        </Tooltip>
+      </Stack>
 
       <Divider sx={{ mb: 2.5 }} />
 
@@ -149,30 +191,29 @@ export default function BookmarkDetailsDrawer({
         <Stack spacing={2.5}>
           {/* Section 1: Personal Study Notes & Annotations */}
           <Box
-            sx={(theme) => ({
+            sx={{
               p: 2,
               borderRadius: 2,
               border: "1px solid",
               borderColor: "rgba(245, 158, 11, 0.3)",
-              bgcolor: theme.vars
-                ? "rgba(245, 158, 11, 0.05)"
-                : "rgba(245, 158, 11, 0.05)",
-            })}
+              bgcolor: "rgba(245, 158, 11, 0.05)",
+            }}
           >
-            <Stack direction="row" spacing={1} sx={{ alignItems: "center", justifyContent: "space-between", mb: 1 }}>
-              <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+            <Stack direction="row" spacing={1} sx={{ alignItems: "center", justifyContent: "space-between", mb: 1.25 }}>
+              <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
                 <NoteAltOutlinedIcon sx={{ color: "#D97706", fontSize: 18 }} />
-                <Typography variant="subtitle2" sx={{ fontWeight: 700, color: "text.primary" }}>
-                  Personal Study Notes & Annotations
+                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                  Personal Study Notes
                 </Typography>
-              </Box>
+              </Stack>
 
               {!isEditingInline && (
                 <Button
                   size="small"
+                  variant="text"
+                  startIcon={<EditNoteRoundedIcon />}
                   onClick={handleStartEdit}
-                  startIcon={<EditNoteRoundedIcon sx={{ fontSize: 14 }} />}
-                  sx={{ fontSize: "0.72rem", textTransform: "none", p: 0.25 }}
+                  sx={{ textTransform: "none", fontSize: "0.75rem", color: "#D97706", fontWeight: 600 }}
                 >
                   Edit Note
                 </Button>
@@ -180,20 +221,25 @@ export default function BookmarkDetailsDrawer({
             </Stack>
 
             {isEditingInline ? (
-              <Stack spacing={1.5} sx={{ mt: 1 }}>
+              <Stack spacing={1.5}>
                 <TextField
                   multiline
                   rows={3}
-                  size="small"
                   fullWidth
+                  size="small"
                   value={inlineNoteText}
                   onChange={(e) => setInlineNoteText(e.target.value)}
-                  placeholder="Enter personal observations, relevant sections, or hearing notes..."
-                  sx={{ bgcolor: "background.paper", borderRadius: 1 }}
+                  placeholder="Record your legal observations, statutory precedents, or audit notes..."
+                  sx={{
+                    bgcolor: "background.paper",
+                    borderRadius: 1.5,
+                    "& .MuiOutlinedInput-root": { fontSize: "0.82rem" },
+                  }}
                 />
                 <Stack direction="row" spacing={1} sx={{ justifyContent: "flex-end" }}>
                   <Button
                     size="small"
+                    variant="text"
                     onClick={() => setIsEditingInline(false)}
                     sx={{ textTransform: "none", fontSize: "0.75rem" }}
                   >
@@ -222,15 +268,13 @@ export default function BookmarkDetailsDrawer({
 
           {/* Section 2: Physical Custody & Shelf Coordinates */}
           <Box
-            sx={(theme) => ({
+            sx={{
               p: 2,
               borderRadius: 2,
               border: "1px solid",
               borderColor: "divider",
-              bgcolor: theme.vars
-                ? `rgba(${theme.vars.palette.background.defaultChannel} / 0.6)`
-                : "action.hover",
-            })}
+              bgcolor: "action.hover",
+            }}
           >
             <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 1.5 }}>
               <PlaceOutlinedIcon sx={{ color: "#10B981", fontSize: 18 }} />
@@ -281,15 +325,13 @@ export default function BookmarkDetailsDrawer({
 
           {/* Section 3: AI Document Intelligence */}
           <Box
-            sx={(theme) => ({
+            sx={{
               p: 2,
               borderRadius: 2,
               border: "1px solid",
               borderColor: "divider",
-              bgcolor: theme.vars
-                ? `rgba(${theme.vars.palette.background.defaultChannel} / 0.6)`
-                : "action.hover",
-            })}
+              bgcolor: "action.hover",
+            }}
           >
             <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 1 }}>
               <AutoAwesomeOutlinedIcon sx={{ color: "primary.main", fontSize: 18 }} />
@@ -369,12 +411,12 @@ export default function BookmarkDetailsDrawer({
 
           {/* Tags */}
           <Box>
-            <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 600, display: "block", mb: 0.75 }}>
-              TAGS & CITATIONS
+            <Typography variant="caption" sx={{ fontWeight: 700, color: "text.secondary", display: "block", mb: 1 }}>
+              SUBJECT TAGS
             </Typography>
             <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.75 }}>
               {item.tags.map((tag) => (
-                <Chip key={tag} label={`#${tag}`} size="small" sx={{ fontSize: "0.7rem", height: 22 }} />
+                <Chip key={tag} label={`#${tag}`} size="small" variant="outlined" sx={{ borderRadius: 1.5, fontSize: "0.72rem" }} />
               ))}
             </Box>
           </Box>
@@ -383,26 +425,29 @@ export default function BookmarkDetailsDrawer({
 
       {/* Drawer Footer Actions */}
       <Divider sx={{ my: 2 }} />
-      <Stack direction="row" spacing={1.5} sx={{ justifyContent: "space-between" }}>
+      <Stack direction="row" spacing={1} sx={{ justifyContent: "space-between" }}>
         <Button
-          variant="outlined"
-          color="error"
           size="small"
+          variant="text"
+          color="error"
           startIcon={<DeleteOutlineRoundedIcon />}
-          onClick={(e) => onRemove(item.id, e)}
-          sx={{ borderRadius: 2, textTransform: "none", fontWeight: 600 }}
+          onClick={(e) => {
+            onRemove(item.id, e);
+            onClose();
+          }}
+          sx={{ textTransform: "none", fontSize: "0.78rem" }}
         >
-          Remove Bookmark
+          Remove from Saved
         </Button>
 
         <Button
-          variant="contained"
           size="small"
+          variant="outlined"
           startIcon={<EditNoteRoundedIcon />}
           onClick={() => onEditNote(item)}
-          sx={{ borderRadius: 2, textTransform: "none", fontWeight: 600 }}
+          sx={{ textTransform: "none", fontSize: "0.78rem" }}
         >
-          Edit Note & Collection
+          Move / Edit Collection
         </Button>
       </Stack>
     </Drawer>

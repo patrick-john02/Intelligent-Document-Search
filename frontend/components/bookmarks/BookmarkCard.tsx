@@ -10,6 +10,7 @@ import Stack from "@mui/material/Stack";
 import Chip from "@mui/material/Chip";
 import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";
+import Checkbox from "@mui/material/Checkbox";
 import Tooltip from "@mui/material/Tooltip";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
@@ -27,12 +28,16 @@ import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded";
 import ContentCopyRoundedIcon from "@mui/icons-material/ContentCopyRounded";
 import EditNoteRoundedIcon from "@mui/icons-material/EditNoteRounded";
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
+import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
 import { BookmarkItem, ClearanceLevel } from "./types";
 
 interface BookmarkCardProps {
   item: BookmarkItem;
   isSelected?: boolean;
+  isChecked?: boolean;
+  onToggleCheck?: (id: string, e: React.MouseEvent) => void;
   onSelect: (item: BookmarkItem) => void;
+  onPreview?: (item: BookmarkItem, e: React.MouseEvent) => void;
   onTogglePin: (id: string, e: React.MouseEvent) => void;
   onEditNote: (item: BookmarkItem, e: React.MouseEvent) => void;
   onRemove: (id: string, e: React.MouseEvent) => void;
@@ -56,7 +61,10 @@ export function getClearanceColor(level: ClearanceLevel): "success" | "info" | "
 export default function BookmarkCard({
   item,
   isSelected,
+  isChecked = false,
+  onToggleCheck,
   onSelect,
+  onPreview,
   onTogglePin,
   onEditNote,
   onRemove,
@@ -91,6 +99,15 @@ export default function BookmarkCard({
     router.push(`/locator?barcode=${encodeURIComponent(item.shelfLocation.barcode)}`);
   };
 
+  const handlePreview = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onPreview) {
+      onPreview(item, e);
+    } else {
+      onSelect(item);
+    }
+  };
+
   return (
     <>
       <Card
@@ -98,31 +115,58 @@ export default function BookmarkCard({
         onClick={() => onSelect(item)}
         sx={(theme) => ({
           borderRadius: 2.5,
-          borderColor: isSelected ? "primary.main" : "divider",
-          borderWidth: isSelected ? 2 : 1,
-          bgcolor: isSelected ? "action.selected" : "background.paper",
+          borderColor: isChecked
+            ? "primary.main"
+            : isSelected
+              ? "primary.main"
+              : "divider",
+          borderWidth: isChecked || isSelected ? 2 : 1,
+          bgcolor: isChecked
+            ? "action.selected"
+            : isSelected
+              ? "action.selected"
+              : "background.paper",
           cursor: "pointer",
           display: "flex",
           flexDirection: "column",
           justifyContent: "space-between",
           transition: "all 0.18s ease-in-out",
           position: "relative",
-          boxShadow: isSelected ? "0 4px 14px rgba(0,0,0,0.08)" : "0 1px 3px rgba(0,0,0,0.03)",
+          boxShadow: isChecked || isSelected ? "0 4px 14px rgba(0,0,0,0.08)" : "0 1px 3px rgba(0,0,0,0.03)",
           "&:hover": {
-            borderColor: isSelected ? "primary.main" : "text.secondary",
+            borderColor: isChecked || isSelected ? "primary.main" : "text.secondary",
             transform: "translateY(-2px)",
             boxShadow: "0 6px 16px rgba(0,0,0,0.08)",
+            "& .select-checkbox": {
+              opacity: 1,
+            },
           },
         })}
       >
         <CardContent sx={{ p: 2.25, flex: 1, display: "flex", flexDirection: "column" }}>
-          {/* Top Row: Order Number, Year, Collection Pill & Star Pin */}
+          {/* Top Row: Checkbox, Order No, Year, Collection Pill & Star Pin */}
           <Stack
             direction="row"
             spacing={1}
             sx={{ alignItems: "center", justifyContent: "space-between", mb: 1.5 }}
           >
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, flexWrap: "wrap" }}>
+              {/* Checkbox for batch actions */}
+              {onToggleCheck && (
+                <Checkbox
+                  size="small"
+                  checked={isChecked}
+                  onClick={(e) => onToggleCheck(item.id, e)}
+                  sx={{
+                    p: 0.25,
+                    opacity: isChecked ? 1 : { xs: 1, sm: 0.4 },
+                    transition: "opacity 0.15s ease",
+                    "&:hover": { opacity: 1 },
+                  }}
+                  className="select-checkbox"
+                />
+              )}
+
               {/* Order Number Monospace Tag */}
               <Box
                 sx={{
@@ -222,16 +266,14 @@ export default function BookmarkCard({
           {/* Personal Research Notes Box (Amber callout) */}
           {item.personalNotes ? (
             <Box
-              sx={(theme) => ({
+              sx={{
                 p: 1.25,
                 borderRadius: 2,
-                bgcolor: theme.vars
-                  ? "rgba(245, 158, 11, 0.08)"
-                  : "rgba(245, 158, 11, 0.08)",
+                bgcolor: "rgba(245, 158, 11, 0.08)",
                 border: "1px solid",
                 borderColor: "rgba(245, 158, 11, 0.25)",
                 mb: 1.5,
-              })}
+              }}
             >
               <Stack direction="row" spacing={1} sx={{ alignItems: "flex-start" }}>
                 <NoteAltOutlinedIcon sx={{ fontSize: 16, color: "#D97706", mt: 0.25, flexShrink: 0 }} />
@@ -299,7 +341,7 @@ export default function BookmarkCard({
             </Typography>
           </Box>
 
-          {/* Bottom Shortcuts: Ask AI, Locate Physical, Google Drive */}
+          {/* Bottom Shortcuts: Preview, Ask AI, Locate Physical, Google Drive */}
           <Stack
             direction="row"
             spacing={1}
@@ -313,6 +355,25 @@ export default function BookmarkCard({
             }}
           >
             <Stack direction="row" spacing={0.5}>
+              <Tooltip title="Preview document in viewer">
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={handlePreview}
+                  startIcon={<DescriptionOutlinedIcon sx={{ fontSize: 14 }} />}
+                  sx={{
+                    borderRadius: 1.5,
+                    fontSize: "0.7rem",
+                    textTransform: "none",
+                    fontWeight: 600,
+                    px: 1,
+                    py: 0.25,
+                  }}
+                >
+                  Preview
+                </Button>
+              </Tooltip>
+
               <Tooltip title="Ask AI Assistant about this directive">
                 <Button
                   size="small"
@@ -381,6 +442,18 @@ export default function BookmarkCard({
         slotProps={{ paper: { sx: { borderRadius: 2, minWidth: 180 } } }}
       >
         <MenuItem
+          onClick={(e) => {
+            handlePreview(e);
+            handleCloseMenu();
+          }}
+        >
+          <ListItemIcon>
+            <DescriptionOutlinedIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>Preview Document</ListItemText>
+        </MenuItem>
+
+        <MenuItem
           onClick={() => {
             onSelect(item);
             handleCloseMenu();
@@ -389,7 +462,7 @@ export default function BookmarkCard({
           <ListItemIcon>
             <VisibilityOutlinedIcon fontSize="small" />
           </ListItemIcon>
-          <ListItemText>View Intelligence Drawer</ListItemText>
+          <ListItemText>View Details Drawer</ListItemText>
         </MenuItem>
 
         <MenuItem

@@ -295,11 +295,20 @@ async def search_documents(
         "document_version_id": {"$in": authorized_version_ids},
     }
 
-    vector_task = deps.vector_store.asimilarity_search_with_score(
-        query=clean_query,
-        k=candidate_pool,
-        filter=vector_filter,
-    )
+    async def _dense_search():
+        """Dense (vector) candidates. If the embedding service (Ollama) is down, return []
+        so search degrades to lexical-only instead of failing completely."""
+        try:
+            return await deps.vector_store.asimilarity_search_with_score(
+                query=clean_query,
+                k=candidate_pool,
+                filter=vector_filter,
+            )
+        except Exception as e:
+            logger.warning(f"[Search] Dense retrieval unavailable ({type(e).__name__}: {e}); using lexical results only")
+            return []
+
+    vector_task = _dense_search()
     lexical_task = search_lexical_chunks(
         query=clean_query,
         top_k=candidate_pool,

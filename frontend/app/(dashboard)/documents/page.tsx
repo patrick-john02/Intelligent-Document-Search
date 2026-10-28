@@ -6,7 +6,9 @@ import CssBaseline from "@mui/material/CssBaseline";
 import Snackbar from "@mui/material/Snackbar";
 import Alert from "@mui/material/Alert";
 import Button from "@mui/material/Button";
+import Typography from "@mui/material/Typography";
 import LinearProgress from "@mui/material/LinearProgress";
+import CloudUploadOutlinedIcon from "@mui/icons-material/CloudUploadOutlined";
 import { alpha } from "@mui/material/styles";
 import { getDocument } from "@/lib/documentsApi";
 import { apiDocumentToArchive } from "@/components/documents/documentMapper";
@@ -105,6 +107,8 @@ export default function DocumentArchivePage(props: { disableCustomTheme?: boolea
   // Layout Panels & Modal States
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
   const [isUploadOpen, setIsUploadOpen] = useState<boolean>(false);
+  const [droppedFiles, setDroppedFiles] = useState<File[]>([]);
+  const [isWorkspaceDragOver, setIsWorkspaceDragOver] = useState<boolean>(false);
   const [isIntelligenceOpen, setIsIntelligenceOpen] = useState<boolean>(false);
   const [intelligenceTab, setIntelligenceTab] = useState<IntelligenceTab>("dossier");
   const [previewDoc, setPreviewDoc] = useState<ArchiveDocument | null>(null);
@@ -251,6 +255,8 @@ export default function DocumentArchivePage(props: { disableCustomTheme?: boolea
             totalDeletedCount={totalDeletedCount}
             onToggleDeletedMode={() => setIsDeletedMode((prev) => !prev)}
             onOpenUpload={() => setIsUploadOpen(true)}
+            isSidebarOpen={isSidebarOpen}
+            onToggleSidebar={() => setIsSidebarOpen((prev) => !prev)}
           />
 
           {/* Ambient Banner when in Soft-Deleted Records Vault Mode */}
@@ -323,6 +329,25 @@ export default function DocumentArchivePage(props: { disableCustomTheme?: boolea
 
             {/* 2. Center Document Workspace */}
             <Box
+              onDragOver={(e) => {
+                if (e.dataTransfer.types.includes("Files")) {
+                  e.preventDefault();
+                  setIsWorkspaceDragOver(true);
+                }
+              }}
+              onDragLeave={(e) => {
+                if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                  setIsWorkspaceDragOver(false);
+                }
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                setIsWorkspaceDragOver(false);
+                if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                  setDroppedFiles(Array.from(e.dataTransfer.files));
+                  setIsUploadOpen(true);
+                }
+              }}
               sx={{
                 flex: 1,
                 minWidth: 0,
@@ -330,8 +355,53 @@ export default function DocumentArchivePage(props: { disableCustomTheme?: boolea
                 flexDirection: "column",
                 height: "100%",
                 overflow: "hidden",
+                position: "relative",
               }}
             >
+              {/* Workspace Drag-and-Drop Active Overlay */}
+              {isWorkspaceDragOver && (
+                <Box
+                  sx={{
+                    position: "absolute",
+                    inset: 0,
+                    zIndex: 200,
+                    bgcolor: (theme) => alpha(theme.palette.background.paper, 0.92),
+                    backdropFilter: "blur(6px)",
+                    border: "2.5px dashed",
+                    borderColor: "primary.main",
+                    borderRadius: 2.5,
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 1.5,
+                    pointerEvents: "none",
+                    boxShadow: "0 8px 32px rgba(6, 182, 212, 0.2)",
+                  }}
+                >
+                  <Box
+                    sx={{
+                      width: 64,
+                      height: 64,
+                      borderRadius: "50%",
+                      bgcolor: alpha("#06B6D4", 0.12),
+                      color: "primary.main",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <CloudUploadOutlinedIcon sx={{ fontSize: 36 }} />
+                  </Box>
+                  <Typography variant="h6" sx={{ fontWeight: 800 }}>
+                    Drop records to stage for archiving
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                    Target location: {currentFolder ? currentFolder.name : "Archive Root"}
+                  </Typography>
+                </Box>
+              )}
+
               {isLoadingDocuments && <LinearProgress sx={{ flexShrink: 0 }} />}
               {documentsError && (
                 <Alert
@@ -455,8 +525,20 @@ export default function DocumentArchivePage(props: { disableCustomTheme?: boolea
         {/* Upload Document Dialog */}
         <UploadDocumentDialog
           open={isUploadOpen}
-          onClose={() => setIsUploadOpen(false)}
-          onStartArchiving={startArchiving}
+          onClose={() => {
+            setIsUploadOpen(false);
+            setDroppedFiles([]);
+          }}
+          onStartArchiving={(files, config) => {
+            startArchiving(files, config);
+            setSnackbarMessage(
+              `Ingestion started: ${files.length} record(s) queued for Alon's archiving pipeline.`
+            );
+          }}
+          currentFolder={currentFolder}
+          breadcrumbTrail={breadcrumbTrail}
+          initialFiles={droppedFiles}
+          existingDocuments={documents}
         />
 
         {/* Archiving Agent Pipeline Modal */}

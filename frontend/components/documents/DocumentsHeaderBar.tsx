@@ -20,6 +20,8 @@ import InfoRoundedIcon from "@mui/icons-material/InfoRounded";
 import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded";
 import RestoreFromTrashRoundedIcon from "@mui/icons-material/RestoreFromTrashRounded";
 import CloudUploadOutlinedIcon from "@mui/icons-material/CloudUploadOutlined";
+import MenuRoundedIcon from "@mui/icons-material/MenuRounded";
+import MenuOpenRoundedIcon from "@mui/icons-material/MenuOpenRounded";
 
 import DocumentsBreadcrumbs from "./DocumentsBreadcrumbs";
 import { IntelligenceTab } from "./DocumentIntelligencePane";
@@ -40,6 +42,8 @@ export interface DocumentsHeaderBarProps {
   totalDeletedCount: number;
   onToggleDeletedMode: () => void;
   onOpenUpload: () => void;
+  isSidebarOpen?: boolean;
+  onToggleSidebar?: () => void;
 }
 
 export default function DocumentsHeaderBar({
@@ -58,6 +62,8 @@ export default function DocumentsHeaderBar({
   totalDeletedCount,
   onToggleDeletedMode,
   onOpenUpload,
+  isSidebarOpen = false,
+  onToggleSidebar,
 }: DocumentsHeaderBarProps) {
   return (
     <Box
@@ -73,15 +79,39 @@ export default function DocumentsHeaderBar({
         flexShrink: 0,
       }}
     >
-      {/* Clickable Breadcrumbs Path */}
-      <DocumentsBreadcrumbs
-        breadcrumbTrail={breadcrumbTrail}
-        currentFolderId={currentFolderId}
-        onNavigate={onNavigateFolder}
-        onBack={onNavigateBack}
-        folderCount={folderCount}
-        fileCount={fileCount}
-      />
+      {/* Left Action & Clickable Breadcrumbs Path */}
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
+        {onToggleSidebar && (
+          <Tooltip title={isSidebarOpen ? "Collapse file directory" : "Expand file directory"}>
+            <IconButton
+              size="small"
+              onClick={onToggleSidebar}
+              aria-label={isSidebarOpen ? "Collapse file directory" : "Expand file directory"}
+              sx={{
+                width: 32,
+                height: 32,
+                borderRadius: 1.5,
+                border: "1px solid",
+                borderColor: isSidebarOpen ? "primary.main" : "divider",
+                color: isSidebarOpen ? "primary.main" : "text.secondary",
+                bgcolor: isSidebarOpen ? "action.selected" : "background.paper",
+                "&:hover": { borderColor: "primary.main", bgcolor: "action.hover" },
+              }}
+            >
+              {isSidebarOpen ? <MenuOpenRoundedIcon fontSize="small" /> : <MenuRoundedIcon fontSize="small" />}
+            </IconButton>
+          </Tooltip>
+        )}
+
+        <DocumentsBreadcrumbs
+          breadcrumbTrail={breadcrumbTrail}
+          currentFolderId={currentFolderId}
+          onNavigate={onNavigateFolder}
+          onBack={onNavigateBack}
+          folderCount={folderCount}
+          fileCount={fileCount}
+        />
+      </Box>
 
       {/* Right Action Controls: View Switcher, Info, Divider, Deleted Vault, Upload */}
       <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexShrink: 0 }}>

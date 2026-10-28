@@ -21,13 +21,13 @@ import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 import ClearRoundedIcon from "@mui/icons-material/ClearRounded";
 
 // Subcomponents
-import DocumentMentionDropdown, {
-  MENTIONABLE_DOCUMENTS,
-  MentionableDocument,
-} from "@/components/chat/DocumentMentionDropdown";
+import DocumentMentionDropdown from "@/components/chat/DocumentMentionDropdown";
+import { MentionableDocument, searchMentionableDocuments } from "@/lib/chatApi";
+
+const MAX_TARGETS = 3; // e.g. "compare @A with @B"
 
 interface ChatComposerProps {
-  onSendMessage: (text: string, targetedDoc: MentionableDocument | null) => void;
+  onSendMessage: (text: string, targetedDocs: MentionableDocument[]) => void;
   isGenerating: boolean;
   onStopGenerating?: () => void;
   initialText?: string;
@@ -43,19 +43,49 @@ export default function ChatComposer({
   const [showMentionMenu, setShowMentionMenu] = useState<boolean>(false);
   const [mentionQuery, setMentionQuery] = useState<string>("");
   const [mentionSelectedIndex, setMentionSelectedIndex] = useState<number>(0);
-  const [targetedDoc, setTargetedDoc] = useState<MentionableDocument | null>(null);
+  const [targetedDocs, setTargetedDocs] = useState<MentionableDocument[]>([]);
+  const [results, setResults] = useState<MentionableDocument[]>([]);   // what the dropdown shows
+  const [resultsLoading, setResultsLoading] = useState<boolean>(false);
 
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
 
   // Sync external text changes (e.g. from empty state quick prompt click)
+  // copy a new initialText into the input while rendering (React's "adjust state on prop change" pattern)
+  const [prevInitialText, setPrevInitialText] = useState(initialText);
+  if (initialText !== prevInitialText) {
+    setPrevInitialText(initialText);
+    if (initialText) setInputText(initialText);
+  }
   useEffect(() => {
-    if (initialText) {
-      setInputText(initialText);
-      setTimeout(() => {
-        inputRef.current?.focus();
-      }, 50);
-    }
+    if (!initialText) return;
+    const t = setTimeout(() => inputRef.current?.focus(), 50);
+    return () => clearTimeout(t);
   }, [initialText]);
+
+  // Server-side document search for the "@query" (debounced 250 ms; a newer query cancels the older one).
+  // State is only set inside the timer/promise callbacks (React rule: no synchronous setState in effects).
+  useEffect(() => {
+    if (!showMentionMenu) return;
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      setResultsLoading(true);
+      searchMentionableDocuments(mentionQuery, 8, controller.signal)
+        .then((docs) => {
+          setResults(docs);
+          setMentionSelectedIndex(0);
+        })
+        .catch((err) => {
+          if ((err as Error)?.name !== "AbortError") setResults([]);
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) setResultsLoading(false);
+        });
+    }, 250);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [showMentionMenu, mentionQuery]);
 
   // Mention handler when typing
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -80,9 +110,12 @@ export default function ChatComposer({
     const textBeforeCursor = inputText.slice(0, cursor);
     const textAfterCursor = inputText.slice(cursor);
 
-    const newBefore = textBeforeCursor.replace(/@([a-zA-Z0-9\-_.]*)$/, `@[${doc.orderNo}] `);
+    const newBefore = textBeforeCursor.replace(/@([a-zA-Z0-9\-_.]*)$/, `@[${doc.label}] `);
     setInputText(newBefore + textAfterCursor);
-    setTargetedDoc(doc);
+    // add as a target (no duplicates, max MAX_TARGETS)
+    setTargetedDocs((prev) =>
+      prev.some((d) => d.id === doc.id) || prev.length >= MAX_TARGETS ? prev : [...prev, doc]
+    );
     setShowMentionMenu(false);
 
     setTimeout(() => {
@@ -102,7 +135,7 @@ export default function ChatComposer({
 
   const handleClearInput = () => {
     setInputText("");
-    setTargetedDoc(null);
+    setTargetedDocs([]);
     setShowMentionMenu(false);
     inputRef.current?.focus();
   };
@@ -111,30 +144,20 @@ export default function ChatComposer({
     if (e) e.preventDefault();
     if (!inputText.trim() || isGenerating) return;
 
-    const activeDoc =
-      targetedDoc ||
-      MENTIONABLE_DOCUMENTS.find((d) => inputText.includes(`@[${d.orderNo}]`)) ||
-      null;
+    // the chips are the source of truth for which documents are targeted
+    const activeDocs = targetedDocs;
 
     const prompt = inputText;
     setInputText("");
-    setTargetedDoc(null);
+    setTargetedDocs([]);
     setShowMentionMenu(false);
 
-    onSendMessage(prompt, activeDoc);
+    onSendMessage(prompt, activeDocs);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     if (showMentionMenu) {
-      const normalizedQuery = mentionQuery.toLowerCase().trim();
-      const filtered = MENTIONABLE_DOCUMENTS.filter(
-        (doc) =>
-          !normalizedQuery ||
-          doc.orderNo.toLowerCase().includes(normalizedQuery) ||
-          doc.title.toLowerCase().includes(normalizedQuery) ||
-          doc.category.toLowerCase().includes(normalizedQuery) ||
-          doc.shelfLocation.toLowerCase().includes(normalizedQuery)
-      );
+      const filtered = results; // same list the dropdown shows
 
       if (e.key === "ArrowDown") {
         e.preventDefault();
@@ -182,9 +205,10 @@ export default function ChatComposer({
       <DocumentMentionDropdown
         open={showMentionMenu}
         query={mentionQuery}
+        docs={results}
+        loading={resultsLoading}
         selectedIndex={mentionSelectedIndex}
         onSelect={handleSelectMention}
-        onClose={() => setShowMentionMenu(false)}
       />
 
       {/* Main Composer Card */}
@@ -204,19 +228,25 @@ export default function ChatComposer({
         })}
       >
         {/* Active Targeted Directive Chip */}
-        {targetedDoc && (
+        {targetedDocs.length > 0 && (
           <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1, flexWrap: "wrap" }}>
-            <Chip
-              icon={<AutoAwesomeRoundedIcon sx={{ fontSize: "14px !important" }} />}
-              label={`Scoped Directive: ${targetedDoc.orderNo} (${targetedDoc.shelfLocation})`}
-              color="primary"
-              size="small"
-              onDelete={() => setTargetedDoc(null)}
-              deleteIcon={<CloseRoundedIcon sx={{ fontSize: "14px !important" }} />}
-              sx={{ fontWeight: 700, borderRadius: 1.5, fontSize: "0.74rem" }}
-            />
+            {targetedDocs.map((doc) => (
+              <Chip
+                key={doc.id}
+                icon={<AutoAwesomeRoundedIcon sx={{ fontSize: "14px !important" }} />}
+                label={`${doc.label}${doc.shelfLocation ? ` (${doc.shelfLocation})` : ""}`}
+                title={doc.title}
+                color="primary"
+                size="small"
+                onDelete={() => setTargetedDocs((prev) => prev.filter((d) => d.id !== doc.id))}
+                deleteIcon={<CloseRoundedIcon sx={{ fontSize: "14px !important" }} />}
+                sx={{ fontWeight: 700, borderRadius: 1.5, fontSize: "0.74rem" }}
+              />
+            ))}
             <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.7rem" }}>
-              Vector retrieval bounded specifically to this directive
+              {targetedDocs.length === 1
+                ? "The answer will use only this document"
+                : `The answer will use only these ${targetedDocs.length} documents`}
             </Typography>
           </Box>
         )}

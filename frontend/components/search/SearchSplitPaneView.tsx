@@ -24,6 +24,7 @@ import BookmarkRoundedIcon from "@mui/icons-material/BookmarkRounded";
 
 import Highlighter from "./Highlighter";
 import { SearchResultItem } from "./types";
+import { useBookmarks } from "@/context/BookmarkContext";
 
 interface SearchSplitPaneViewProps {
   results: SearchResultItem[];
@@ -41,13 +42,13 @@ export default function SearchSplitPaneView({
   onAskAi,
 }: SearchSplitPaneViewProps) {
   const [selectedId, setSelectedId] = useState<string | number>(results[0]?.id || "");
-  const [bookmarkedIds, setBookmarkedIds] = useState<Record<string | number, boolean>>({});
+  const { isBookmarked, toggleBookmark } = useBookmarks();
 
   const activeDoc = results.find((r) => r.id === selectedId) || results[0];
 
-  const handleToggleBookmark = (id: string | number, e: React.MouseEvent) => {
+  const handleToggleBookmark = (item: SearchResultItem, e: React.MouseEvent) => {
     e.stopPropagation();
-    setBookmarkedIds((prev) => ({ ...prev, [id]: !prev[id] }));
+    toggleBookmark(item);
   };
 
   const handleCopyCitation = (doc: SearchResultItem) => {
@@ -91,7 +92,7 @@ export default function SearchSplitPaneView({
           {results.map((item) => {
             const isSelected = item.id === activeDoc.id;
             const matchScore = item.relevanceScore ? Math.round(item.relevanceScore * 100) : null;
-            const isSaved = Boolean(bookmarkedIds[item.id]);
+            const isSaved = isBookmarked(item.id || item.orderNo);
 
             return (
               <Box
@@ -126,7 +127,7 @@ export default function SearchSplitPaneView({
                         sx={{ height: 18, fontSize: "0.65rem", fontWeight: 700, borderRadius: 1 }}
                       />
                     )}
-                    <IconButton size="small" onClick={(e) => handleToggleBookmark(item.id, e)} sx={{ p: 0.25 }}>
+                    <IconButton size="small" onClick={(e) => handleToggleBookmark(item, e)} sx={{ p: 0.25 }}>
                       {isSaved ? (
                         <BookmarkRoundedIcon sx={{ fontSize: 16, color: "primary.main" }} />
                       ) : (
