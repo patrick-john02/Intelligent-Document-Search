@@ -19,20 +19,16 @@ import CssBaseline from "@mui/material/CssBaseline";
 import Checkbox from "@mui/material/Checkbox";
 import Tooltip from "@mui/material/Tooltip";
 import IconButton from "@mui/material/IconButton";
-import Button from "@mui/material/Button";
 import { alpha } from "@mui/material/styles";
 
 // MUI Icons
 import CheckCircleRoundedIcon from "@mui/icons-material/CheckCircleRounded";
-import WarningAmberRoundedIcon from "@mui/icons-material/WarningAmberRounded";
-import AutoAwesomeOutlinedIcon from "@mui/icons-material/AutoAwesomeOutlined";
 import PictureAsPdfRoundedIcon from "@mui/icons-material/PictureAsPdfRounded";
 import TableChartRoundedIcon from "@mui/icons-material/TableChartRounded";
 import ArticleRoundedIcon from "@mui/icons-material/ArticleRounded";
 import InsertDriveFileRoundedIcon from "@mui/icons-material/InsertDriveFileRounded";
 import RefreshRoundedIcon from "@mui/icons-material/RefreshRounded";
 import OpenInNewRoundedIcon from "@mui/icons-material/OpenInNewRounded";
-import BoltRoundedIcon from "@mui/icons-material/BoltRounded";
 
 // Layout
 import SideMenu from "@/components/SideMenu";
@@ -219,13 +215,13 @@ export default function ArchiveReviewPage(props: { disableCustomTheme?: boolean 
     );
   };
 
-  // Inline Quick Accept (One-Click)
+  // Quick Accept
   const handleQuickAccept = async (e: React.MouseEvent, row: ArchiveProposal) => {
     e.stopPropagation();
     try {
       await acceptProposal(row.id);
       setToast({
-        message: `Accepted "${row.proposal?.title || row.file_name}" ✓`,
+        message: `Approved "${row.proposal?.title || row.file_name}".`,
         severity: "success",
       });
       reload();
@@ -235,13 +231,13 @@ export default function ArchiveReviewPage(props: { disableCustomTheme?: boolean 
     }
   };
 
-  // Inline Quick Re-run
+  // Quick Re-run
   const handleQuickRerun = async (e: React.MouseEvent, row: ArchiveProposal) => {
     e.stopPropagation();
     try {
       await rerunAlon(row.document_version_id);
       setToast({
-        message: `Re-queued Alon extraction for ${row.file_name} ✓`,
+        message: `Queued re-processing for ${row.file_name}.`,
         severity: "info",
       });
       reload();
@@ -265,7 +261,7 @@ export default function ArchiveReviewPage(props: { disableCustomTheme?: boolean 
         }
       }
       setToast({
-        message: `Batch verified & committed ${successCount} proposal(s) to the archive ✓`,
+        message: `Approved ${successCount} document(s).`,
         severity: "success",
       });
       setSelectedRowIds([]);
@@ -292,7 +288,7 @@ export default function ArchiveReviewPage(props: { disableCustomTheme?: boolean 
         }
       }
       setToast({
-        message: `Queued ${queuedCount} failed record(s) for Alon re-extraction ✓`,
+        message: `Queued ${queuedCount} document(s) for re-processing.`,
         severity: "info",
       });
       reload();
@@ -336,38 +332,22 @@ export default function ArchiveReviewPage(props: { disableCustomTheme?: boolean 
             <DashboardNavbar currentRole={effectiveRole} />
           </Box>
 
-          {/* Page Title & Status Header */}
+          {/* Page Title */}
           <Box sx={{ py: 1.25, display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
             <Box>
-              <Stack direction="row" spacing={1.25} sx={{ alignItems: "center" }}>
-                <Typography variant="h6" sx={{ fontWeight: 800, fontSize: "1.2rem", lineHeight: 1.2 }}>
-                  Archive Review Studio
-                </Typography>
-                <Chip
-                  icon={<AutoAwesomeOutlinedIcon sx={{ fontSize: "13px !important", color: "#06B6D4" }} />}
-                  label="Alon Verification Desk"
-                  size="small"
-                  sx={{
-                    height: 22,
-                    fontSize: "0.72rem",
-                    fontWeight: 700,
-                    bgcolor: alpha("#06B6D4", 0.08),
-                    color: "#0284C7",
-                    border: "1px solid",
-                    borderColor: alpha("#06B6D4", 0.3),
-                  }}
-                />
-              </Stack>
-              <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.78rem" }}>
-                Audit AI-extracted circular codes, resolve duplicates, and commit verified records into the municipal archive.
+              <Typography variant="h6" sx={{ fontWeight: 700, fontSize: "1.2rem", lineHeight: 1.2 }}>
+                Archive Review
+              </Typography>
+              <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.8rem" }}>
+                Review and approve document metadata before adding them to the archive.
               </Typography>
             </Box>
           </Box>
 
-          {/* 1. Metric KPI Strip */}
+          {/* Metric KPI Cards */}
           <ArchiveReviewMetricsBar proposals={rows} statusCounts={statusCounts} />
 
-          {/* 2. Status Tabs, Search & Fast-Track Toolbar */}
+          {/* Status Tabs & Toolbar */}
           <ArchiveReviewToolbar
             status={status}
             onStatusChange={changeTab}
@@ -384,11 +364,11 @@ export default function ArchiveReviewPage(props: { disableCustomTheme?: boolean 
             isRefreshing={loading}
           />
 
-          {/* 3. Main Data Grid */}
+          {/* Main Data Table */}
           <Box sx={{ flexGrow: 1, overflow: "auto", minHeight: 0 }}>
             {loading ? (
               <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", height: 260 }}>
-                <CircularProgress size={36} />
+                <CircularProgress size={32} />
               </Box>
             ) : error ? (
               <Alert severity="error">{error}</Alert>
@@ -398,16 +378,16 @@ export default function ArchiveReviewPage(props: { disableCustomTheme?: boolean 
                 sx={{
                   p: 6,
                   textAlign: "center",
-                  borderRadius: 2.5,
+                  borderRadius: 2,
                   bgcolor: (theme) => alpha(theme.palette.background.paper, 0.6),
                 }}
               >
                 <Box
                   sx={{
-                    width: 52,
-                    height: 52,
+                    width: 48,
+                    height: 48,
                     borderRadius: "50%",
-                    bgcolor: alpha("#10B981", 0.12),
+                    bgcolor: (theme) => alpha(theme.palette.success.main, 0.1),
                     color: "success.main",
                     display: "flex",
                     alignItems: "center",
@@ -416,26 +396,26 @@ export default function ArchiveReviewPage(props: { disableCustomTheme?: boolean 
                     mb: 1.5,
                   }}
                 >
-                  <CheckCircleRoundedIcon sx={{ fontSize: 30 }} />
+                  <CheckCircleRoundedIcon sx={{ fontSize: 28 }} />
                 </Box>
-                <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
                   {status === "pending"
                     ? searchQuery
-                      ? "No pending records match your search"
-                      : "All caught up! Zero pending reviews"
-                    : `No ${status} proposals found`}
+                      ? "No matching documents found"
+                      : "No documents pending review"
+                    : `No ${status} documents found`}
                 </Typography>
                 <Typography variant="caption" sx={{ color: "text.secondary", maxWidth: 440, display: "block", mx: "auto", mt: 0.5 }}>
                   {status === "pending"
-                    ? "Agent Alon has indexed all current intake scans. New proposals will appear here as records are dropped."
-                    : `Records marked as ${status} will appear in this history tab.`}
+                    ? "All uploaded documents have been reviewed. New uploads will appear here."
+                    : `Documents with status "${status}" will appear in this list.`}
                 </Typography>
               </Paper>
             ) : (
               <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2 }}>
                 <Table size="small" stickyHeader>
                   <TableHead>
-                    <TableRow sx={{ "& th": { fontWeight: 800, fontSize: "0.74rem", py: 1.25 } }}>
+                    <TableRow sx={{ "& th": { fontWeight: 700, fontSize: "0.78rem", py: 1.2 } }}>
                       {status === "pending" && (
                         <TableCell padding="checkbox" sx={{ width: 44 }}>
                           <Checkbox
@@ -446,12 +426,12 @@ export default function ArchiveReviewPage(props: { disableCustomTheme?: boolean 
                           />
                         </TableCell>
                       )}
-                      <TableCell sx={{ minWidth: 200 }}>File & Source</TableCell>
-                      <TableCell sx={{ minWidth: 220 }}>Alon Proposed Title</TableCell>
-                      <TableCell sx={{ minWidth: 160 }}>Type & Confidence</TableCell>
-                      <TableCell sx={{ minWidth: 150 }}>Verification Flags</TableCell>
-                      <TableCell sx={{ minWidth: 130 }}>Ingested Date</TableCell>
-                      <TableCell align="right" sx={{ minWidth: 100 }}>Actions</TableCell>
+                      <TableCell sx={{ minWidth: 200 }}>Document</TableCell>
+                      <TableCell sx={{ minWidth: 240 }}>Proposed Title</TableCell>
+                      <TableCell sx={{ minWidth: 140 }}>Document Type</TableCell>
+                      <TableCell sx={{ minWidth: 120 }}>Status</TableCell>
+                      <TableCell sx={{ minWidth: 130 }}>Date Added</TableCell>
+                      <TableCell align="right" sx={{ minWidth: 90 }}>Actions</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -461,7 +441,6 @@ export default function ArchiveReviewPage(props: { disableCustomTheme?: boolean 
                       const isOpened = row.id === selectedId;
                       const issueCount = p?.issues?.length ?? 0;
                       const duplicateCount = p?.duplicates?.length ?? 0;
-                      const conf = Math.round((p?.document_type_confidence ?? 0) * 100);
 
                       const titleChanged =
                         Boolean(p?.title) &&
@@ -476,7 +455,7 @@ export default function ArchiveReviewPage(props: { disableCustomTheme?: boolean 
                           sx={{
                             cursor: "pointer",
                             transition: "background-color 0.15s ease",
-                            "& td": { py: 1.1, fontSize: "0.78rem" },
+                            "& td": { py: 1.1, fontSize: "0.8rem" },
                           }}
                         >
                           {status === "pending" && (
@@ -489,7 +468,7 @@ export default function ArchiveReviewPage(props: { disableCustomTheme?: boolean 
                             </TableCell>
                           )}
 
-                          {/* File Column */}
+                          {/* Document Column */}
                           <TableCell sx={{ maxWidth: 220 }}>
                             <Stack direction="row" spacing={1.2} sx={{ alignItems: "center" }}>
                               <Box sx={{ flexShrink: 0 }}>{getFileIcon(row.file_name)}</Box>
@@ -498,13 +477,13 @@ export default function ArchiveReviewPage(props: { disableCustomTheme?: boolean 
                                   <Typography
                                     variant="body2"
                                     noWrap
-                                    sx={{ fontWeight: 700, fontSize: "0.79rem", lineHeight: 1.25 }}
+                                    sx={{ fontWeight: 600, fontSize: "0.82rem", lineHeight: 1.25 }}
                                   >
                                     {row.file_name}
                                   </Typography>
                                 </Tooltip>
                                 {row.current.department_order && (
-                                  <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.68rem" }}>
+                                  <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.72rem" }}>
                                     {row.current.department_order}
                                   </Typography>
                                 )}
@@ -519,55 +498,32 @@ export default function ArchiveReviewPage(props: { disableCustomTheme?: boolean 
                                 <Typography
                                   variant="body2"
                                   noWrap
-                                  sx={{ fontWeight: 700, fontSize: "0.8rem", color: titleChanged ? "primary.main" : "text.primary" }}
+                                  sx={{ fontWeight: 600, fontSize: "0.82rem", color: titleChanged ? "primary.main" : "text.primary" }}
                                 >
                                   {p.title}
                                 </Typography>
-                                {titleChanged && (
-                                  <Typography variant="caption" noWrap sx={{ color: "text.secondary", fontSize: "0.68rem", display: "block" }}>
-                                    Orig: &quot;{row.current.title || "None"}&quot;
+                                {titleChanged && row.current.title && (
+                                  <Typography variant="caption" noWrap sx={{ color: "text.secondary", fontSize: "0.72rem", display: "block" }}>
+                                    Original: &quot;{row.current.title}&quot;
                                   </Typography>
                                 )}
                               </Box>
                             ) : (
-                              <Typography variant="body2" color="error" sx={{ fontSize: "0.78rem" }}>
+                              <Typography variant="body2" color="error" sx={{ fontSize: "0.8rem" }}>
                                 {row.error_message || "Extraction failed"}
                               </Typography>
                             )}
                           </TableCell>
 
-                          {/* Proposed Type & Confidence */}
+                          {/* Proposed Type */}
                           <TableCell>
                             {p?.document_type ? (
-                              <Stack direction="row" spacing={0.75} sx={{ alignItems: "center" }}>
-                                <Chip
-                                  size="small"
-                                  label={p.document_type}
-                                  variant="outlined"
-                                  sx={{ height: 20, fontSize: "0.68rem", fontWeight: 700 }}
-                                />
-                                <Chip
-                                  size="small"
-                                  label={`${conf}%`}
-                                  sx={{
-                                    height: 18,
-                                    fontSize: "0.64rem",
-                                    fontWeight: 800,
-                                    bgcolor:
-                                      conf >= 85
-                                        ? alpha("#10B981", 0.12)
-                                        : conf >= 70
-                                        ? alpha("#06B6D4", 0.12)
-                                        : alpha("#F59E0B", 0.14),
-                                    color:
-                                      conf >= 85
-                                        ? "#059669"
-                                        : conf >= 70
-                                        ? "#0284C7"
-                                        : "#D97706",
-                                  }}
-                                />
-                              </Stack>
+                              <Chip
+                                size="small"
+                                label={p.document_type}
+                                variant="outlined"
+                                sx={{ height: 22, fontSize: "0.72rem", fontWeight: 600 }}
+                              />
                             ) : (
                               <Typography variant="caption" sx={{ color: "text.secondary" }}>
                                 —
@@ -575,87 +531,76 @@ export default function ArchiveReviewPage(props: { disableCustomTheme?: boolean 
                             )}
                           </TableCell>
 
-                          {/* Flags Column */}
+                          {/* Status Indicator (Clean single chip) */}
                           <TableCell>
-                            <Stack direction="row" spacing={0.5} sx={{ flexWrap: "wrap", gap: 0.5 }}>
-                              {row.needs_human_review && (
-                                <Chip
-                                  size="small"
-                                  color="warning"
-                                  icon={<WarningAmberRoundedIcon sx={{ fontSize: "11px !important" }} />}
-                                  label="Needs Review"
-                                  sx={{ height: 19, fontSize: "0.64rem", fontWeight: 700 }}
-                                />
-                              )}
-                              {duplicateCount > 0 && (
-                                <Chip
-                                  size="small"
-                                  color="error"
-                                  variant="outlined"
-                                  label={`${duplicateCount} Duplicate${duplicateCount > 1 ? "s" : ""}`}
-                                  sx={{ height: 19, fontSize: "0.64rem", fontWeight: 800 }}
-                                />
-                              )}
-                              {issueCount > 0 && (
-                                <Chip
-                                  size="small"
-                                  variant="outlined"
-                                  label={`${issueCount} Issue${issueCount > 1 ? "s" : ""}`}
-                                  sx={{ height: 19, fontSize: "0.64rem" }}
-                                />
-                              )}
-                              {!row.needs_human_review && duplicateCount === 0 && issueCount === 0 && p && (
-                                <Chip
-                                  size="small"
-                                  icon={<BoltRoundedIcon sx={{ fontSize: "11px !important", color: "#06B6D4" }} />}
-                                  label="Clean"
-                                  sx={{ height: 19, fontSize: "0.64rem", fontWeight: 700, bgcolor: alpha("#06B6D4", 0.08) }}
-                                />
-                              )}
-                            </Stack>
+                            {duplicateCount > 0 ? (
+                              <Chip
+                                size="small"
+                                color="error"
+                                variant="outlined"
+                                label="Duplicate"
+                                sx={{ height: 22, fontSize: "0.72rem", fontWeight: 600 }}
+                              />
+                            ) : row.needs_human_review || issueCount > 0 ? (
+                              <Chip
+                                size="small"
+                                color="warning"
+                                variant="outlined"
+                                label="Needs Review"
+                                sx={{ height: 22, fontSize: "0.72rem", fontWeight: 600 }}
+                              />
+                            ) : (
+                              <Chip
+                                size="small"
+                                color="success"
+                                variant="outlined"
+                                label="Ready"
+                                sx={{ height: 22, fontSize: "0.72rem", fontWeight: 600 }}
+                              />
+                            )}
                           </TableCell>
 
-                          {/* Created */}
-                          <TableCell sx={{ whiteSpace: "nowrap", color: "text.secondary", fontSize: "0.74rem" }}>
+                          {/* Date Added */}
+                          <TableCell sx={{ whiteSpace: "nowrap", color: "text.secondary", fontSize: "0.76rem" }}>
                             {formatDate(row.created_at)}
                           </TableCell>
 
-                          {/* Actions Column */}
+                          {/* Actions */}
                           <TableCell align="right" onClick={(e) => e.stopPropagation()}>
                             <Stack direction="row" spacing={0.5} sx={{ justifyContent: "flex-end" }}>
                               {status === "pending" && (
-                                <Tooltip title="Quick Accept as proposed">
+                                <Tooltip title="Approve as proposed">
                                   <IconButton
                                     size="small"
-                                    color="primary"
+                                    color="success"
                                     onClick={(e) => handleQuickAccept(e, row)}
-                                    sx={{ p: 0.5, "&:hover": { bgcolor: alpha("#10B981", 0.12), color: "success.main" } }}
+                                    sx={{ p: 0.5 }}
                                   >
-                                    <CheckCircleRoundedIcon sx={{ fontSize: 17 }} />
+                                    <CheckCircleRoundedIcon sx={{ fontSize: 18 }} />
                                   </IconButton>
                                 </Tooltip>
                               )}
 
                               {status === "failed" && (
-                                <Tooltip title="Re-run Alon">
+                                <Tooltip title="Re-run extraction">
                                   <IconButton
                                     size="small"
                                     color="error"
                                     onClick={(e) => handleQuickRerun(e, row)}
                                     sx={{ p: 0.5 }}
                                   >
-                                    <RefreshRoundedIcon sx={{ fontSize: 17 }} />
+                                    <RefreshRoundedIcon sx={{ fontSize: 18 }} />
                                   </IconButton>
                                 </Tooltip>
                               )}
 
-                              <Tooltip title="Inspect & Verify in Studio">
+                              <Tooltip title="Review details">
                                 <IconButton
                                   size="small"
                                   onClick={() => setSelectedId(row.id)}
                                   sx={{ p: 0.5, color: "text.secondary" }}
                                 >
-                                  <OpenInNewRoundedIcon sx={{ fontSize: 16 }} />
+                                  <OpenInNewRoundedIcon sx={{ fontSize: 17 }} />
                                 </IconButton>
                               </Tooltip>
                             </Stack>
@@ -669,7 +614,7 @@ export default function ArchiveReviewPage(props: { disableCustomTheme?: boolean 
             )}
           </Box>
 
-          {/* 4. Dual-Pane Review Studio Drawer */}
+          {/* Review Details Drawer */}
           <ProposalReviewDrawer
             key={selectedId ?? "closed"}
             proposalId={selectedId}
@@ -683,7 +628,7 @@ export default function ArchiveReviewPage(props: { disableCustomTheme?: boolean 
             }}
           />
 
-          {/* Notification Feedback Toast */}
+          {/* Feedback Toast */}
           <Snackbar
             open={toast !== null}
             autoHideDuration={4000}

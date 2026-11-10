@@ -24,7 +24,6 @@ import { alpha } from "@mui/material/styles";
 
 // Icons
 import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
-import AutoAwesomeOutlinedIcon from "@mui/icons-material/AutoAwesomeOutlined";
 import CheckCircleRoundedIcon from "@mui/icons-material/CheckCircleRounded";
 import CancelRoundedIcon from "@mui/icons-material/CancelRounded";
 import RefreshRoundedIcon from "@mui/icons-material/RefreshRounded";
@@ -66,13 +65,13 @@ export interface FinalValues {
 const errorText = (err: unknown): string =>
   err instanceof ApiError ? err.message : "Could not reach the server. Is the backend running?";
 
-const STATUS_COLOR: Record<string, "default" | "warning" | "success" | "info" | "error"> = {
-  pending: "warning",
-  accepted: "success",
-  edited: "info",
-  rejected: "error",
-  failed: "error",
-  superseded: "default",
+const STATUS_MAP: Record<string, { label: string; color: "default" | "warning" | "success" | "info" | "error" }> = {
+  pending: { label: "Pending Review", color: "warning" },
+  accepted: { label: "Approved", color: "success" },
+  edited: { label: "Approved (Edited)", color: "info" },
+  rejected: { label: "Rejected", color: "error" },
+  failed: { label: "Failed", color: "error" },
+  superseded: { label: "Superseded", color: "default" },
 };
 
 const prefill = (p: ArchiveProposal): FinalValues => {
@@ -156,7 +155,7 @@ export default function ProposalReviewDrawer({
 
   const handleActionError = (err: unknown) => {
     if (err instanceof ApiError && err.status === 409) {
-      onReviewed("This proposal was already reviewed", "warning");
+      onReviewed("This proposal was already reviewed.", "warning");
       return;
     }
     setActionError(errorText(err));
@@ -169,7 +168,7 @@ export default function ProposalReviewDrawer({
     try {
       const res = await acceptProposal(proposal.id, buildAcceptBody());
       onReviewed(
-        res.status === "edited" ? "Accepted with archivist changes ✓" : "Accepted as proposed ✓",
+        res.status === "edited" ? "Document approved with edits." : "Document approved.",
         "success"
       );
     } catch (err) {
@@ -185,7 +184,7 @@ export default function ProposalReviewDrawer({
     setActionError(null);
     try {
       await rejectProposal(proposal.id, note.trim());
-      onReviewed("Proposal rejected ✓", "info");
+      onReviewed("Proposal rejected.", "info");
     } catch (err) {
       handleActionError(err);
     } finally {
@@ -199,7 +198,7 @@ export default function ProposalReviewDrawer({
     setActionError(null);
     try {
       await rerunAlon(proposal.document_version_id);
-      onReviewed("Alon pipeline re-queued; review will update in ~1 minute.", "info");
+      onReviewed("Document queued for re-processing.", "info");
     } catch (err) {
       handleActionError(err);
     } finally {
@@ -217,25 +216,25 @@ export default function ProposalReviewDrawer({
       ? [
           { label: "Title", field: "title", current: proposal.current.title, alon: alon?.title },
           {
-            label: "Doc Type",
+            label: "Document Type",
             field: "document_type",
             current: proposal.current.document_type,
             alon: alon?.document_type,
           },
           {
-            label: "Series Year",
+            label: "Year",
             field: "series_year",
             current: proposal.current.series_year,
             alon: alon?.series_year,
           },
           {
-            label: "Order No.",
+            label: "Order / Ref No.",
             field: "department_order",
             current: proposal.current.department_order,
             alon: alon?.department_order,
           },
           {
-            label: "Shelf Coords",
+            label: "Shelf Location",
             field: "physical_shelf_location",
             current: proposal.current.physical_shelf_location,
             alon: alon?.suggested_shelf_location,
@@ -245,11 +244,13 @@ export default function ProposalReviewDrawer({
 
   const getFileIcon = (fileName: string) => {
     const ext = fileName.split(".").pop()?.toLowerCase();
-    if (ext === "xlsx" || ext === "xls") return <TableChartRoundedIcon sx={{ fontSize: 18, color: "#10B981" }} />;
-    if (ext === "docx" || ext === "doc") return <ArticleRoundedIcon sx={{ fontSize: 18, color: "#3B82F6" }} />;
-    if (ext === "pdf") return <PictureAsPdfRoundedIcon sx={{ fontSize: 18, color: "#EF4444" }} />;
-    return <InsertDriveFileRoundedIcon sx={{ fontSize: 18, color: "text.secondary" }} />;
+    if (ext === "xlsx" || ext === "xls") return <TableChartRoundedIcon sx={{ fontSize: 20, color: "#10B981" }} />;
+    if (ext === "docx" || ext === "doc") return <ArticleRoundedIcon sx={{ fontSize: 20, color: "#3B82F6" }} />;
+    if (ext === "pdf") return <PictureAsPdfRoundedIcon sx={{ fontSize: 20, color: "#EF4444" }} />;
+    return <InsertDriveFileRoundedIcon sx={{ fontSize: 20, color: "text.secondary" }} />;
   };
+
+  const statusConfig = proposal ? STATUS_MAP[proposal.status] || { label: proposal.status, color: "default" } : null;
 
   return (
     <Drawer
@@ -261,27 +262,18 @@ export default function ProposalReviewDrawer({
           sx: {
             width: {
               xs: "100%",
-              md: showDocViewer ? 860 : 600,
-              lg: showDocViewer ? 1120 : 640,
-              xl: showDocViewer ? 1280 : 700,
+              md: showDocViewer ? 860 : 580,
+              lg: showDocViewer ? 1080 : 620,
+              xl: showDocViewer ? 1200 : 680,
             },
             maxWidth: "98vw",
-            boxShadow: "0 0 40px rgba(0,0,0,0.25)",
+            boxShadow: 8,
             transition: "width 0.25s cubic-bezier(0.16, 1, 0.3, 1)",
           },
         },
       }}
     >
       <Box sx={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
-        {/* Top Accent Bar */}
-        <Box
-          sx={{
-            height: 3,
-            background: "linear-gradient(90deg, #06B6D4, #3B82F6, #10B981)",
-            flexShrink: 0,
-          }}
-        />
-
         {/* Header */}
         <Box
           sx={{
@@ -292,10 +284,7 @@ export default function ProposalReviewDrawer({
             justifyContent: "space-between",
             borderBottom: "1px solid",
             borderColor: "divider",
-            bgcolor: (theme) =>
-              theme.palette.mode === "dark"
-                ? alpha(theme.palette.background.paper, 0.8)
-                : alpha("#06B6D4", 0.03),
+            bgcolor: "background.paper",
             flexShrink: 0,
           }}
         >
@@ -304,33 +293,25 @@ export default function ProposalReviewDrawer({
               {proposal ? getFileIcon(proposal.file_name) : <InsertDriveFileRoundedIcon />}
             </Box>
             <Box sx={{ minWidth: 0 }}>
-              <Typography variant="subtitle1" noWrap sx={{ fontWeight: 800, fontSize: "1rem", lineHeight: 1.2 }}>
-                {proposal?.file_name ?? "Archive Review Studio"}
+              <Typography variant="subtitle1" noWrap sx={{ fontWeight: 700, fontSize: "0.95rem" }}>
+                {proposal?.file_name ?? "Document Review"}
               </Typography>
-              {proposal && (
-                <Stack direction="row" spacing={0.75} sx={{ mt: 0.5, alignItems: "center", flexWrap: "wrap" }}>
+              {proposal && statusConfig && (
+                <Stack direction="row" spacing={1} sx={{ mt: 0.25, alignItems: "center" }}>
                   <Chip
                     size="small"
-                    color={STATUS_COLOR[proposal.status] ?? "default"}
-                    label={proposal.status.toUpperCase()}
-                    sx={{ height: 20, fontSize: "0.68rem", fontWeight: 800 }}
+                    color={statusConfig.color}
+                    label={statusConfig.label}
+                    sx={{ height: 20, fontSize: "0.7rem", fontWeight: 600 }}
                   />
-                  {proposal.needs_human_review && (
+                  {proposal.needs_human_review && proposal.status === "pending" && (
                     <Chip
                       size="small"
                       color="warning"
                       variant="outlined"
-                      icon={<WarningAmberRoundedIcon sx={{ fontSize: "12px !important" }} />}
-                      label="Needs Review"
-                      sx={{ height: 20, fontSize: "0.68rem", fontWeight: 700 }}
-                    />
-                  )}
-                  {proposal.model_name && (
-                    <Chip
-                      size="small"
-                      icon={<AutoAwesomeOutlinedIcon sx={{ fontSize: "12px !important", color: "#06B6D4" }} />}
-                      label={`Alon (${proposal.model_name})`}
-                      sx={{ height: 20, fontSize: "0.68rem", fontWeight: 700, bgcolor: alpha("#06B6D4", 0.08) }}
+                      icon={<WarningAmberRoundedIcon sx={{ fontSize: "13px !important" }} />}
+                      label="Needs Attention"
+                      sx={{ height: 20, fontSize: "0.7rem", fontWeight: 600 }}
                     />
                   )}
                 </Stack>
@@ -339,8 +320,7 @@ export default function ProposalReviewDrawer({
           </Stack>
 
           <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
-            {/* Toggle Split Document Preview */}
-            <Tooltip title={showDocViewer ? "Hide document scan viewer" : "Show document scan viewer"}>
+            <Tooltip title={showDocViewer ? "Hide document preview" : "Show document preview"}>
               <Button
                 size="small"
                 variant={showDocViewer ? "contained" : "outlined"}
@@ -349,17 +329,17 @@ export default function ProposalReviewDrawer({
                 startIcon={showDocViewer ? <VisibilityOffOutlinedIcon /> : <VisibilityOutlinedIcon />}
                 sx={{
                   textTransform: "none",
-                  fontSize: "0.76rem",
-                  fontWeight: 700,
-                  borderRadius: 1.75,
+                  fontSize: "0.78rem",
+                  fontWeight: 600,
+                  borderRadius: 1.5,
                   display: { xs: "none", md: "inline-flex" },
                 }}
               >
-                {showDocViewer ? "Hide Scan" : "View Scan"}
+                {showDocViewer ? "Hide Preview" : "Show Preview"}
               </Button>
             </Tooltip>
 
-            <Tooltip title="Close (Esc)">
+            <Tooltip title="Close">
               <IconButton size="small" onClick={onClose} sx={{ color: "text.secondary" }}>
                 <CloseRoundedIcon fontSize="small" />
               </IconButton>
@@ -369,7 +349,7 @@ export default function ProposalReviewDrawer({
 
         {/* Dual-Pane Workspace */}
         <Box sx={{ flexGrow: 1, minHeight: 0, display: "flex", overflow: "hidden" }}>
-          {/* Left Pane: Document Viewer (if enabled) */}
+          {/* Left Pane: Document Viewer */}
           {showDocViewer && proposal && (
             <Box
               sx={{
@@ -387,7 +367,7 @@ export default function ProposalReviewDrawer({
             </Box>
           )}
 
-          {/* Right Pane: Alon Metadata & Verification Desk */}
+          {/* Right Pane: Review Form & Information */}
           <Box
             sx={{
               flex: 1,
@@ -401,122 +381,69 @@ export default function ProposalReviewDrawer({
           >
             {loading && (
               <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
-                <CircularProgress size={36} />
+                <CircularProgress size={32} />
               </Box>
             )}
             {error && <Alert severity="error">{error}</Alert>}
 
             {proposal && final && (
               <Stack spacing={2.5}>
-                {/* Alon Extraction Header & Executive Summary */}
+                {/* AI Extracted Summary */}
                 {alon ? (
                   <Paper
-                    elevation={0}
+                    variant="outlined"
                     sx={{
                       p: 2,
                       borderRadius: 2,
-                      border: "1px solid",
-                      borderColor: alpha("#06B6D4", 0.3),
-                      bgcolor: (theme) =>
-                        theme.palette.mode === "dark"
-                          ? alpha("#06B6D4", 0.06)
-                          : alpha("#06B6D4", 0.03),
+                      bgcolor: (theme) => alpha(theme.palette.primary.main, 0.03),
                     }}
                   >
-                    <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 0.75 }}>
-                      <AutoAwesomeOutlinedIcon sx={{ fontSize: 17, color: "#06B6D4" }} />
-                      <Typography variant="subtitle2" sx={{ fontWeight: 800, fontSize: "0.84rem" }}>
-                        Alon&apos;s Archival Extraction
+                    <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 0.75, justifyContent: "space-between" }}>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 700, fontSize: "0.85rem" }}>
+                        Document Summary
                       </Typography>
-                      <Chip
-                        size="small"
-                        label={`${Math.round((alon.document_type_confidence || 0) * 100)}% Confidence`}
-                        sx={{
-                          height: 20,
-                          fontSize: "0.68rem",
-                          fontWeight: 800,
-                          bgcolor: alpha("#10B981", 0.12),
-                          color: "#059669",
-                        }}
-                      />
+                      {alon.document_type_confidence && (
+                        <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 600 }}>
+                          Confidence: {Math.round(alon.document_type_confidence * 100)}%
+                        </Typography>
+                      )}
                     </Stack>
-                    <Typography variant="body2" sx={{ fontSize: "0.8rem", color: "text.secondary", lineHeight: 1.5 }}>
-                      {alon.summary || "Metadata extracted via high-resolution OCR pipeline."}
+                    <Typography variant="body2" sx={{ fontSize: "0.82rem", color: "text.secondary", lineHeight: 1.5 }}>
+                      {alon.summary || "Metadata extracted automatically."}
                     </Typography>
                   </Paper>
                 ) : (
                   <Alert severity="error">
-                    Alon could not review this document{proposal.error_message ? `: ${proposal.error_message}` : "."}
+                    Could not extract document metadata{proposal.error_message ? `: ${proposal.error_message}` : "."}
                   </Alert>
                 )}
 
                 {/* Flagged Issues */}
                 {alon && alon.issues.length > 0 && (
                   <Stack spacing={0.75}>
-                    <Typography variant="caption" sx={{ fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em", color: "warning.main" }}>
+                    <Typography variant="caption" sx={{ fontWeight: 700, color: "warning.dark" }}>
                       Issues Flagged ({alon.issues.length})
                     </Typography>
                     {alon.issues.map((issue, i) => (
-                      <Alert key={i} severity="warning" sx={{ py: 0.25, fontSize: "0.78rem" }}>
+                      <Alert key={i} severity="warning" sx={{ py: 0.25, fontSize: "0.8rem" }}>
                         {issue}
                       </Alert>
                     ))}
                   </Stack>
                 )}
 
-                {/* Possible Duplicates Warning */}
+                {/* Duplicates Warning */}
                 {alon && alon.duplicates.length > 0 && (
                   <Stack spacing={0.75}>
-                    <Typography variant="caption" sx={{ fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em", color: "error.main" }}>
-                      Duplicate Records Detected ({alon.duplicates.length})
+                    <Typography variant="caption" sx={{ fontWeight: 700, color: "error.main" }}>
+                      Duplicate Warning ({alon.duplicates.length})
                     </Typography>
                     {alon.duplicates.map((d) => (
-                      <Alert key={d.document_id} severity="error" variant="outlined" sx={{ py: 0.5, fontSize: "0.78rem" }}>
-                        Matches <strong>Document #{d.document_id}</strong> &quot;{d.title}&quot; — {d.match_type} ({Math.round(d.similarity * 100)}% similarity)
+                      <Alert key={d.document_id} severity="error" variant="outlined" sx={{ py: 0.5, fontSize: "0.8rem" }}>
+                        Matches <strong>Document #{d.document_id}</strong> &quot;{d.title}&quot; ({Math.round(d.similarity * 100)}% match)
                       </Alert>
                     ))}
                   </Stack>
-                )}
-
-                {/* Key Field Evidence (Clickable to jump page) */}
-                {alon && alon.key_fields.length > 0 && (
-                  <Box>
-                    <Typography
-                      variant="caption"
-                      sx={{
-                        fontWeight: 800,
-                        textTransform: "uppercase",
-                        letterSpacing: "0.05em",
-                        color: "text.secondary",
-                        display: "block",
-                        mb: 1,
-                      }}
-                    >
-                      Extracted Evidence Snippets
-                    </Typography>
-                    <Stack direction="row" spacing={0.75} sx={{ flexWrap: "wrap", gap: 0.5 }}>
-                      {alon.key_fields.map((k, i) => (
-                        <Chip
-                          key={`${k.name}-${i}`}
-                          size="small"
-                          label={`${k.name}: ${k.value}${k.page ? ` (p. ${k.page})` : ""}`}
-                          onClick={() => {
-                            if (k.page) {
-                              setActivePageHint(k.page);
-                              setShowDocViewer(true);
-                            }
-                          }}
-                          sx={{
-                            height: 24,
-                            fontSize: "0.72rem",
-                            cursor: k.page ? "pointer" : "default",
-                            bgcolor: (theme) => alpha(theme.palette.divider, 0.08),
-                            "&:hover": k.page ? { bgcolor: alpha("#06B6D4", 0.14), borderColor: "primary.main" } : {},
-                          }}
-                        />
-                      ))}
-                    </Stack>
-                  </Box>
                 )}
 
                 {/* Field Comparison Grid */}
@@ -524,15 +451,13 @@ export default function ProposalReviewDrawer({
                   <Typography
                     variant="caption"
                     sx={{
-                      fontWeight: 800,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.05em",
+                      fontWeight: 700,
                       color: "text.secondary",
                       display: "block",
                       mb: 1,
                     }}
                   >
-                    Field Verification & Overrides
+                    Document Metadata
                   </Typography>
 
                   <Table
@@ -544,24 +469,24 @@ export default function ProposalReviewDrawer({
                       "& th, & td": { verticalAlign: "middle", py: 0.75, px: 1 },
                     }}
                   >
-                    <TableHead sx={{ bgcolor: (theme) => alpha(theme.palette.text.primary, 0.02) }}>
+                    <TableHead sx={{ bgcolor: (theme) => alpha(theme.palette.text.primary, 0.03) }}>
                       <TableRow>
-                        <TableCell sx={{ width: 85, fontWeight: 700, fontSize: "0.72rem" }}>Field</TableCell>
-                        <TableCell sx={{ fontWeight: 700, fontSize: "0.72rem", color: "text.secondary" }}>Upload Value</TableCell>
-                        <TableCell sx={{ fontWeight: 700, fontSize: "0.72rem", color: "primary.main" }}>Alon Proposed</TableCell>
-                        <TableCell sx={{ width: 180, fontWeight: 700, fontSize: "0.72rem" }}>Approved Value</TableCell>
+                        <TableCell sx={{ width: 110, fontWeight: 700, fontSize: "0.75rem" }}>Field</TableCell>
+                        <TableCell sx={{ fontWeight: 700, fontSize: "0.75rem", color: "text.secondary" }}>Original</TableCell>
+                        <TableCell sx={{ fontWeight: 700, fontSize: "0.75rem", color: "primary.main" }}>Proposed</TableCell>
+                        <TableCell sx={{ width: 180, fontWeight: 700, fontSize: "0.75rem" }}>Approved Value</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
                       {rows.map((r) => {
                         const isDiffer = String(r.current || "").trim() !== String(r.alon || "").trim();
                         return (
-                          <TableRow key={r.field} sx={{ bgcolor: isDiffer ? alpha("#06B6D4", 0.02) : "inherit" }}>
-                            <TableCell sx={{ fontWeight: 700, fontSize: "0.74rem" }}>{r.label}</TableCell>
-                            <TableCell sx={{ color: "text.secondary", fontSize: "0.74rem", wordBreak: "break-word" }}>
+                          <TableRow key={r.field} sx={{ bgcolor: isDiffer ? alpha("#0284C7", 0.03) : "inherit" }}>
+                            <TableCell sx={{ fontWeight: 600, fontSize: "0.78rem" }}>{r.label}</TableCell>
+                            <TableCell sx={{ color: "text.secondary", fontSize: "0.78rem", wordBreak: "break-word" }}>
                               {show(r.current)}
                             </TableCell>
-                            <TableCell sx={{ fontSize: "0.74rem", wordBreak: "break-word", fontWeight: isDiffer ? 700 : 400 }}>
+                            <TableCell sx={{ fontSize: "0.78rem", wordBreak: "break-word", fontWeight: isDiffer ? 600 : 400 }}>
                               {show(r.alon)}
                             </TableCell>
                             <TableCell>
@@ -573,10 +498,10 @@ export default function ProposalReviewDrawer({
                                   value={final.document_type}
                                   onChange={setField("document_type")}
                                   disabled={!editable}
-                                  sx={{ "& .MuiInputBase-input": { fontSize: "0.74rem", py: 0.5 } }}
+                                  sx={{ "& .MuiInputBase-input": { fontSize: "0.78rem", py: 0.5 } }}
                                 >
                                   {docTypes.map((t) => (
-                                    <MenuItem key={t} value={t} sx={{ fontSize: "0.76rem" }}>
+                                    <MenuItem key={t} value={t} sx={{ fontSize: "0.8rem" }}>
                                       {t}
                                     </MenuItem>
                                   ))}
@@ -595,7 +520,7 @@ export default function ProposalReviewDrawer({
                                       ? { htmlInput: { min: 1900, max: 2100 } }
                                       : undefined
                                   }
-                                  sx={{ "& .MuiInputBase-input": { fontSize: "0.74rem", py: 0.5 } }}
+                                  sx={{ "& .MuiInputBase-input": { fontSize: "0.78rem", py: 0.5 } }}
                                 />
                               )}
                             </TableCell>
@@ -608,9 +533,9 @@ export default function ProposalReviewDrawer({
 
                 {/* Outcome note if already reviewed */}
                 {!editable && proposal.reviewed_at && (
-                  <Alert severity="info" sx={{ fontSize: "0.78rem" }}>
-                    Verified on {new Date(proposal.reviewed_at).toLocaleString()}
-                    {proposal.review_note ? ` — Note: “${proposal.review_note}”` : ""}
+                  <Alert severity="info" sx={{ fontSize: "0.8rem" }}>
+                    Reviewed on {new Date(proposal.reviewed_at).toLocaleString()}
+                    {proposal.review_note ? ` — Note: "${proposal.review_note}"` : ""}
                   </Alert>
                 )}
               </Stack>
@@ -626,25 +551,22 @@ export default function ProposalReviewDrawer({
             px: 2.5,
             borderTop: "1px solid",
             borderColor: "divider",
-            bgcolor: (theme) =>
-              theme.palette.mode === "dark"
-                ? alpha(theme.palette.background.paper, 0.95)
-                : alpha(theme.palette.background.default, 0.6),
+            bgcolor: "background.paper",
             flexShrink: 0,
           }}
         >
-          {actionError && <Alert severity="error" sx={{ mb: 1.5, fontSize: "0.78rem" }}>{actionError}</Alert>}
+          {actionError && <Alert severity="error" sx={{ mb: 1.5, fontSize: "0.8rem" }}>{actionError}</Alert>}
 
           {proposal && editable && (
             <Stack spacing={1.5}>
               <TextField
                 size="small"
-                label="Reviewer Audit Note (optional for accept, required for reject)"
-                placeholder="e.g. Verified against physical voucher record #402"
+                label="Reviewer Note (optional for approval, required for rejection)"
+                placeholder="Add any verification comments..."
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 disabled={saving}
-                sx={{ "& .MuiInputBase-input": { fontSize: "0.78rem" } }}
+                sx={{ "& .MuiInputBase-input": { fontSize: "0.82rem" } }}
               />
 
               <Stack direction="row" spacing={1.5} sx={{ justifyContent: "flex-end" }}>
@@ -655,7 +577,7 @@ export default function ProposalReviewDrawer({
                   onClick={handleReject}
                   disabled={saving || !canReject}
                   startIcon={<CancelRoundedIcon />}
-                  sx={{ textTransform: "none", fontWeight: 700, fontSize: "0.8rem" }}
+                  sx={{ textTransform: "none", fontWeight: 600, fontSize: "0.82rem" }}
                 >
                   Reject Proposal
                 </Button>
@@ -675,15 +597,14 @@ export default function ProposalReviewDrawer({
                   }
                   sx={{
                     textTransform: "none",
-                    fontWeight: 700,
-                    fontSize: "0.8rem",
+                    fontWeight: 600,
+                    fontSize: "0.82rem",
                     px: 2.5,
-                    boxShadow: "0 2px 8px rgba(6, 182, 212, 0.25)",
                   }}
                 >
                   {changedCount > 0
-                    ? `Accept with ${changedCount} edit${changedCount > 1 ? "s" : ""}`
-                    : "Accept as Proposed"}
+                    ? `Approve with ${changedCount} edit${changedCount > 1 ? "s" : ""}`
+                    : "Approve Document"}
                 </Button>
               </Stack>
             </Stack>
@@ -692,7 +613,7 @@ export default function ProposalReviewDrawer({
           {proposal && proposal.status === "failed" && (
             <Stack direction="row" spacing={1} sx={{ alignItems: "center", justifyContent: "space-between" }}>
               <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                Extraction pipeline did not complete. Re-run Alon to parse high-res OCR again.
+                Processing could not be completed. You can re-run the extraction.
               </Typography>
               <Button
                 variant="contained"
@@ -701,16 +622,16 @@ export default function ProposalReviewDrawer({
                 onClick={handleRerun}
                 disabled={saving}
                 startIcon={<RefreshRoundedIcon />}
-                sx={{ textTransform: "none", fontWeight: 700 }}
+                sx={{ textTransform: "none", fontWeight: 600 }}
               >
-                Re-run Alon
+                Re-run Extraction
               </Button>
             </Stack>
           )}
 
           {proposal && !editable && proposal.status !== "failed" && (
-            <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.76rem" }}>
-              This proposal has already been committed to the archive registry.
+            <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.78rem" }}>
+              This document has already been saved to the archive.
             </Typography>
           )}
         </Box>

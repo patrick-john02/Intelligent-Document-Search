@@ -94,10 +94,6 @@ def _build_prompt(
             "If the answer is not in the targeted documents, say so instead of using other documents."
         )
 
-    # def _list(docs):
-    #     return "\n".join(
-    #         f"- #{doc_id} \"{title}\"
-    #     )
     
     return prompt
 

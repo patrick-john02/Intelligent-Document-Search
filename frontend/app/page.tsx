@@ -17,6 +17,7 @@ import {
   Stack,
   Divider,
   Link,
+  Chip,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -470,6 +471,48 @@ export default function LoginPage() {
                       Forgot password?
                     </Link>
                   </Stack>
+
+                  {/* Quick Role Fill */}
+                  <Box sx={{ pt: 0.25 }}>
+                    <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 600, display: "block", mb: 0.75 }}>
+                      Quick Sign-In by Role:
+                    </Typography>
+                    <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", gap: 0.75 }}>
+                      <Chip
+                        size="small"
+                        label="Developer"
+                        color="warning"
+                        variant={username === "developer" ? "filled" : "outlined"}
+                        onClick={() => {
+                          setUsername("developer");
+                          setPassword("Admin123!");
+                        }}
+                        sx={{ cursor: "pointer", fontWeight: 600, fontSize: "0.72rem" }}
+                      />
+                      <Chip
+                        size="small"
+                        label="Admin Officer"
+                        color="primary"
+                        variant={username === "admin_user" ? "filled" : "outlined"}
+                        onClick={() => {
+                          setUsername("admin_user");
+                          setPassword("Admin123!");
+                        }}
+                        sx={{ cursor: "pointer", fontWeight: 600, fontSize: "0.72rem" }}
+                      />
+                      <Chip
+                        size="small"
+                        label="Staff Member"
+                        color="info"
+                        variant={username === "staff_user" ? "filled" : "outlined"}
+                        onClick={() => {
+                          setUsername("staff_user");
+                          setPassword("Staff123!");
+                        }}
+                        sx={{ cursor: "pointer", fontWeight: 600, fontSize: "0.72rem" }}
+                      />
+                    </Stack>
+                  </Box>
 
                   {/* Submit Button */}
                   <Button

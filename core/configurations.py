@@ -48,6 +48,9 @@ chat_model = ChatGroq(
     model = app_settings.GROQ_MODEL,
     api_key=app_settings.GROQ,
     temperature=0.1,
+    reasoning_effort="low",   # gpt-oss: fewer hidden reasoning tokens
+    max_retries=1,            # fail fast instead of silent long backoff
+    timeout=20,
 )
 
 

@@ -22,9 +22,6 @@ import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
 import ClearRoundedIcon from "@mui/icons-material/ClearRounded";
 import RefreshRoundedIcon from "@mui/icons-material/RefreshRounded";
 import CheckCircleRoundedIcon from "@mui/icons-material/CheckCircleRounded";
-import WarningAmberRoundedIcon from "@mui/icons-material/WarningAmberRounded";
-import BoltRoundedIcon from "@mui/icons-material/BoltRounded";
-import FilterListRoundedIcon from "@mui/icons-material/FilterListRounded";
 
 import { ProposalStatus } from "@/lib/archiveReviewApi";
 
@@ -48,7 +45,7 @@ interface ArchiveReviewToolbarProps {
 
 const TABS: { value: ProposalStatus; label: string }[] = [
   { value: "pending", label: "Pending" },
-  { value: "accepted", label: "Accepted" },
+  { value: "accepted", label: "Approved" },
   { value: "edited", label: "Edited" },
   { value: "rejected", label: "Rejected" },
   { value: "failed", label: "Failed" },
@@ -100,9 +97,9 @@ export default function ArchiveReviewToolbar({
             "& .MuiTab-root": {
               minHeight: 40,
               py: 0.75,
-              px: 1.75,
-              fontWeight: 700,
-              fontSize: "0.82rem",
+              px: 1.5,
+              fontWeight: 600,
+              fontSize: "0.85rem",
               textTransform: "none",
             },
           }}
@@ -119,17 +116,11 @@ export default function ArchiveReviewToolbar({
                     <Chip
                       size="small"
                       label={count}
-                      color={
-                        t.value === status
-                          ? t.value === "failed"
-                            ? "error"
-                            : "primary"
-                          : "default"
-                      }
+                      color={t.value === status ? "primary" : "default"}
                       sx={{
-                        height: 18,
-                        fontSize: "0.68rem",
-                        fontWeight: 800,
+                        height: 20,
+                        fontSize: "0.72rem",
+                        fontWeight: 600,
                         px: 0.25,
                       }}
                     />
@@ -140,7 +131,7 @@ export default function ArchiveReviewToolbar({
           })}
         </Tabs>
 
-        {/* Right Action Tools: Batch Action + Refresh */}
+        {/* Action Tools */}
         <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
           {status === "pending" && selectedCount > 0 && (
             <Button
@@ -157,15 +148,13 @@ export default function ArchiveReviewToolbar({
                 )
               }
               sx={{
-                borderRadius: 1.75,
                 textTransform: "none",
-                fontWeight: 700,
-                fontSize: "0.8rem",
+                fontWeight: 600,
+                fontSize: "0.82rem",
                 px: 2,
-                boxShadow: "none",
               }}
             >
-              Accept Selected ({selectedCount})
+              Approve Selected ({selectedCount})
             </Button>
           )}
 
@@ -184,18 +173,17 @@ export default function ArchiveReviewToolbar({
                 )
               }
               sx={{
-                borderRadius: 1.75,
                 textTransform: "none",
-                fontWeight: 700,
-                fontSize: "0.8rem",
+                fontWeight: 600,
+                fontSize: "0.82rem",
                 px: 2,
               }}
             >
-              Re-run All Failed ({statusCounts.failed})
+              Re-run Failed ({statusCounts.failed})
             </Button>
           )}
 
-          <Tooltip title="Refresh queue">
+          <Tooltip title="Refresh">
             <IconButton
               size="small"
               onClick={onRefresh}
@@ -222,7 +210,7 @@ export default function ArchiveReviewToolbar({
         </Stack>
       </Box>
 
-      {/* Bottom Row: Search Input + Urgency Filters */}
+      {/* Bottom Row: Search Input + Status Filter */}
       <Box
         sx={{
           display: "flex",
@@ -232,10 +220,9 @@ export default function ArchiveReviewToolbar({
           gap: 1.5,
         }}
       >
-        {/* Search Input */}
         <TextField
           size="small"
-          placeholder="Filter proposals by filename, title, or order number..."
+          placeholder="Search by title, file name, or order number..."
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
           slotProps={{
@@ -255,19 +242,18 @@ export default function ArchiveReviewToolbar({
             },
           }}
           sx={{
-            minWidth: { xs: "100%", sm: 360, md: 440 },
+            minWidth: { xs: "100%", sm: 360, md: 420 },
             "& .MuiInputBase-root": {
               borderRadius: 2,
-              fontSize: "0.82rem",
+              fontSize: "0.85rem",
               bgcolor: (theme) => alpha(theme.palette.background.paper, 0.8),
             },
           }}
         />
 
-        {/* Urgency Filter Group (for pending) */}
         {status === "pending" && (
           <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
-            <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 700, fontSize: "0.74rem" }}>
+            <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 600 }}>
               Filter:
             </Typography>
             <ToggleButtonGroup
@@ -276,40 +262,19 @@ export default function ArchiveReviewToolbar({
               onChange={(_, val) => val && onUrgencyFilterChange(val)}
               size="small"
               sx={{
-                bgcolor: (theme) => alpha(theme.palette.divider, 0.08),
                 borderRadius: 2,
-                p: 0.25,
                 "& .MuiToggleButton-root": {
                   py: 0.4,
-                  px: 1.25,
-                  fontSize: "0.74rem",
-                  fontWeight: 700,
+                  px: 1.5,
+                  fontSize: "0.76rem",
+                  fontWeight: 600,
                   textTransform: "none",
-                  borderRadius: 1.5,
-                  border: "none",
-                  "&.Mui-selected": {
-                    bgcolor: "background.paper",
-                    boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
-                    color: "primary.main",
-                  },
                 },
               }}
             >
-              <ToggleButton value="all">
-                All
-              </ToggleButton>
-              <ToggleButton value="flagged">
-                <Stack direction="row" spacing={0.5} sx={{ alignItems: "center" }}>
-                  <WarningAmberRoundedIcon sx={{ fontSize: 14, color: "#F59E0B" }} />
-                  <span>Flagged Only</span>
-                </Stack>
-              </ToggleButton>
-              <ToggleButton value="clean">
-                <Stack direction="row" spacing={0.5} sx={{ alignItems: "center" }}>
-                  <BoltRoundedIcon sx={{ fontSize: 14, color: "#06B6D4" }} />
-                  <span>Clean / Fast-track</span>
-                </Stack>
-              </ToggleButton>
+              <ToggleButton value="all">All</ToggleButton>
+              <ToggleButton value="flagged">Needs Attention</ToggleButton>
+              <ToggleButton value="clean">Ready to Approve</ToggleButton>
             </ToggleButtonGroup>
           </Stack>
         )}

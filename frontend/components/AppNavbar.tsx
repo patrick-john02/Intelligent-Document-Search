@@ -11,6 +11,7 @@ import MenuRoundedIcon from "@mui/icons-material/MenuRounded";
 import SideMenuMobile from "./SideMenuMobile";
 import MenuButton from "./MenuButton";
 import ColorModeIconDropdown from "@/shared-theme/ColorModeIconDropdown";
+import NotificationPopover from "./NotificationPopover";
 import { DashboardRole } from "./dashboard/types";
 
 const PAGE_TITLES: Record<string, string> = {
@@ -18,10 +19,13 @@ const PAGE_TITLES: Record<string, string> = {
   "/search": "Smart Search",
   "/chat": "AI Assistant",
   "/documents": "Document Archive",
+  "/archive-review": "Archive Review",
   "/locator": "Physical Locator",
   "/uploads": "My Uploads",
   "/bookmarks": "Saved Directives",
   "/help": "Search Guide",
+  "/profile": "My Profile",
+  "/settings": "Settings",
   "/admin/approvals": "Document Approvals",
   "/admin/users": "User Management",
   "/admin/audit": "Audit & Compliance",
@@ -112,6 +116,7 @@ export default function AppNavbar({ currentRole }: { currentRole?: DashboardRole
         </Stack>
 
         <Stack direction="row" spacing={0.75} sx={{ alignItems: "center" }}>
+          <NotificationPopover />
           <ColorModeIconDropdown />
           <MenuButton aria-label="menu" onClick={toggleDrawer(true)}>
             <MenuRoundedIcon sx={{ fontSize: 20 }} />

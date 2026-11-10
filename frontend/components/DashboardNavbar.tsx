@@ -9,7 +9,6 @@ import Toolbar from "@mui/material/Toolbar";
 import Typography from "@mui/material/Typography";
 import Breadcrumbs, { breadcrumbsClasses } from "@mui/material/Breadcrumbs";
 import NavigateNextRoundedIcon from "@mui/icons-material/NavigateNextRounded";
-import NotificationsRoundedIcon from "@mui/icons-material/NotificationsRounded";
 import MenuRoundedIcon from "@mui/icons-material/MenuRounded";
 import { styled } from "@mui/material/styles";
 
@@ -17,6 +16,7 @@ import SideMenuMobile from "./SideMenuMobile";
 import MenuButton from "./MenuButton";
 import ColorModeIconDropdown from "@/shared-theme/ColorModeIconDropdown";
 import CustomDatePicker from "./CustomDatePicker";
+import NotificationPopover from "./NotificationPopover";
 import { DashboardRole } from "./dashboard/types";
 
 const StyledBreadcrumbs = styled(Breadcrumbs)(({ theme }) => ({
@@ -41,6 +41,7 @@ const ROUTE_MAP: Record<string, RouteMeta> = {
   "/search": { section: "Records & Search", page: "Smart Search", title: "Smart Search" },
   "/chat": { section: "Records & Search", page: "AI Assistant", title: "AI Assistant" },
   "/documents": { section: "Records & Search", page: "Document Archive", title: "Document Archive" },
+  "/archive-review": { section: "Records & Search", page: "Archive Review", title: "Archive Review" },
   "/locator": { section: "Records & Search", page: "Physical Locator", title: "Physical Locator" },
   "/uploads": { section: "My Workspace", page: "My Uploads", title: "My Uploads" },
   "/bookmarks": { section: "My Workspace", page: "Saved Directives", title: "Saved Directives" },
@@ -144,6 +145,7 @@ export default function DashboardNavbar({ currentRole }: DashboardNavbarProps) {
           </Stack>
 
           <Stack direction="row" spacing={0.75} sx={{ alignItems: "center" }}>
+            <NotificationPopover />
             <ColorModeIconDropdown />
             <MenuButton aria-label="menu" onClick={() => setMobileOpen(true)}>
               <MenuRoundedIcon sx={{ fontSize: 20 }} />
@@ -198,9 +200,7 @@ export default function DashboardNavbar({ currentRole }: DashboardNavbarProps) {
 
         <Stack direction="row" sx={{ gap: 1, alignItems: "center" }}>
           {isDashboard && <CustomDatePicker />}
-          <MenuButton showBadge aria-label="Open notifications">
-            <NotificationsRoundedIcon sx={{ fontSize: 20 }} />
-          </MenuButton>
+          <NotificationPopover />
           <ColorModeIconDropdown />
         </Stack>
       </Stack>
