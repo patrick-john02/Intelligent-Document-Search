@@ -7,6 +7,7 @@ from langgraph.errors import GraphRecursionError
 
 from agents.researcher_agent.graph import doc_searching_app
 from agents.doc_analysis_agent.graph import doc_analysis_app
+from agents.records_agent.graph import records_app
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +67,7 @@ async def ask_researcher(task: str, config: RunnableConfig) -> tuple[str, list[d
     questions from their contents (policies, circulars, vouchers, dates, amounts).
     `task` must be a complete, self-contained instruction: include document names, IDs,
     types or years mentioned earlier in the chat. The researcher cannot see the chat history."""
+    
     return await _run_specialist(doc_searching_app, task, config, "researcher")
 
 
@@ -75,7 +77,18 @@ async def ask_doc_analyst(task: str, config: RunnableConfig) -> tuple[str, list[
     document, COMPARE two documents, or CHECK FOR DUPLICATES.
     `task` must name the document IDs or titles involved. If you do not know the IDs yet,
     call ask_researcher first to find them. The analyst cannot see the chat history."""
+    
     return await _run_specialist(doc_analysis_app, task, config, "document analyst")
 
 
-SUPERVISOR_TOOLS = [ask_researcher, ask_doc_analyst]
+@tool(response_format="content_and_artifact")
+async def ask_records(task:str, config: RunnableConfig)->tuple[str,list[dict]]:
+    """Delegate to Mutya, the Record agent. Use it for METADATA questions: where a document is filed
+    (shelf location), HOW MANY documents of a type/period, LISTING documents by type,
+    year, date archived, division or uploaded, and version/uploaded history.
+    `task` must be self-contained, and relative dates must be converted to exact
+    YYYY-MM-DD ranges (e.g. 'Q3 2026' -> 2026-07-01 to 2026-09-30)."""
+    
+    return await _run_specialist(records_app, task, config, "records agent")
+
+SUPERVISOR_TOOLS = [ask_researcher, ask_doc_analyst, ask_records]

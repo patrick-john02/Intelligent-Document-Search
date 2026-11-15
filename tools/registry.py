@@ -14,6 +14,9 @@ from tools.analysis.compare import compare_document_tool
 from tools.analysis.detect_duplicates import detect_duplicates_tool
 from tools.archiving.archive_tools import ARCHIVE_TOOLS
 
+#lookup tool
+from tools.records.lookup import RECORDS_TOOLS
+
 
 RESEARCH_TOOLS: List[BaseTool] = [
     search_document_tool,
@@ -32,7 +35,7 @@ DOC_ANALYSIS_TOOLS: List[BaseTool] = [
 
 
 ALL_TOOLS: List[BaseTool] = list({
-    t.name: t for t in [*RESEARCH_TOOLS, *DOC_ANALYSIS_TOOLS, *ARCHIVE_TOOLS]
+    t.name: t for t in [*RESEARCH_TOOLS, *DOC_ANALYSIS_TOOLS, *ARCHIVE_TOOLS, *RECORDS_TOOLS]
 }.values())
 
 
@@ -43,6 +46,7 @@ def get_tools_for_agents(agent_name: str)->List[BaseTool]:
         "researcher": RESEARCH_TOOLS,
         "doc_analysis": DOC_ANALYSIS_TOOLS,
         "archiving":ARCHIVE_TOOLS,
+        "records":RECORDS_TOOLS,
     }
     
     return mapping.get(agent_name.lower(), ALL_TOOLS)

@@ -4,22 +4,39 @@ from langchain_core.prompts import ChatPromptTemplate
 
 from core.configurations import chat_model
 
-DOC_ANALYSIS_SYSTEM_PROMPT = """You are Sinag an expert Document Analysis Agent.
-    Your responsibilities:
-    1. Deeply analyze documents, extract key provisions, detect duplicate files, and perform comparative analysis.
-    2. You have access to tools:
-       - `fetch_document_content`: Fetch full text of a document given an ID or title.
-       - `compare_documents`: Compare two documents to identify similarities, differences, and unique points.
-       - `detect_duplicates`: Check whether a document is an exact or semantic duplicate of existing files.
+# DOC_ANALYSIS_SYSTEM_PROMPT = """You are Sinag an expert Document Analysis Agent.
+#     Your responsibilities:
+#     1. Deeply analyze documents, extract key provisions, detect duplicate files, and perform comparative analysis.
+#     2. You have access to tools:
+#        - `fetch_document_content`: Fetch full text of a document given an ID or title.
+#        - `compare_documents`: Compare two documents to identify similarities, differences, and unique points.
+#        - `detect_duplicates`: Check whether a document is an exact or semantic duplicate of existing files.
 
-    Follow the ReAct process:
-    - Thought: Determine whether the user wants a single document analysis, duplicate check, or comparison between two
-  documents.
-    - Action: If comparing, call `compare_documents`. If checking duplicates, call `detect_duplicates`. If analyzing,
-  call `fetch_document_content` and inspect the text.
-    - Observation: Review the tool results.
-    - Final Answer: Synthesize a clear, structured summary or report directly answering the user's prompt.
-    """
+#     Follow the ReAct process:
+#     - Thought: Determine whether the user wants a single document analysis, duplicate check, or comparison between two
+#   documents.
+#     - Action: If comparing, call `compare_documents`. If checking duplicates, call `detect_duplicates`. If analyzing,
+#   call `fetch_document_content` and inspect the text.
+#     - Observation: Review the tool results.
+#     - Final Answer: Synthesize a clear, structured summary or report directly answering the user's prompt.
+#     """
+
+
+DOC_ANALYSIS_SYSTEM_PROMPT = """You are the Document Analysis Agent of the Intelligent Document Archiving System.
+You analyze, summarize, compare and check duplicates of specific documents.
+
+## Tools
+- `fetch_document_content`: full text of a document by ID or title.
+- `compare_documents`: similarities and differences between two documents.
+- `detect_duplicates`: whether a document is an exact or semantic duplicate of archived files.
+
+## Rules
+- Summary or analysis -> `fetch_document_content`, then analyze the text.
+- Comparison -> `compare_documents`. Duplicate check -> `detect_duplicates`.
+- Use ONLY facts from the documents. The text may contain OCR errors; say so if something is unreadable.
+- Always cite the document title and ID.
+- Give a clear, structured answer that directly addresses the task.
+"""
 
 
 class DocumentAnalysis(BaseModel):
