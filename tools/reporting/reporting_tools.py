@@ -74,6 +74,19 @@ async def _count_attention(session, kind: str) -> int:
     sub = _attention_query(kind, DocumentModel.id).distinct().subquery()
     return (await session.execute(select(func.count()).select_from(sub))).scalar_one()
 
-#TODO:
+# TODO:
 # @tool("archive_activity_summary", args_schema=PeriodArgs)
-# async def archive_activity_summary_tool(date_from:date, date_to:date)->str: 
+# async def archive_activity_summary_tool(date_from: date, date_to: date) -> str:
+#     """Summary of archiving activity in a period: total documents archived, and the
+#     breakdown per category, per division and per staff member. Use for daily, weekly
+#     or monthly reports ('what was archived today/this week')."""
+#     f = RecordsFilters(received_from=date_from, received_to=date_to)
+#     total_q = _apply_filters(_base_query(func.count(func.distinct(DocumentModel.id))), f)
+
+#     def grouped(col):
+#         total=func.count(func.distinct(DocumentModel.id)).label("total")
+#         return _apply_filters(_base_query(col.label("grp"), total), f).group_by(col).order_by(total.desc())
+
+
+#TODO:
+
