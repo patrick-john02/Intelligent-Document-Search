@@ -17,6 +17,12 @@ from tools.archiving.archive_tools import ARCHIVE_TOOLS
 #lookup tool
 from tools.records.lookup import RECORDS_TOOLS
 
+#reporting tools
+from tools.reporting.reporting_tools import archive_activity_summary_tool, review_queue_status_tool, list_attention_items_tool
+
+#reporting tool
+from tools.reporting.reporting_tools import REPORTING_TOOLS
+
 
 RESEARCH_TOOLS: List[BaseTool] = [
     search_document_tool,
@@ -31,11 +37,23 @@ DOC_ANALYSIS_TOOLS: List[BaseTool] = [
     detect_duplicates_tool,
 ]
 
+REPORTING_TOOLS:List[BaseTool] = [
+    archive_activity_summary_tool,
+    review_queue_status_tool,
+    list_attention_items_tool,
+]
+
 # ARCHIVE_TOOLS: List[BaseTool]= []
 
 
 ALL_TOOLS: List[BaseTool] = list({
-    t.name: t for t in [*RESEARCH_TOOLS, *DOC_ANALYSIS_TOOLS, *ARCHIVE_TOOLS, *RECORDS_TOOLS]
+    t.name: t for t in [
+        *RESEARCH_TOOLS, 
+        *DOC_ANALYSIS_TOOLS, 
+        *ARCHIVE_TOOLS, 
+        *RECORDS_TOOLS,
+        *REPORTING_TOOLS,
+    ]
 }.values())
 
 

@@ -8,6 +8,7 @@ from langgraph.errors import GraphRecursionError
 from agents.researcher_agent.graph import doc_searching_app
 from agents.doc_analysis_agent.graph import doc_analysis_app
 from agents.records_agent.graph import records_app
+from agents.reporting_agent.graph import reporting_app
 
 logger = logging.getLogger(__name__)
 
@@ -90,5 +91,12 @@ async def ask_records(task:str, config: RunnableConfig)->tuple[str,list[dict]]:
     YYYY-MM-DD ranges (e.g. 'Q3 2026' -> 2026-07-01 to 2026-09-30)."""
     
     return await _run_specialist(records_app, task, config, "records agent")
+
+
+@tool(response_format="content_and_artifact")
+async def ask_reporter(task:str, config:RunnableConfig)->tuple[str,list[dict]]:
+    """"""
+    
+    return await _run_specialist(reporting_app,task,config, "reporting agent")
 
 SUPERVISOR_TOOLS = [ask_researcher, ask_doc_analyst, ask_records]
