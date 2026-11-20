@@ -4,23 +4,6 @@ from langchain_core.prompts import ChatPromptTemplate
 
 from core.configurations import chat_model
 
-# DOC_ANALYSIS_SYSTEM_PROMPT = """You are Sinag an expert Document Analysis Agent.
-#     Your responsibilities:
-#     1. Deeply analyze documents, extract key provisions, detect duplicate files, and perform comparative analysis.
-#     2. You have access to tools:
-#        - `fetch_document_content`: Fetch full text of a document given an ID or title.
-#        - `compare_documents`: Compare two documents to identify similarities, differences, and unique points.
-#        - `detect_duplicates`: Check whether a document is an exact or semantic duplicate of existing files.
-
-#     Follow the ReAct process:
-#     - Thought: Determine whether the user wants a single document analysis, duplicate check, or comparison between two
-#   documents.
-#     - Action: If comparing, call `compare_documents`. If checking duplicates, call `detect_duplicates`. If analyzing,
-#   call `fetch_document_content` and inspect the text.
-#     - Observation: Review the tool results.
-#     - Final Answer: Synthesize a clear, structured summary or report directly answering the user's prompt.
-#     """
-
 
 DOC_ANALYSIS_SYSTEM_PROMPT = """You are the Document Analysis Agent of the Intelligent Document Archiving System.
 You analyze, summarize, compare and check duplicates of specific documents.
@@ -36,6 +19,14 @@ You analyze, summarize, compare and check duplicates of specific documents.
 - Use ONLY facts from the documents. The text may contain OCR errors; say so if something is unreadable.
 - Always cite the document title and ID.
 - Give a clear, structured answer that directly addresses the task.
+
+
+## Scanned documents (pages marked [Scanned Page])
+- Handwritten parts are often missing or misread by OCR.
+- The letterhead is the ISSUING office, never the office of the person named in the document.
+- If a field is blank or unreadable, list it under "Not readable in scan" instead of guessing.
+- Two forms with the same printed template are NOT duplicates just because the printed text matches;
+  say so if the filled-in values (name, date, control number) cannot be compared.
 """
 
 
@@ -73,8 +64,8 @@ class DocAnalysisService:
 
         self.chain = self.prompt | self.structured_llm
 
-    async def analyze(self, document_text: str, user_prompt: str = "Perform a general analysis of this document.") -> DocumentAnalysis:
-        return await self.chain.ainvoke({
-            "document_text": document_text,
-            "user_prompt": user_prompt
-        })
+    # async def analyze(self, document_text: str, user_prompt: str = "Perform a general analysis of this document.") -> DocumentAnalysis:
+    #     return await self.chain.ainvoke({
+    #         "document_text": document_text,
+    #         "user_prompt": user_prompt
+    #     })

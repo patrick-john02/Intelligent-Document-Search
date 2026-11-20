@@ -10,6 +10,7 @@ from sqlalchemy.orm import selectinload
 from core.dependencies import SessionLocal
 from api.models.document import DocumentVersion
 from rag.extractor import ExtractionResult
+from rag.text_quality import assess_text_quality
 
 #this will hold the metadata fetched on the database
 @dataclass
@@ -72,16 +73,31 @@ def build_chunk_metadata(
 
 
 #saves OCR accuracy and scanned PDF FLAGS to doc versions
+# async def update_extraction_metadata(
+#         document_version_id: int,
+#         extraction:ExtractionResult, 
+# )->None:
+#     async with SessionLocal() as db_session:
+#         version = await db_session.get(DocumentVersion, document_version_id)
+#         if version:
+#             version.ocr_accuracy_score = extraction.ocr_score
+#             version.is_scanned_pdf =  extraction.is_scanned
+#             await db_session.commit()
+
+
 async def update_extraction_metadata(
-        document_version_id: int,
-        extraction:ExtractionResult, 
+    document_version_id: int,
+    extraction: ExtractionResult,
 )->None:
+    reasons=assess_text_quality(extraction.text, extraction.is_scanned, extraction.ocr_score)
+
     async with SessionLocal() as db_session:
         version = await db_session.get(DocumentVersion, document_version_id)
         if version:
             version.ocr_accuracy_score = extraction.ocr_score
-            version.is_scanned_pdf =  extraction.is_scanned
+            version.is_scanned_pdf = extraction.is_scanned
+            version.needs_text_review = bool(reasons)
+            version.text_review_reasons = reasons
+            version.text_verified = False
             await db_session.commit()
-
-
 

@@ -7,7 +7,7 @@ from sqlalchemy import text
 from core.dependencies import deps, SessionLocal
 from langchain.tools import tool
 from pydantic import BaseModel, Field
-from tools.analysis.fetch import resolve_document_content
+from tools.analysis.fetch import resolve_document_content, UNVERIFIED_NOTE
 
 from api.models.users import Users
 from api.models.enums.docs import ClearanceLevel, get_subordinate_clearance_levels
@@ -415,6 +415,31 @@ async def expand_chunks_with_parent_context(
     return chunks
 
 
+async def get_unverified_version_ids(version_ids: list[int]) -> set[int]:
+
+    if not version_ids:
+        return set()
+    sql = """
+        SELECT id FROM document_version
+        WHERE id = ANY(:ids)
+            AND needs_text_review = true
+            AND text_verified = false
+        """
+
+    try:
+        async with SessionLocal() as session:
+            result = await session.execute(text(sql), {"ids": version_ids})
+            return {row[0] for row in result.fetchall()}
+    except Exception as e:
+        logger.warning(f"[Search] Could not check text verification ({e}); treating results as unverified")
+        return set(version_ids)
+
+def _version_id(item: dict) -> int | None:
+    try:
+        return int(item.get("document_version_id"))
+    except (TypeError, ValueError):
+        return None
+
 class SearchDocumentsInput(BaseModel):
     query: str = Field(
         description="Natural language search query, document code (e.g. DV-2026-00128, AO No. 14), or policy terms to find."
@@ -480,6 +505,7 @@ async def search_document_tool(
     doc_type: Optional[str] = None,
     year: Optional[int] = None,
 ) -> tuple[str, list[dict]]:
+    
     results = await search_documents(
         query=query,
         top_k=top_k,
@@ -491,6 +517,11 @@ async def search_document_tool(
     )
     if not results:
         return f"No relevant documents found matching query: '{query}'.", []
+
+    unverified = await get_unverified_version_ids(
+        [vid for vid in (_version_id(i) for i in results) if vid is not None]
+    )
+
 
     output = []
     for idx, item in enumerate(results, 1):
@@ -513,10 +544,12 @@ async def search_document_tool(
                 f"{item.get('parent_content')}\n"
             )
 
+        warning=f"{UNVERIFIED_NOTE}\n" if _version_id(item) in unverified else ""
         output.append(
             f"[{idx}] File: {item.get('file_name', 'Unknown')}{page_info}{type_info}{section_info}{parent_info} ({score_type}: {score_val:.4f})\n"
             # f"Document ID: {item.get('document_id')} | Version: v{v_num} ({version_status}) | Clearance: {item.get('clearance_level', 'public')}\n"
             f"Document ID: {item.get('document_id')} | Doc Type: {item.get('doc_type', 'unknown')} | Version: v{v_num} ({version_status}) | Clearance: {item.get('clearance_level', 'public')}\n"
+            f"{warning}"
             f"Content:\n{item.get('content')}\n"
             f"{parent_section_text}"
         )

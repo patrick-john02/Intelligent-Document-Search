@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Mapped, mapped_column, DeclarativeBase, relationship
 from sqlalchemy import (
     String, Integer, DateTime, Date, Boolean, ForeignKey, BigInteger, Text, 
-    JSON, Float, Computed, UniqueConstraint, Index, text, true
+    JSON, Float, Computed, UniqueConstraint, Index, text, true, false
 )
 from sqlalchemy.dialects.postgresql import TSVECTOR
 from typing import List, TYPE_CHECKING, Any
@@ -102,6 +102,17 @@ class DocumentVersion(Base):
 
     extraction: Mapped["DocumentExtractions | None"] = relationship(back_populates="document_version", uselist=False)
     archive_proposal: Mapped[list["ArchiveProposal"]] = relationship(back_populates="document_version")
+
+    #human verification of extacted text
+    needs_text_review: Mapped[bool] =mapped_column(
+        Boolean, default=false, server_default=false(), index=True
+    )
+    text_review_reasons: Mapped[list[str]] = mapped_column(
+        JSON, default=list, server_default=text("'[]'")
+    )
+    text_verified: Mapped[bool]=mapped_column(
+        Boolean, default=False, server_default=false()
+    )
 
 #Alon Archiving agent proposed archive metadata for one document version.
 #purpose: alon never edits a document directly. He writes a proposal here, and a human accpets, edits or rejects it (human-in-the-loop).

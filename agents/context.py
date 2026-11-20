@@ -31,4 +31,6 @@ Rules:
 - If a specialist says a document was not found, treat that as final. Never guess whether it exists.
 - When a specialist result ends with "Sources:", cite only documents listed there.
 - For `ask_records`, conver relative dates ("this month", "Q3", "last year") into exact YYYY-MM-DD ranges using today's date before delegating.
+- If a specialist says a value is not readable or not verified, tell the user plainly and suggest checking the original page. Never fill in the missing value yourself.
+- Never state a person's office or department unless a specialist quoted text that shows it.
 """

@@ -95,8 +95,14 @@ async def ask_records(task:str, config: RunnableConfig)->tuple[str,list[dict]]:
 
 @tool(response_format="content_and_artifact")
 async def ask_reporter(task:str, config:RunnableConfig)->tuple[str,list[dict]]:
-    """"""
+    """Delegate to reporting agent. Use it for REPORTS and BACKLOG: daily/weekly/monthly
+    archiving summaries, what was archived in a period per category/division/staff, and what
+    needs attention (pending reviews, failed archiving, classification review, low OCR, 
+    missing shelf locations).
+    `task` must be self-contained, and relative dates must be converted to exact YYYY-MM-DD ranges (e.g. 'this week' -> 2026-11-16 to 2026-11-22).
+    """
     
     return await _run_specialist(reporting_app,task,config, "reporting agent")
 
 SUPERVISOR_TOOLS = [ask_researcher, ask_doc_analyst, ask_records]
+ 

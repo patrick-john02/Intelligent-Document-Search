@@ -18,7 +18,7 @@ ROW_TOLERANCE = 0.5
 COLUMN_GAP_FACTOR = 1.5
 COLUMN_SEPARATOR = " | "
 MIN_BOX_SCORE = 0.65 
-
+NOISE_BOX_SCORE = 0.30
 
 
 @dataclass
@@ -58,8 +58,14 @@ def _ocr_pil_image_with_score(image: Image.Image) -> tuple[str, float]:
 
             # print(f"{score if score is not None else -1:.2f}  {text}")  # DEBUG: remove after tuning
 
+            # if score is not None and score < MIN_BOX_SCORE:
+            #     continue
+
+
+            if score is not None and score < NOISE_BOX_SCORE:
+                continue
             if score is not None and score < MIN_BOX_SCORE:
-                continue  # skip stamp/handwriting noise
+                text = f"[?{text}]"
 
             items.append((line[0], text))
             if score is not None:

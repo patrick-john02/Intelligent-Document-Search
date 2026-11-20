@@ -1,5 +1,6 @@
 # labels.py. Change this list to the actual forms PAO handles:
 DOC_TYPES = [
+    "clearance",
     "disbursement_voucher",
     "obligation_request",
     "budget_utilization_request",

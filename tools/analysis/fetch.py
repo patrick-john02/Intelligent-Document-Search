@@ -12,18 +12,45 @@ from tools.access.permissions import clearance_filter
 logger=logging.getLogger(__name__)
 NOT_FOUND: Tuple[str, str] = ("", "")
 
-def _active_version_text(doc: DocumentModel) -> str:
-    active = next((v for v in doc.versions if v.is_current), doc.versions[-1] if doc.versions else None)
+UNVERIFIED_NOTE = (
+    "⚠ UNVERIFIED SCAN: this text came from OCR of a scanned page and has NOT been checked by staff yet. "
+    "Handwritten values (names, offices, dates, amounts) may be missing or wrong. "
+    "Do not state them as fact; tell the user to check the original page."
+)
+
+# def _active_version_text(doc: DocumentModel) -> str:
+#     active = next((v for v in doc.versions if v.is_current), doc.versions[-1] if doc.versions else None)
+#     if not active:
+#         return ""
+#     if active.chunks:
+#         chunks = sorted(active.chunks, key=lambda c: c.chunk_index)
+#         text = "\n\n".join(c.content for c in chunks if c.content)
+#         if text.strip():
+#             return text
+#     if active.storage_path and Path(active.storage_path).is_file():
+#         return Path(active.storage_path).read_text(encoding="utf-8", errors="ignore")
+#     return ""
+
+
+
+def _active_version_text(doc:DocumentModel)->str:
+    active=next((v for v in doc.versions if v.is_current), doc.versions[-1] if doc.versions else None)
     if not active:
         return ""
+
+    note = f"{UNVERIFIED_NOTE}\n\n" if (active.needs_text_review and not active.text_verified) else ""
+
     if active.chunks:
-        chunks = sorted(active.chunks, key=lambda c: c.chunk_index)
+        chunks =  sorted(active.chunks, key=lambda c: c.chunk_index)
         text = "\n\n".join(c.content for c in chunks if c.content)
         if text.strip():
             return text
+
     if active.storage_path and Path(active.storage_path).is_file():
         return Path(active.storage_path).read_text(encoding="utf-8", errors="ignore")
     return ""
+
+
 
 #this will be a content resolver (using database id , title , and raw text)
 #will be using the table DocumentModel and DocumentChunks
