@@ -18,20 +18,6 @@ UNVERIFIED_NOTE = (
     "Do not state them as fact; tell the user to check the original page."
 )
 
-# def _active_version_text(doc: DocumentModel) -> str:
-#     active = next((v for v in doc.versions if v.is_current), doc.versions[-1] if doc.versions else None)
-#     if not active:
-#         return ""
-#     if active.chunks:
-#         chunks = sorted(active.chunks, key=lambda c: c.chunk_index)
-#         text = "\n\n".join(c.content for c in chunks if c.content)
-#         if text.strip():
-#             return text
-#     if active.storage_path and Path(active.storage_path).is_file():
-#         return Path(active.storage_path).read_text(encoding="utf-8", errors="ignore")
-#     return ""
-
-
 
 def _active_version_text(doc:DocumentModel)->str:
     active=next((v for v in doc.versions if v.is_current), doc.versions[-1] if doc.versions else None)

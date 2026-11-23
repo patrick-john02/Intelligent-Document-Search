@@ -104,5 +104,6 @@ async def ask_reporter(task:str, config:RunnableConfig)->tuple[str,list[dict]]:
     
     return await _run_specialist(reporting_app,task,config, "reporting agent")
 
+
 SUPERVISOR_TOOLS = [ask_researcher, ask_doc_analyst, ask_records]
  

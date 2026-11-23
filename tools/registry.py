@@ -8,6 +8,9 @@ from tools.documents.search import(
     fetch_document_content_tool,
     fetch_parent_context_tool,
 )
+from tools.researcher.search import(
+    search_documents, find_documents_tool, lookup_reference_tool
+)
 
 #analysis tools
 from tools.analysis.compare import compare_document_tool
@@ -23,9 +26,14 @@ from tools.reporting.reporting_tools import archive_activity_summary_tool, revie
 #reporting tool
 from tools.reporting.reporting_tools import REPORTING_TOOLS
 
+#researcher tool
+from tools.researcher.search import RESEARCH_SEARCH_TOOLS
+
 
 RESEARCH_TOOLS: List[BaseTool] = [
-    search_document_tool,
+    lookup_reference_tool,
+    find_documents_tool,
+    search_documents,
     fetch_document_content_tool,
     fetch_parent_context_tool,
 ]
@@ -49,6 +57,7 @@ REPORTING_TOOLS:List[BaseTool] = [
 ALL_TOOLS: List[BaseTool] = list({
     t.name: t for t in [
         *RESEARCH_TOOLS, 
+        *RESEARCH_SEARCH_TOOLS,
         *DOC_ANALYSIS_TOOLS, 
         *ARCHIVE_TOOLS, 
         *RECORDS_TOOLS,
@@ -62,6 +71,7 @@ def get_tools_for_agents(agent_name: str)->List[BaseTool]:
     
     mapping = {
         "researcher": RESEARCH_TOOLS,
+        "reporting": REPORTING_TOOLS,
         "doc_analysis": DOC_ANALYSIS_TOOLS,
         "archiving":ARCHIVE_TOOLS,
         "records":RECORDS_TOOLS,

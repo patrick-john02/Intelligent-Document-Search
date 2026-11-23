@@ -31,19 +31,12 @@ from tools.documents.search import (
 
 logger = logging.getLogger(__name__)
 
-
-# ============================================================================
 # 1. search_documents - thin wrapper
-# ============================================================================
 # Same tool name and schema the agent already knows; the engine is unchanged.
 search_documents = search_document_tool
 
 
-# ============================================================================
-# shared helpers
-# ============================================================================
-
-FIND_CANDIDATES = 30        # chunks pulled before grouping (capped by RERANKER_CANDIDATE_POOL)
+FIND_CANDIDATES = 30      
 MAX_DOCS = 20
 SNIPPET_CHARS = 300
 LOOKUP_MAX_ROWS = 200
@@ -55,19 +48,24 @@ DOC_TYPE_HELP = (
 )
 
 
-def _version_id(item: dict) -> int | None:
+def _version_id(item: dict[str, Any]) -> int | None:
+    val = item.get("document_version_id")
+    if val is None:
+        return None
     try:
-        return int(item.get("document_version_id"))
+        return int(val)
     except (TypeError, ValueError):
         return None
 
 
-def _page(item: dict) -> int | None:
+def _page(item: dict[str, Any]) -> int | None:
+    val = item.get("page_number")
+    if val is None:
+        return None
     try:
-        return int(item.get("page_number"))
+        return int(val)
     except (TypeError, ValueError):
         return None
-
 
 def _score(item: dict) -> float:
     try:
