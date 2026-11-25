@@ -104,8 +104,8 @@ class DocumentVersion(Base):
     archive_proposal: Mapped[list["ArchiveProposal"]] = relationship(back_populates="document_version")
 
     #human verification of extacted text
-    needs_text_review: Mapped[bool] =mapped_column(
-        Boolean, default=false, server_default=false(), index=True
+    needs_text_review: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=false(), index=True
     )
     text_review_reasons: Mapped[list[str]] = mapped_column(
         JSON, default=list, server_default=text("'[]'")

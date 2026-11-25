@@ -5,6 +5,7 @@ import joblib
 
 from rag.classification.base import Prediction
 from rag.classification.config import MODEL_DIR, read_version
+from rag.classification.text import clean_rapidocr, normalize_label
 
 
 class TfidfClassifier:
@@ -13,21 +14,25 @@ class TfidfClassifier:
     def __init__(self):
         self.folder = MODEL_DIR / "tfidf"
         self.model_version = read_version(self.folder)
-        self._model= None
+        self._model = None
 
-    def is_ready(self)->bool:
+    def is_ready(self) -> bool:
         return (self.folder / "model.joblib").exists()
-
 
     def _load(self):
         if self._model is None:
-            self._model = joblib.load(self.folder / "model.joblib")
+            loaded = joblib.load(self.folder / "model.joblib")
+            self._model = getattr(loaded, "pipeline", loaded)
         return self._model
 
     def _predict_sync(self, text: str) -> Prediction:
         model = self._load()
-        probs = model.predict_proba([text])[0]
-        probabilities = {str(label): float(p) for label, p in zip(model.classes_, probs)}
+        cleaned = clean_rapidocr(text)
+        probs = model.predict_proba([cleaned])[0]
+        probabilities = {
+            normalize_label(label): float(p)
+            for label, p in zip(model.classes_, probs)
+        }
         label = max(probabilities, key=probabilities.get)
         return Prediction(self.name, label, probabilities[label], probabilities, self.model_version)
 

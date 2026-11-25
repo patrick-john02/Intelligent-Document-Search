@@ -62,6 +62,13 @@ temp/*
 # ==========================================
 # Machine Learning Weights & Vector Indexes
 # ==========================================
+models/classification/*
+!models/classification/__init__.py
+!models/classification/.gitkeep
+models_store/*
+!models_store/.gitkeep
+*.joblib
+*.pkl
 *.pt
 *.bin
 *.safetensors
@@ -70,6 +77,11 @@ temp/*
 chroma_db/
 faiss_index/
 *.index
+
+models_store/*
+!models_store/.gitkeep
+*.joblib
+*.pkl
 
 # ==========================================
 # Database & Logs

@@ -24,14 +24,10 @@ logger = logging.getLogger(__name__)
 current_user_context: ContextVar[Optional[Users]] = ContextVar("current_user_context", default=None)
 
 DOC_TYPE_ALIASES = {
-    "dv": "disbursement_voucher",
-    "obr": "obligation_request",
-    "ors": "obligation_request",
-    "bur": "budget_utilization_request",
-    "pr": "purchase_request",
-    "po": "purchase_order",
-    "jev": "journal_entry_voucher",
-    "or": "official_receipt",
+    "leave": "leaves",
+    "memo": "communication",
+    "memorandum": "communication",
+    "letter": "communication",
 }
 
 
@@ -463,9 +459,7 @@ class SearchDocumentsInput(BaseModel):
     doc_type: Optional[str] = Field(
         default=None,
         description=(
-            "Optional document type filter. One of: disbursement_voucher, obligation_request, "
-            "budget_utilization_request, purchase_request, purchase_order, payroll, "
-            "liquidation_report, official_receipt, journal_entry_voucher, other. "
+            "Optional document type filter. One of: clearance, communication, leaves, other. "
             "Use only when the user names a document type."
         ),
     )

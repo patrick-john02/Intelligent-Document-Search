@@ -13,9 +13,10 @@ from core.dependencies import get_db
 from core.security import get_current_active_user, get_user_permissions, get_user
 from tools.access.permissions import get_user_clearance_levels, clearance_filter
 from api.models.enums.docs import ProposalStatus
+from celery import chain
 from rag.classification.labels import DOC_TYPES
 from rag.classification.store import confirm_classification
-from rag.pipeline import reindex_from_checkpoint, archive_review_task
+from rag.pipeline import reindex_from_checkpoint, classify_task, archive_review_task
 
 from api.models.document import (
     DocumentVersion, DocumentModel, 
@@ -191,7 +192,8 @@ async def rerun_alon(
     if visible is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document version not found")
 
-    archive_review_task.delay(version_id)   # runs in Celery; a new pending proposal replaces the old one
+    # Re-run ML classification (respects human-verified labels) before running Alon
+    chain(classify_task.s(version_id), archive_review_task.s()).apply_async()
     return {"version_id": version_id, "queued": True}   # 202 = queued, not finished
 
 

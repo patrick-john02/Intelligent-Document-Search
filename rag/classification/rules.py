@@ -4,17 +4,9 @@ import re
 
 from rag.classification.base import Prediction
 
-RULES: list[tuple[str, re.Pattern]] = [
-    ("disbursement_voucher", re.compile(r"\bdisbursement\s+voucher\b", re.I)),
-    ("obligation_request", re.compile(r"\bobligation\s+request\b", re.I)),
-    ("budget_utilization_request", re.compile(r"\bbudget\s+utili[sz]ation\s+request\b", re.I)),
-    ("purchase_request", re.compile(r"\bpurchase\s+request\b", re.I)),
-    ("purchase_order", re.compile(r"\bpurchase\s+order\b", re.I)),
-    ("payroll", re.compile(r"\bpayroll\b", re.I)),
-    ("liquidation_report", re.compile(r"\bliquidation\s+report\b", re.I)),
-    ("official_receipt", re.compile(r"\bofficial\s+receipt\b", re.I)),
-    ("journal_entry_voucher", re.compile(r"\bjournal\s+entry\s+voucher\b", re.I)),
-]
+# Keep empty while DOC_TYPES is ["clearance", "communication", "leaves", "other"]
+# so Tier 0 abstains and does not vote for removed types or dilute ML probabilities.
+RULES: list[tuple[str, re.Pattern]] = []
 
 HEADER_CHARS = 800
 
@@ -35,7 +27,7 @@ class RuleClassifier:
                 hits.append((match.start(), label))
 
         if not hits:
-            return None                     # abstain, don't guess
+            return None                     
 
         hits.sort()
         position, label = hits[0]

@@ -42,9 +42,8 @@ SNIPPET_CHARS = 300
 LOOKUP_MAX_ROWS = 200
 
 DOC_TYPE_HELP = (
-    "Optional document type filter. One of: clearance, disbursement_voucher, obligation_request, "
-    "budget_utilization_request, purchase_request, purchase_order, payroll, liquidation_report, "
-    "official_receipt, journal_entry_voucher, other. Use only when the user names a type."
+    "Optional document type filter. One of: clearance, communication, leaves, other. "
+    "Use only when the user names a type."
 )
 
 

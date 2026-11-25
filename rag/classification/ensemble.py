@@ -12,13 +12,20 @@ from rag.classification.config import AUTO_ASSIGN_THRESHOLD, UNKNOWN_THRESHOLD, 
 from rag.classification.embedding_tier import EmbeddingClassifier
 from rag.classification.labels import UNKNOWN_LABEL
 from rag.classification.rules import RuleClassifier
+from rag.classification.setfit_tier import SetFitClassifier
 from rag.classification.text import build_classification_text
 from rag.classification.tfidf_tier import TfidfClassifier
 from rag.classification.transformer_tier import TransformerClassifier
 
 logger = logging.getLogger(__name__)
 
-TIERS = [RuleClassifier(), TfidfClassifier(), EmbeddingClassifier(), TransformerClassifier()]
+TIERS = [
+    RuleClassifier(),
+    TfidfClassifier(),
+    EmbeddingClassifier(),
+    SetFitClassifier(),
+    TransformerClassifier(),
+]
 
 
 @dataclass
