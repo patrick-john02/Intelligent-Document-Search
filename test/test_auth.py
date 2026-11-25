@@ -7,6 +7,7 @@ from api.models.enums.user import AccountStatus
 from datetime import date , datetime
 from main import app
 from core.dependencies import get_db
+from test.session_helpers import TEST_SID, active_session
 
 test_pass = get_password_hash("meowmeowmeow")
 
@@ -32,6 +33,15 @@ user_test = Users(
 )
 
 class MockAsyncSession:
+    async def get(self, model, key):
+        return active_session()
+
+    def add(self, instance):
+        pass
+
+    async def commit(self):
+        pass
+
     async def execute(self, query):
         class MockResult:
             def scalars(self):
@@ -87,7 +97,7 @@ async def test_wrong_pass():
 
 @pytest.mark.anyio
 async def test_rout_with_token():
-    token = create_access_token(data={"sub": "juan"})
+    token = create_access_token(data={"sub": "juan"}, session_id=TEST_SID)
     
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:

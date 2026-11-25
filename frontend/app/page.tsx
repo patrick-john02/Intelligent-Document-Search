@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Box,
   Card,
@@ -31,7 +31,8 @@ import EmailOutlinedIcon from "@mui/icons-material/EmailOutlined";
 import BadgeOutlinedIcon from "@mui/icons-material/BadgeOutlined";
 import AutoAwesomeOutlinedIcon from "@mui/icons-material/AutoAwesomeOutlined";
 import { api } from "@/lib/api";
-import { useAuth } from "@/context/AuthContext";
+import type { TokenResponse } from "@/lib/session";
+import { useAuth, LOGOUT_REASON_KEY } from "@/context/AuthContext";
 
 function GoogleIcon() {
   return (
@@ -70,6 +71,18 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  // Explain why the user landed back on the login page (idle auto-logout / expired session)
+  useEffect(() => {
+    const reason = sessionStorage.getItem(LOGOUT_REASON_KEY);
+    if (!reason) return;
+    sessionStorage.removeItem(LOGOUT_REASON_KEY);
+    const message =
+      reason === "idle"
+        ? "You were logged out due to inactivity. Please sign in again."
+        : "Your session has expired. Please sign in again.";
+    window.setTimeout(() => setErrorMsg(message), 0);
+  }, []);
+
   // Register Form States
   const [regFullName, setRegFullName] = useState("");
   const [regEmail, setRegEmail] = useState("");
@@ -98,10 +111,10 @@ export default function LoginPage() {
       formData.append("username", username);
       formData.append("password", password);
 
-      const data = await api.post("/token", formData);
+      const data = await api.post<TokenResponse>("/token", formData);
 
-      // Log in through AuthContext (stores token, fetches user, and redirects to /dashboard)
-      await login(data.access_token);
+      // Log in through AuthContext (stores token in memory, fetches user, and redirects to /dashboard)
+      await login(data);
     } catch (err: any) {
       setErrorMsg(err.message || "Invalid username or password. Please try again.");
     } finally {

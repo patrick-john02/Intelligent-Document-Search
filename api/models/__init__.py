@@ -5,6 +5,6 @@ from api.models.document import(
     ArchiveProposal,
 )
 from api.models.users import(
-    SystemRole, RolePermissions, Users, 
+    SystemRole, RolePermissions, Users, UserSession,
 )
 from api.models.agents_tasks import AgentExecutions

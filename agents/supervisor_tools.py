@@ -72,10 +72,13 @@ async def ask_researcher(task: str, config: RunnableConfig) -> tuple[str, list[d
     return await _run_specialist(doc_searching_app, task, config, "researcher")
 
 
+# Keep tool description aligned with SUPERVISOR_SYSTEM_PROMPT so Datu also
+# routes targeted-document Q&A and user-correction verification here.
 @tool(response_format="content_and_artifact")
 async def ask_doc_analyst(task: str, config: RunnableConfig) -> tuple[str, list[dict]]:
-    """Delegate to the Document Analysis agent. Use it to ANALYZE or SUMMARIZE a specific
-    document, COMPARE two documents, or CHECK FOR DUPLICATES.
+    """Delegate to the Document Analysis agent. Use it to ANALYZE, SUMMARIZE, ANSWER
+    specific factual questions about, or VERIFY disputed details in a specific document,
+    COMPARE two documents, or CHECK FOR DUPLICATES.
     `task` must name the document IDs or titles involved. If you do not know the IDs yet,
     call ask_researcher first to find them. The analyst cannot see the chat history."""
     

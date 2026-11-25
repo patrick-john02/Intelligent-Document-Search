@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy import String, Integer, DateTime, ForeignKey, Date, Boolean
+from sqlalchemy import String, Integer, DateTime, ForeignKey, Date, Boolean, Uuid
+import uuid
 from typing import List, TYPE_CHECKING
 from datetime import datetime, date
 from sqlalchemy import Enum as StatusEnum
@@ -76,6 +77,23 @@ class Users(Base):
     last_login: Mapped[datetime | None] = mapped_column(DateTime, nullable=True )
     created_at: Mapped[datetime] = mapped_column(DateTime)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+
+
+# One row per login. Holds the (hashed) refresh token plus the activity clock
+# used for the idle auto-logout and the absolute session lifetime.
+class UserSession(Base):
+    __tablename__ = "user_sessions"
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    refresh_token_hash: Mapped[str] = mapped_column(String(64))
+    previous_token_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    rotated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    last_activity_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    user_agent: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    ip_address: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
 
 

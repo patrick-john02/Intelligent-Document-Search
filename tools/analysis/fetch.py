@@ -24,16 +24,18 @@ def _active_version_text(doc:DocumentModel)->str:
     if not active:
         return ""
 
+    # Prepend the unverified-OCR warning whenever staff haven't verified the scan yet
     note = f"{UNVERIFIED_NOTE}\n\n" if (active.needs_text_review and not active.text_verified) else ""
 
     if active.chunks:
         chunks =  sorted(active.chunks, key=lambda c: c.chunk_index)
         text = "\n\n".join(c.content for c in chunks if c.content)
         if text.strip():
-            return text
+            return f"{note}{text}"
 
     if active.storage_path and Path(active.storage_path).is_file():
-        return Path(active.storage_path).read_text(encoding="utf-8", errors="ignore")
+        file_text = Path(active.storage_path).read_text(encoding="utf-8", errors="ignore")
+        return f"{note}{file_text}" if file_text.strip() else ""
     return ""
 
 

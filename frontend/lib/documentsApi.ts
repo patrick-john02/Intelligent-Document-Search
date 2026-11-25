@@ -1,4 +1,4 @@
-import { api, API_SOURCE, ApiError, getStoredToken } from "./api";
+import { api, API_SOURCE, ApiError, authorizedFetch } from "./api";
 
 // Matches ClearanceLevel enum in api/models/enums/docs.py
 export type ClearanceLevelValue = "public" | "internal" | "confidential" | "secret" | "top_secret";
@@ -105,10 +105,7 @@ export const getDocument = (documentId: number) => api.get<ApiDocument>(`/docume
 // The download endpoint returns a file (not JSON) and needs the auth header,
 // so it can't be a plain <a href>. Fetch it as a Blob instead.
 export async function downloadDocumentVersion(versionId: number): Promise<Blob> {
-  const token = getStoredToken();
-  const response = await fetch(`${API_SOURCE}/documents/version/${versionId}/download`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  });
+  const response = await authorizedFetch(`${API_SOURCE}/documents/version/${versionId}/download`);
 
   if (!response.ok) {
     let message = response.statusText || "Download failed";

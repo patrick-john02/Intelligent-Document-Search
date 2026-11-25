@@ -6,6 +6,7 @@ from api.models.users import Users, SystemRole
 from api.models.enums.user import AccountStatus
 from main import app
 from core.dependencies import get_db
+from test.session_helpers import TEST_SID, active_session
 
 # Mock system roles
 admin_role = SystemRole(id=1, name="Admin")
@@ -79,6 +80,15 @@ mock_db_state = {
 
 # Mock database session
 class MockAsyncSession:
+    async def get(self, model, key):
+        return active_session()
+
+    def add(self, instance):
+        pass
+
+    async def commit(self):
+        pass
+
     async def execute(self, query):
         params = {}
         if hasattr(query, "compile"):
@@ -135,7 +145,7 @@ app.dependency_overrides[get_db] = override_get_db
 @pytest.mark.anyio
 async def test_user_create_success():
     mock_db_state["duplicate_found"] = False
-    admin_token = create_access_token(data={"sub": "admin"})
+    admin_token = create_access_token(data={"sub": "admin"}, session_id=TEST_SID)
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
@@ -156,7 +166,7 @@ async def test_user_create_success():
 @pytest.mark.anyio
 async def test_user_create_unauthorized():
     mock_db_state["duplicate_found"] = False
-    user_token = create_access_token(data={"sub": "juan"})
+    user_token = create_access_token(data={"sub": "juan"}, session_id=TEST_SID)
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
@@ -174,7 +184,7 @@ async def test_user_create_unauthorized():
 @pytest.mark.anyio
 async def test_user_create_duplicate():
     mock_db_state["duplicate_found"] = True
-    admin_token = create_access_token(data={"sub": "admin"})
+    admin_token = create_access_token(data={"sub": "admin"}, session_id=TEST_SID)
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
@@ -191,7 +201,7 @@ async def test_user_create_duplicate():
 # Test: Get users list as superuser
 @pytest.mark.anyio
 async def test_get_users_list_success():
-    admin_token = create_access_token(data={"sub": "admin"})
+    admin_token = create_access_token(data={"sub": "admin"}, session_id=TEST_SID)
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
@@ -209,7 +219,7 @@ async def test_get_users_list_success():
 # Test: Get users list fails for non-superuser
 @pytest.mark.anyio
 async def test_get_users_list_unauthorized():
-    user_token = create_access_token(data={"sub": "juan"})
+    user_token = create_access_token(data={"sub": "juan"}, session_id=TEST_SID)
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:

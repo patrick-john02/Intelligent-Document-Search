@@ -1,24 +1,15 @@
-export const API_SOURCE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api";
+import {
+    API_SOURCE,
+    clearSession,
+    getAccessToken,
+    markActivity,
+    refreshAccessToken,
+} from "./session";
 
+export { API_SOURCE };
 
-//helper function managing the auth token in localstorage
-//TODO: I will change this soon into cookie
-export const getStoredToken = (): string | null => {
-    if (typeof window === "undefined") return null;
-    return localStorage.getItem("src_tkn");
-};
-
-export const setStoredToken = (token: string): void => { 
-    if(typeof window !== "undefined"){
-        localStorage.setItem("src_tkn", token)
-    }
-};
-
-export const removeStoredToken = ():void=>{
-    if(typeof window !== "undefined") {
-        return localStorage.removeItem("src_tkn")
-    }
-};
+// Kept for existing imports: the token now lives in memory (see lib/session.ts).
+export const getStoredToken = (): string | null => getAccessToken();
 
 //error class
 export class ApiError extends Error{
@@ -39,19 +30,50 @@ interface RequestOptions extends RequestInit{
     data?: any;
 }
 
+const isAuthEndpoint = (url: string) => url.startsWith(`${API_SOURCE}/token`);
+
+// Session is gone for good: drop the token and go to the login page.
+function handleUnauthorized() {
+    clearSession();
+    if(typeof window !== "undefined" && window.location.pathname !== "/"){
+        window.location.href = "/"; // this will redirected to login page
+    }
+}
+
+// fetch() + Bearer token. On a 401 it refreshes the access token once and retries.
+export async function authorizedFetch(url: string, init: RequestInit = {}): Promise<Response> {
+    const send = () => {
+        const token = getAccessToken();
+        const headers = new Headers(init.headers);
+        if (token && !headers.has("Authorization")) headers.set("Authorization", `Bearer ${token}`);
+        return fetch(url, {
+            ...init,
+            headers,
+            credentials: isAuthEndpoint(url) ? "include" : init.credentials,
+        });
+    };
+
+    let response = await send();
+    if (response.status !== 401 || isAuthEndpoint(url)) return response;
+
+    const result = await refreshAccessToken();
+    if (result === "ok") {
+        response = await send();
+    }
+    if (response.status === 401 && result !== "error") {
+        handleUnauthorized();
+    }
+    return response;
+}
+
 export async function fetchApi<T = any>(
     endpoint: string,
     option: RequestOptions = {}
 ): Promise<T>{
     const {data, headers, ...customConfig} = option;
-    const token = getStoredToken();
 
     //prepare default headers
     const defaultHeaders: Record<string, string>={};
-    
-    if(token){
-        defaultHeaders["Authorization"] = `Bearer ${token}`;
-    }
 
     if(data && !(data instanceof FormData) && !(data instanceof URLSearchParams)){
         defaultHeaders["Content-Type"] = "application/json";
@@ -62,7 +84,7 @@ export async function fetchApi<T = any>(
         ...customConfig,
         headers: {
             ...defaultHeaders,
-            ...headers,
+            ...(headers as Record<string, string> | undefined),
         },
     };
 
@@ -79,16 +101,8 @@ export async function fetchApi<T = any>(
     const cleanEndpoint = endpoint.startsWith("/")? endpoint : `/${endpoint}`;
     const url = `${API_SOURCE}${cleanEndpoint}`;
 
-    //do a network call
-    const response = await fetch(url, config);
-
-    if(response.status === 401){
-        removeStoredToken();
-        if(typeof window !== "undefined" && window.location.pathname !== "/"){
-            window.location.href = "/"; // this will redirected to login page
-        }
-    }
-
+    //do a network call (refreshes + retries once on 401)
+    const response = await authorizedFetch(url, config);
 
     //handle other errrors
     if(!response.ok){
@@ -143,13 +157,9 @@ export async function streamApi(
     onEvent: (event: string, data: any) => void,
     signal?: AbortSignal
 ): Promise<void> {
-    const token = getStoredToken();
-    const res = await fetch(`${API_SOURCE}${endpoint}`, {
+    const res = await authorizedFetch(`${API_SOURCE}${endpoint}`, {
         method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
         signal,
     });
@@ -167,6 +177,7 @@ export async function streamApi(
     while (true) {
         const { value, done } = await reader.read();
         if (done) break;
+        markActivity(); // a streaming AI answer counts as activity
         buffer += decoder.decode(value, { stream: true });
 
         // each SSE event ends with a blank line
